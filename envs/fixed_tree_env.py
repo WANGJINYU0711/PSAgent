@@ -17,6 +17,8 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, Iterable, Optional
 
+from evaluator import DEFAULT_COST_SPEC, evaluate_terminal_prediction
+
 
 JsonDict = dict[str, Any]
 StageExecutor = Callable[["FixedTreeEnvironment", "AgentSpec", JsonDict], JsonDict]
@@ -178,9 +180,10 @@ class FixedTreeEnvironment:
             )
 
         leaf_type = self.compute_leaf_type(path)
-        terminal_cost = self.compute_terminal_cost(stage_outputs, path)
+        evaluator_result = self.evaluate_terminal_outcome(stage_outputs, path)
+        terminal_cost = evaluator_result["terminal_penalty"]
         path_agent_cost = sum(self.agent_catalog[agent_id].cost for agent_id in path)
-        total_cost = terminal_cost + 0.1 * path_agent_cost
+        total_cost = terminal_cost + DEFAULT_COST_SPEC.path_agent_cost_weight * path_agent_cost
 
         final_action = (
             stage_outputs.get("stage5", {}).get("output", {}).get("final_action")
@@ -190,7 +193,7 @@ class FixedTreeEnvironment:
             .get("oracle_output", {})
             .get("final_action")
         )
-        success = final_action == oracle_action
+        success = bool(evaluator_result["exact_match"])
 
         episode_log = {
             "instance_id": self.current_instance_id,
@@ -203,6 +206,13 @@ class FixedTreeEnvironment:
             "path_agent_cost": path_agent_cost,
             "total_cost": total_cost,
             "success": success,
+            "evaluator_version": evaluator_result["evaluator_version"],
+            "false_cancel_count": evaluator_result["false_cancel_count"],
+            "missed_cancel_count": evaluator_result["missed_cancel_count"],
+            "false_refuse_count": evaluator_result["false_refuse_count"],
+            "missed_refuse_count": evaluator_result["missed_refuse_count"],
+            "subset_mismatch": evaluator_result["subset_mismatch"],
+            "cost_breakdown": deepcopy(evaluator_result["cost_breakdown"]),
         }
         self._last_episode_log = deepcopy(episode_log)
 
@@ -232,21 +242,26 @@ class FixedTreeEnvironment:
         stage_outputs: dict[str, JsonDict],
         path: list[str],
     ) -> float:
-        """Compute the v1 terminal action-mismatch cost."""
+        """Compute terminal cost using the reservation-level evaluator."""
 
-        del path  # Reserved for future richer cost models.
+        del path
+        return float(self.evaluate_terminal_outcome(stage_outputs, []).get("terminal_penalty", 0.0))
+
+    def evaluate_terminal_outcome(
+        self,
+        stage_outputs: dict[str, JsonDict],
+        path: list[str],
+    ) -> JsonDict:
+        """Run evaluator v2 on the terminal stage output."""
+
+        del path
         if self.current_instance is None:
             raise RuntimeError("No current instance loaded.")
-
-        predicted_action = (
-            stage_outputs.get("stage5", {}).get("output", {}).get("final_action")
+        predicted_stage5_output = stage_outputs.get("stage5", {}).get("output", {})
+        return evaluate_terminal_prediction(
+            instance=self.current_instance,
+            predicted_stage5_output=predicted_stage5_output,
         )
-        oracle_action = (
-            self.current_instance.get("stage5", {})
-            .get("oracle_output", {})
-            .get("final_action")
-        )
-        return 0.0 if predicted_action == oracle_action else 1.0
 
     def get_episode_log(self) -> JsonDict:
         """Return the most recent episode log."""
@@ -281,6 +296,83 @@ def _oracle_stage_bundle(env: FixedTreeEnvironment, stage_name: str) -> JsonDict
     }
 
 
+def _is_richer_catalog(env: FixedTreeEnvironment) -> bool:
+    return any(
+        ("_specialist_" in agent_id) or ("_weak_" in agent_id)
+        for agent_id in env.agent_catalog
+    )
+
+
+def _is_tier2_instance(env: FixedTreeEnvironment) -> bool:
+    assert env.current_instance is not None
+    return env.current_instance.get("metadata", {}).get("tier") == "tier2_multi_resolution"
+
+
+def _reservation_ids_from_stage2(previous_outputs: JsonDict) -> list[str]:
+    return list(
+        previous_outputs.get("stage2", {})
+        .get("output", {})
+        .get("resolved_reservations", [])
+        or []
+    )
+
+
+def _filter_rows_by_reservation_ids(rows: list[JsonDict], reservation_ids: list[str]) -> list[JsonDict]:
+    if not reservation_ids:
+        return deepcopy(rows)
+    allowed = set(reservation_ids)
+    return [deepcopy(row) for row in rows if row.get("reservation_id") in allowed]
+
+
+def _oracle_stage4_rows_for_reservations(env: FixedTreeEnvironment, reservation_ids: list[str]) -> list[JsonDict]:
+    assert env.current_instance is not None
+    rows = (
+        env.current_instance.get("stage4", {})
+        .get("oracle_output", {})
+        .get("per_reservation", [])
+        or []
+    )
+    return _filter_rows_by_reservation_ids(rows, reservation_ids)
+
+
+def _cancel_candidate_rows(rows: list[JsonDict]) -> list[JsonDict]:
+    return [row for row in rows if row.get("oracle_execute_decision") == "cancel"]
+
+
+def _mark_row_refused(row: JsonDict, code: str) -> None:
+    row["policy_eligible_cancel_with_refund"] = False
+    row["policy_adjudication_label"] = code
+    row["policy_refusal_code"] = code
+    row["policy_rule_trace"] = list(row.get("policy_rule_trace", [])) + [code]
+
+
+def _build_stage5_output_from_stage4_rows(rows: list[JsonDict]) -> JsonDict:
+    cancelled_ids: list[str] = []
+    refused_ids: list[str] = []
+    for row in rows:
+        reservation_id = row.get("reservation_id")
+        if not reservation_id:
+            continue
+        if row.get("policy_eligible_cancel_with_refund"):
+            cancelled_ids.append(reservation_id)
+        else:
+            refused_ids.append(reservation_id)
+
+    if cancelled_ids and refused_ids:
+        final_action = "cancel_subset"
+    elif cancelled_ids:
+        final_action = "cancel_all"
+    else:
+        final_action = "refuse_all"
+
+    return {
+        "final_action": final_action,
+        "cancelled_reservation_ids": cancelled_ids,
+        "refused_reservation_ids": refused_ids,
+        "response_mode": "stage4_derived_execution",
+    }
+
+
 def _run_stage1(
     env: FixedTreeEnvironment,
     agent: AgentSpec,
@@ -306,6 +398,27 @@ def _run_stage2(
 ) -> JsonDict:
     del previous_outputs
     bundle = _oracle_stage_bundle(env, "stage2")
+    if _is_richer_catalog(env) and _is_tier2_instance(env):
+        if "specialist_g1" in agent.agent_id:
+            return bundle
+        if "weak_g0" in agent.agent_id:
+            output = deepcopy(bundle["output"])
+            resolved = list(output.get("resolved_reservations", []))
+            if len(resolved) > 1:
+                output["resolved_reservations"] = resolved[:1]
+                output["resolution_status"] = "under_resolved_multi_candidate"
+            bundle["output"] = output
+            bundle["source"] = "richer_tier2_weak"
+            return bundle
+        if agent.agent_id == "resolve_oracle_g0":
+            output = deepcopy(bundle["output"])
+            resolved = list(output.get("resolved_reservations", []))
+            if len(resolved) > 2:
+                output["resolved_reservations"] = resolved[:-1]
+                output["resolution_status"] = "partial_multi_resolution"
+            bundle["output"] = output
+            bundle["source"] = "richer_tier2_conservative"
+            return bundle
     if agent.kind == "simulated":
         output = deepcopy(bundle["output"])
         resolved = list(output.get("resolved_reservations", []))
@@ -324,8 +437,45 @@ def _run_stage3(
     agent: AgentSpec,
     previous_outputs: JsonDict,
 ) -> JsonDict:
-    del previous_outputs
     bundle = _oracle_stage_bundle(env, "stage3")
+    if _is_richer_catalog(env) and _is_tier2_instance(env):
+        resolved_ids = _reservation_ids_from_stage2(previous_outputs)
+        output = deepcopy(bundle["output"])
+        per_reservation = _filter_rows_by_reservation_ids(
+            deepcopy(output.get("per_reservation", [])),
+            resolved_ids,
+        )
+        if "specialist_g1" in agent.agent_id:
+            output["per_reservation"] = per_reservation
+            bundle["output"] = output
+            bundle["source"] = "richer_tier2_specialist"
+            return bundle
+
+        cancel_rows = [row for row in per_reservation if row.get("oracle_execute_decision") == "cancel"]
+        if "weak_g0" in agent.agent_id:
+            for row in cancel_rows:
+                row["eligible_by_business_rule"] = False
+                row["eligible_by_insurance_rule"] = False
+                row["stated_reason_supported_by_insurance"] = False
+                row["richer_feature_failure"] = "weak_g0_drops_cancel_support"
+            output["per_reservation"] = per_reservation
+            bundle["output"] = output
+            bundle["source"] = "richer_tier2_weak"
+            return bundle
+
+        if agent.agent_id == "feature_oracle_g0" and cancel_rows:
+            row = cancel_rows[-1]
+            row["eligible_by_business_rule"] = False
+            row["richer_feature_failure"] = "oracle_g0_soft_subset_drop"
+            output["per_reservation"] = per_reservation
+            bundle["output"] = output
+            bundle["source"] = "richer_tier2_conservative"
+            return bundle
+
+        output["per_reservation"] = per_reservation
+        bundle["output"] = output
+        return bundle
+
     if agent.kind == "simulated":
         output = deepcopy(bundle["output"])
         per_reservation = deepcopy(output.get("per_reservation", []))
@@ -349,6 +499,52 @@ def _run_stage4(
         raise RuntimeError("Stage4 requires stage3 output.")
 
     bundle = _oracle_stage_bundle(env, "stage4")
+    if _is_richer_catalog(env) and _is_tier2_instance(env):
+        stage3_rows = (
+            previous_outputs.get("stage3", {})
+            .get("output", {})
+            .get("per_reservation", [])
+            or []
+        )
+        reservation_ids = [row.get("reservation_id") for row in stage3_rows if row.get("reservation_id")]
+        oracle_rows = _oracle_stage4_rows_for_reservations(env, reservation_ids)
+        row_map = {row.get("reservation_id"): deepcopy(row) for row in oracle_rows}
+        feature_rows = {row.get("reservation_id"): row for row in stage3_rows}
+        per_reservation: list[JsonDict] = []
+        for reservation_id in reservation_ids:
+            oracle_row = row_map.get(reservation_id)
+            if not oracle_row:
+                continue
+            feature_row = feature_rows.get(reservation_id, {})
+            failure_code = feature_row.get("richer_feature_failure")
+            if failure_code == "weak_g0_drops_cancel_support":
+                _mark_row_refused(oracle_row, str(failure_code))
+            elif failure_code == "oracle_g0_soft_subset_drop":
+                if "specialist_g1" not in agent.agent_id:
+                    _mark_row_refused(oracle_row, str(failure_code))
+            per_reservation.append(oracle_row)
+
+        if "specialist_g1" in agent.agent_id:
+            bundle["output"] = {"per_reservation": per_reservation}
+            bundle["source"] = "richer_tier2_specialist"
+            return bundle
+
+        cancel_rows = _cancel_candidate_rows(per_reservation)
+        if "weak_g0" in agent.agent_id:
+            for row in cancel_rows:
+                _mark_row_refused(row, "weak_g0_subset_failure")
+            bundle["output"] = {"per_reservation": per_reservation}
+            bundle["source"] = "richer_tier2_weak"
+            return bundle
+
+        if agent.agent_id == "adjudicate_oracle_g0" and len(cancel_rows) > 1:
+            _mark_row_refused(cancel_rows[-1], "oracle_g0_subset_conservative")
+            bundle["output"] = {"per_reservation": per_reservation}
+            bundle["source"] = "richer_tier2_conservative"
+            return bundle
+
+        bundle["output"] = {"per_reservation": per_reservation}
+        return bundle
     if agent.kind == "simulated":
         output = deepcopy(bundle["output"])
         per_reservation = deepcopy(output.get("per_reservation", []))
@@ -375,6 +571,41 @@ def _run_stage5(
         raise RuntimeError("Stage5 requires stage4 output.")
 
     bundle = _oracle_stage_bundle(env, "stage5")
+    if _is_richer_catalog(env) and _is_tier2_instance(env):
+        stage4_rows = (
+            previous_outputs.get("stage4", {})
+            .get("output", {})
+            .get("per_reservation", [])
+            or []
+        )
+        output = _build_stage5_output_from_stage4_rows(deepcopy(stage4_rows))
+        if "specialist_g1" in agent.agent_id:
+            bundle["output"] = output
+            bundle["source"] = "richer_tier2_specialist"
+            return bundle
+
+        if agent.agent_id == "execute_oracle_g0":
+            if output["final_action"] == "cancel_subset" and len(output["cancelled_reservation_ids"]) > 1:
+                dropped = output["cancelled_reservation_ids"].pop()
+                output["refused_reservation_ids"].append(dropped)
+            bundle["output"] = output
+            bundle["source"] = "richer_tier2_conservative"
+            return bundle
+
+        if "weak_g0" in agent.agent_id:
+            if output["cancelled_reservation_ids"]:
+                dropped = output["cancelled_reservation_ids"].pop()
+                output["refused_reservation_ids"].append(dropped)
+                if output["cancelled_reservation_ids"] and output["refused_reservation_ids"]:
+                    output["final_action"] = "cancel_subset"
+                elif output["cancelled_reservation_ids"]:
+                    output["final_action"] = "cancel_all"
+                else:
+                    output["final_action"] = "refuse_all"
+            bundle["output"] = output
+            bundle["source"] = "richer_tier2_weak"
+            return bundle
+
     if agent.kind == "rule":
         return bundle
 

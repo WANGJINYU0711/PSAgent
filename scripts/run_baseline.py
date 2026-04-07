@@ -78,6 +78,18 @@ def make_episode_log(
         "total_cost": result.total_cost,
         "success": result.success,
     }
+    if isinstance(getattr(result, "episode_log", None), dict):
+        for field in (
+            "evaluator_version",
+            "false_cancel_count",
+            "missed_cancel_count",
+            "false_refuse_count",
+            "missed_refuse_count",
+            "subset_mismatch",
+            "cost_breakdown",
+        ):
+            if field in result.episode_log:
+                log[field] = result.episode_log[field]
     if hasattr(policy, "get_last_selection_info"):
         selection_info = policy.get_last_selection_info()
         if isinstance(selection_info, dict):
