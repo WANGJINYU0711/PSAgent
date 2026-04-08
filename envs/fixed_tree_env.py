@@ -19,6 +19,8 @@ from typing import Any, Callable, Dict, Iterable, Optional
 
 from evaluator import DEFAULT_COST_SPEC, evaluate_terminal_prediction
 from adapters.airline_adapter import AirlineTaskAdapter
+from executors.bench_backed_executor import BenchBackedExecutor
+from executors.llm_bench_executor import LLMBenchExecutor
 from executors.simulated_executor import SimulatedExecutor
 from tree_family.generator import TreeFamilyGenerator
 
@@ -155,12 +157,23 @@ class FixedTreeEnvironment:
         self.family_spec = family_spec
         self.family_agent_map = family_agent_map
         self.task_adapter = AirlineTaskAdapter()
-        if self.executor_name != "simulated":
+        if self.executor_name == "simulated":
+            self.family_executor = SimulatedExecutor(
+                stages=list(family_spec.stages),
+                seed=family_seed,
+            )
+        elif self.executor_name == "bench_backed":
+            self.family_executor = BenchBackedExecutor(
+                stages=list(family_spec.stages),
+                seed=family_seed,
+            )
+        elif self.executor_name == "llm_bench":
+            self.family_executor = LLMBenchExecutor(
+                stages=list(family_spec.stages),
+                seed=family_seed,
+            )
+        else:
             raise ValueError(f"Unsupported executor_name: {self.executor_name}")
-        self.family_executor = SimulatedExecutor(
-            stages=list(family_spec.stages),
-            seed=family_seed,
-        )
 
         runtime_catalog: list[AgentSpec] = []
         for stage_name in family_spec.stages:
@@ -339,6 +352,8 @@ class FixedTreeEnvironment:
             "cost_breakdown": deepcopy(evaluator_result["cost_breakdown"]),
             "family_kind": self.family_kind,
         }
+        if isinstance(execution.get("bench_aux_eval"), dict):
+            episode_log["bench_aux_eval"] = deepcopy(execution["bench_aux_eval"])
         self._last_episode_log = deepcopy(episode_log)
 
         return EpisodeResult(
