@@ -18,6 +18,9 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, Iterable, Optional
 
 from evaluator import DEFAULT_COST_SPEC, evaluate_terminal_prediction
+from adapters.airline_adapter import AirlineTaskAdapter
+from executors.simulated_executor import SimulatedExecutor
+from tree_family.generator import TreeFamilyGenerator
 
 
 JsonDict = dict[str, Any]
@@ -109,9 +112,25 @@ class FixedTreeEnvironment:
         self,
         agent_catalog: Iterable[AgentSpec],
         agent_executors: Optional[dict[str, StageExecutor]] = None,
+        family_kind: str | None = None,
+        family_seed: int = 0,
+        executor_name: str = "simulated",
     ) -> None:
+        self.family_kind = family_kind
+        self.family_seed = family_seed
+        self.executor_name = executor_name
+        self.family_spec = None
+        self.family_agent_map = None
+        self.family_executor = None
+        self.task_adapter = None
+        self.current_task_descriptor = None
+
+        runtime_catalog = list(agent_catalog)
+        if family_kind is not None:
+            runtime_catalog = self._build_family_runtime_catalog(family_kind, family_seed)
+
         self.agent_catalog: dict[str, AgentSpec] = {
-            agent.agent_id: agent for agent in agent_catalog
+            agent.agent_id: agent for agent in runtime_catalog
         }
         self.agents_by_stage: dict[str, list[AgentSpec]] = {stage: [] for stage in self.STAGE_NAMES}
         for agent in self.agent_catalog.values():
@@ -123,6 +142,40 @@ class FixedTreeEnvironment:
         self.current_instance: Optional[JsonDict] = None
         self.current_instance_id: Optional[str] = None
         self._last_episode_log: Optional[JsonDict] = None
+
+    def _build_family_runtime_catalog(self, family_kind: str, family_seed: int) -> list[AgentSpec]:
+        generator = TreeFamilyGenerator()
+        family_spec, family_agent_map = generator.build_family(family_kind, seed=family_seed)
+        validation_errors = generator.validate_family(family_spec, family_agent_map)
+        if validation_errors:
+            raise ValueError(
+                "Invalid family specification: " + "; ".join(validation_errors)
+            )
+
+        self.family_spec = family_spec
+        self.family_agent_map = family_agent_map
+        self.task_adapter = AirlineTaskAdapter()
+        if self.executor_name != "simulated":
+            raise ValueError(f"Unsupported executor_name: {self.executor_name}")
+        self.family_executor = SimulatedExecutor(
+            stages=list(family_spec.stages),
+            seed=family_seed,
+        )
+
+        runtime_catalog: list[AgentSpec] = []
+        for stage_name in family_spec.stages:
+            for agent_id in family_spec.stage_agents[stage_name]:
+                family_agent = family_agent_map[agent_id]
+                runtime_catalog.append(
+                    AgentSpec(
+                        agent_id=family_agent.agent_id,
+                        stage_name=stage_name,
+                        g=family_agent.g,
+                        kind="family",
+                        cost=family_agent.base_cost,
+                    )
+                )
+        return runtime_catalog
 
     def _build_default_executors(self) -> dict[str, StageExecutor]:
         return {
@@ -147,6 +200,13 @@ class FixedTreeEnvironment:
         self.current_instance = deepcopy(instance)
         self.current_instance_id = str(instance["instance_id"])
         self._last_episode_log = None
+        if self.family_kind is not None:
+            assert self.task_adapter is not None
+            self.current_task_descriptor = self.task_adapter.build_task_descriptor(
+                self.current_instance
+            )
+        else:
+            self.current_task_descriptor = None
         return deepcopy(self.current_instance)
 
     def run_path(self, path: list[str]) -> EpisodeResult:
@@ -157,6 +217,10 @@ class FixedTreeEnvironment:
 
         self._validate_path(path)
         instance = self.current_instance
+
+        if self.family_kind is not None:
+            return self._run_family_path(path)
+
         stage_outputs: dict[str, JsonDict] = {}
         stage_trace: list[JsonDict] = []
 
@@ -229,6 +293,94 @@ class FixedTreeEnvironment:
             total_cost=total_cost,
             episode_log=episode_log,
         )
+
+    def _run_family_path(self, path: list[str]) -> EpisodeResult:
+        if self.current_instance is None or self.current_task_descriptor is None:
+            raise RuntimeError("Family mode requires a loaded instance and task descriptor.")
+        if self.family_agent_map is None or self.family_executor is None:
+            raise RuntimeError("Family mode is not fully initialized.")
+
+        execution = self.family_executor.run_path(
+            task=self.current_task_descriptor,
+            path=path,
+            agent_map=self.family_agent_map,
+            raw_instance=self.current_instance,
+        )
+        stage_outputs = self._family_stage_outputs_from_execution(execution)
+        evaluator_result = self.evaluate_terminal_outcome(stage_outputs, path)
+        terminal_cost = evaluator_result["terminal_penalty"]
+        path_agent_cost = float(execution["path_agent_cost"])
+        total_cost = terminal_cost + DEFAULT_COST_SPEC.path_agent_cost_weight * path_agent_cost
+        final_action = execution.get("final_action")
+        oracle_action = (
+            self.current_instance.get("stage5", {})
+            .get("oracle_output", {})
+            .get("final_action")
+        )
+        success = bool(evaluator_result["exact_match"])
+
+        episode_log = {
+            "instance_id": self.current_instance_id,
+            "selected_path": list(path),
+            "leaf_type": execution["leaf_type"],
+            "stage_trace": deepcopy(execution.get("stage_trace", [])),
+            "final_action": final_action,
+            "oracle_action": oracle_action,
+            "terminal_cost": terminal_cost,
+            "path_agent_cost": path_agent_cost,
+            "total_cost": total_cost,
+            "success": success,
+            "evaluator_version": evaluator_result["evaluator_version"],
+            "false_cancel_count": evaluator_result["false_cancel_count"],
+            "missed_cancel_count": evaluator_result["missed_cancel_count"],
+            "false_refuse_count": evaluator_result["false_refuse_count"],
+            "missed_refuse_count": evaluator_result["missed_refuse_count"],
+            "subset_mismatch": evaluator_result["subset_mismatch"],
+            "cost_breakdown": deepcopy(evaluator_result["cost_breakdown"]),
+            "family_kind": self.family_kind,
+        }
+        self._last_episode_log = deepcopy(episode_log)
+
+        return EpisodeResult(
+            instance_id=self.current_instance_id or "unknown_instance",
+            selected_path=list(path),
+            leaf_type=execution["leaf_type"],
+            stage_outputs=stage_outputs,
+            final_action=final_action,
+            oracle_action=oracle_action,
+            terminal_cost=terminal_cost,
+            success=success,
+            path_agent_cost=path_agent_cost,
+            total_cost=total_cost,
+            episode_log=episode_log,
+        )
+
+    def _family_stage_outputs_from_execution(self, execution: JsonDict) -> dict[str, JsonDict]:
+        stage_outputs: dict[str, JsonDict] = {}
+        for row in execution.get("stage_trace", []):
+            stage_name = row["stage_name"]
+            stage_outputs[stage_name] = {
+                "input": deepcopy(row.get("input", {})),
+                "output": deepcopy(row.get("output", {})),
+                "source": "simulated_executor",
+            }
+        stage_outputs.setdefault(
+            "stage5",
+            {
+                "input": {},
+                "output": {
+                    "final_action": execution.get("final_action"),
+                    "cancelled_reservation_ids": list(
+                        execution.get("cancelled_reservation_ids", [])
+                    ),
+                    "refused_reservation_ids": list(
+                        execution.get("refused_reservation_ids", [])
+                    ),
+                },
+                "source": "simulated_executor",
+            },
+        )
+        return stage_outputs
 
     def compute_leaf_type(self, path: list[str]) -> str:
         """Compute shared/unshared leaf type from z(l)=max_h g(a_h)."""
