@@ -1,0 +1,3877 @@
+[
+  {
+    "instance_id": "telecom_mms_task_mms_issueairplane_mode_on__break_app_both_permissionsPERSONA_Hard",
+    "family": "telecom_mms_recovery",
+    "original_task_id": "[mms_issue]airplane_mode_on|break_app_both_permissions[PERSONA:Hard]",
+    "source_task": {
+      "description": {
+        "purpose": "Test resolution path: MMS (Picture/Group Messaging) Issues.",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "toggle_airplane_mode_0",
+            "requestor": "user",
+            "name": "toggle_airplane_mode",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "grant_app_permission_1",
+            "requestor": "user",
+            "name": "grant_app_permission",
+            "arguments": {
+              "app_name": "messaging",
+              "permission": "sms"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "grant_app_permission_2",
+            "requestor": "user",
+            "name": "grant_app_permission",
+            "arguments": {
+              "app_name": "messaging",
+              "permission": "storage"
+            },
+            "info": null,
+            "compare_args": null
+          }
+        ],
+        "env_assertions": [
+          {
+            "env_type": "user",
+            "func_name": "assert_can_send_mms",
+            "arguments": {
+              "expected_status": true
+            },
+            "assert_value": true,
+            "message": null
+          }
+        ],
+        "communicate_info": null,
+        "nl_assertions": null,
+        "reward_basis": [
+          "ENV_ASSERTION"
+        ],
+        "success_mode": "can_send_mms_true",
+        "expected_terminal_action": "repair_all",
+        "selected_blocker_ids": [
+          "airplane_mode_on",
+          "break_app_both_permissions"
+        ],
+        "deferred_blocker_ids": [],
+        "transfer_reason": null
+      }
+    },
+    "user_context": {
+      "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+      "known_info": "You are John Smith with phone number 555-123-2002. You are currently at home in the United States.",
+      "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+    },
+    "stage1": {
+      "input": {
+        "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+        "known_info": "You are John Smith with phone number 555-123-2002. You are currently at home in the United States.",
+        "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      },
+      "oracle_output": {
+        "domain": "telecom",
+        "problem_family": "mms_issue",
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        },
+        "symptom_report": {
+          "cannot_send_mms": true,
+          "wants_resolution": true,
+          "target_success_signal": "can_send_mms_true"
+        },
+        "context_flags": {
+          "is_abroad_claimed": false,
+          "refuel_allowed": true,
+          "max_refuel_gb": 2.0,
+          "plan_change_allowed": false
+        },
+        "conversation_risk_flags": [
+          "mild_frustration_after_unsuccessful_attempt",
+          "tool_grounding_required"
+        ]
+      }
+    },
+    "stage2": {
+      "input": {
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        }
+      },
+      "oracle_output": {
+        "candidate_customers": [
+          "C1001"
+        ],
+        "resolved_customer_id": "C1001",
+        "candidate_line_ids": [
+          "L1001",
+          "L1002",
+          "L1003"
+        ],
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "assistant_account_snapshot": {
+          "line_status": "active",
+          "roaming_enabled_on_account": true,
+          "plan_id": "P1002",
+          "data_used_gb": 8.7,
+          "data_limit_gb": 15.0
+        },
+        "resolution_status": "resolved"
+      }
+    },
+    "stage3": {
+      "input": {
+        "resolved_customer_id": "C1001",
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "problem_family": "mms_issue"
+      },
+      "oracle_output": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "no_service",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection",
+          "is_abroad": false,
+          "roaming_enabled_on_device": false,
+          "roaming_enabled_on_account": true,
+          "airplane_mode": true,
+          "sim_status": "active",
+          "network_mode_preference": "4g_5g_preferred",
+          "wifi_calling_enabled": false,
+          "apn_mms_ok": true,
+          "messaging_sms_permission": false,
+          "messaging_storage_permission": false,
+          "data_usage_exceeded": false
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "blocker_layer": "service",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_airplane_mode",
+            "diagnostic_evidence": [
+              "check_network_status",
+              "check_status_bar"
+            ],
+            "verification_signal": "service_restored"
+          },
+          {
+            "blocker_id": "break_app_both_permissions",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "grant_app_permissions_both",
+            "diagnostic_evidence": [
+              "check_app_permissions"
+            ],
+            "verification_signal": "can_send_mms_true"
+          }
+        ]
+      }
+    },
+    "stage4": {
+      "input": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "no_service",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection"
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on"
+          },
+          {
+            "blocker_id": "break_app_both_permissions"
+          }
+        ]
+      },
+      "oracle_output": {
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "should_repair": true,
+            "repair_order": 1,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_airplane_mode",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_service_blocker",
+            "refusal_code": null,
+            "depends_on": []
+          },
+          {
+            "blocker_id": "break_app_both_permissions",
+            "should_repair": true,
+            "repair_order": 2,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "grant_app_permission",
+                "arguments": {
+                  "app_name": "messaging",
+                  "permission": "sms"
+                }
+              },
+              {
+                "requestor": "user",
+                "tool_name": "grant_app_permission",
+                "arguments": {
+                  "app_name": "messaging",
+                  "permission": "storage"
+                }
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_mms_app_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "airplane_mode_on"
+            ]
+          }
+        ],
+        "repairability": "repairable",
+        "transfer_reason": null,
+        "decision_policy_version": "first_pass_v1"
+      }
+    },
+    "stage5": {
+      "input": {
+        "repairability": "repairable",
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "break_app_both_permissions",
+            "should_repair": true
+          }
+        ]
+      },
+      "oracle_output": {
+        "final_action": "repair_all",
+        "selected_blocker_ids": [
+          "airplane_mode_on",
+          "break_app_both_permissions"
+        ],
+        "deferred_blocker_ids": [],
+        "response_mode": "telecom_structured_execution",
+        "verification_plan": {
+          "required_postchecks": [
+            "can_send_mms"
+          ],
+          "success_condition": "can_send_mms_true"
+        },
+        "transfer_reason": null,
+        "cancelled_reservation_ids": [
+          "airplane_mode_on",
+          "break_app_both_permissions"
+        ],
+        "refused_reservation_ids": []
+      }
+    },
+    "metadata": {
+      "domain": "telecom",
+      "family_version": "telecom_mms_fixed_tree_v1",
+      "subset_version": "smoke10",
+      "source_split": "base",
+      "source_subsplit": "test",
+      "problem_family": "mms_issue",
+      "persona_level": "Hard",
+      "num_blockers": 2,
+      "blocker_layers_present": [
+        "mms_app",
+        "service"
+      ],
+      "contains_assistant_side_action": false,
+      "contains_user_side_action": true,
+      "contains_hybrid_action": false,
+      "requires_roaming_account_check": false,
+      "requires_data_refuel": false,
+      "expected_terminal_action": "repair_all",
+      "target_success_signal": "can_send_mms_true",
+      "smoke_candidate": true,
+      "builder_version": "v1",
+      "stage2_oracle_mode": "static_precomputed_v1",
+      "stage3_oracle_mode": "heuristic_precomputed_v1",
+      "repairability": "repairable",
+      "repair_owner_set": [
+        "user"
+      ],
+      "decision_policy_version": "first_pass_v1",
+      "num_selected_blockers": 2,
+      "num_deferred_blockers": 0
+    }
+  },
+  {
+    "instance_id": "telecom_mms_task_mms_issuebad_network_preference__break_app_both_permissionsPERSONA_Easy",
+    "family": "telecom_mms_recovery",
+    "original_task_id": "[mms_issue]bad_network_preference|break_app_both_permissions[PERSONA:Easy]",
+    "source_task": {
+      "description": {
+        "purpose": "Test resolution path: MMS (Picture/Group Messaging) Issues.",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "set_network_mode_preference_0",
+            "requestor": "user",
+            "name": "set_network_mode_preference",
+            "arguments": {
+              "mode": "4g_5g_preferred"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "grant_app_permission_1",
+            "requestor": "user",
+            "name": "grant_app_permission",
+            "arguments": {
+              "app_name": "messaging",
+              "permission": "sms"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "grant_app_permission_2",
+            "requestor": "user",
+            "name": "grant_app_permission",
+            "arguments": {
+              "app_name": "messaging",
+              "permission": "storage"
+            },
+            "info": null,
+            "compare_args": null
+          }
+        ],
+        "env_assertions": [
+          {
+            "env_type": "user",
+            "func_name": "assert_can_send_mms",
+            "arguments": {
+              "expected_status": true
+            },
+            "assert_value": true,
+            "message": null
+          }
+        ],
+        "communicate_info": null,
+        "nl_assertions": null,
+        "reward_basis": [
+          "ENV_ASSERTION"
+        ],
+        "success_mode": "can_send_mms_true",
+        "expected_terminal_action": "repair_all",
+        "selected_blocker_ids": [
+          "bad_network_preference",
+          "break_app_both_permissions"
+        ],
+        "deferred_blocker_ids": [],
+        "transfer_reason": null
+      }
+    },
+    "user_context": {
+      "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+      "known_info": "You are John Smith with phone number 555-123-2002. You are currently at home in the United States.",
+      "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+    },
+    "stage1": {
+      "input": {
+        "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+        "known_info": "You are John Smith with phone number 555-123-2002. You are currently at home in the United States.",
+        "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      },
+      "oracle_output": {
+        "domain": "telecom",
+        "problem_family": "mms_issue",
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        },
+        "symptom_report": {
+          "cannot_send_mms": true,
+          "wants_resolution": true,
+          "target_success_signal": "can_send_mms_true"
+        },
+        "context_flags": {
+          "is_abroad_claimed": false,
+          "refuel_allowed": true,
+          "max_refuel_gb": 2.0,
+          "plan_change_allowed": false
+        },
+        "conversation_risk_flags": [
+          "mild_frustration_after_unsuccessful_attempt",
+          "tool_grounding_required"
+        ]
+      }
+    },
+    "stage2": {
+      "input": {
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        }
+      },
+      "oracle_output": {
+        "candidate_customers": [
+          "C1001"
+        ],
+        "resolved_customer_id": "C1001",
+        "candidate_line_ids": [
+          "L1001",
+          "L1002",
+          "L1003"
+        ],
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "assistant_account_snapshot": {
+          "line_status": "active",
+          "roaming_enabled_on_account": true,
+          "plan_id": "P1002",
+          "data_used_gb": 8.7,
+          "data_limit_gb": 15.0
+        },
+        "resolution_status": "resolved"
+      }
+    },
+    "stage3": {
+      "input": {
+        "resolved_customer_id": "C1001",
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "problem_family": "mms_issue"
+      },
+      "oracle_output": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "connected",
+          "mobile_data_working": true,
+          "internet_speed_desc": "Poor",
+          "is_abroad": false,
+          "roaming_enabled_on_device": false,
+          "roaming_enabled_on_account": true,
+          "airplane_mode": false,
+          "sim_status": "active",
+          "network_mode_preference": "2g_only",
+          "wifi_calling_enabled": false,
+          "apn_mms_ok": true,
+          "messaging_sms_permission": false,
+          "messaging_storage_permission": false,
+          "data_usage_exceeded": false
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "bad_network_preference",
+            "blocker_layer": "data",
+            "repair_owner": "user",
+            "repair_action_family": "set_network_mode_preference",
+            "diagnostic_evidence": [
+              "check_network_mode_preference"
+            ],
+            "verification_signal": "network_mode_sufficient"
+          },
+          {
+            "blocker_id": "break_app_both_permissions",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "grant_app_permissions_both",
+            "diagnostic_evidence": [
+              "check_app_permissions"
+            ],
+            "verification_signal": "can_send_mms_true"
+          }
+        ]
+      }
+    },
+    "stage4": {
+      "input": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "connected",
+          "mobile_data_working": true,
+          "internet_speed_desc": "Poor"
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "bad_network_preference"
+          },
+          {
+            "blocker_id": "break_app_both_permissions"
+          }
+        ]
+      },
+      "oracle_output": {
+        "per_blocker": [
+          {
+            "blocker_id": "bad_network_preference",
+            "should_repair": true,
+            "repair_order": 1,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "set_network_mode_preference",
+                "arguments": {
+                  "mode": "4g_5g_preferred"
+                }
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_data_blocker",
+            "refusal_code": null,
+            "depends_on": []
+          },
+          {
+            "blocker_id": "break_app_both_permissions",
+            "should_repair": true,
+            "repair_order": 2,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "grant_app_permission",
+                "arguments": {
+                  "app_name": "messaging",
+                  "permission": "sms"
+                }
+              },
+              {
+                "requestor": "user",
+                "tool_name": "grant_app_permission",
+                "arguments": {
+                  "app_name": "messaging",
+                  "permission": "storage"
+                }
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_mms_app_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "bad_network_preference"
+            ]
+          }
+        ],
+        "repairability": "repairable",
+        "transfer_reason": null,
+        "decision_policy_version": "first_pass_v1"
+      }
+    },
+    "stage5": {
+      "input": {
+        "repairability": "repairable",
+        "per_blocker": [
+          {
+            "blocker_id": "bad_network_preference",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "break_app_both_permissions",
+            "should_repair": true
+          }
+        ]
+      },
+      "oracle_output": {
+        "final_action": "repair_all",
+        "selected_blocker_ids": [
+          "bad_network_preference",
+          "break_app_both_permissions"
+        ],
+        "deferred_blocker_ids": [],
+        "response_mode": "telecom_structured_execution",
+        "verification_plan": {
+          "required_postchecks": [
+            "can_send_mms"
+          ],
+          "success_condition": "can_send_mms_true"
+        },
+        "transfer_reason": null,
+        "cancelled_reservation_ids": [
+          "bad_network_preference",
+          "break_app_both_permissions"
+        ],
+        "refused_reservation_ids": []
+      }
+    },
+    "metadata": {
+      "domain": "telecom",
+      "family_version": "telecom_mms_fixed_tree_v1",
+      "subset_version": "smoke10",
+      "source_split": "base",
+      "source_subsplit": "test",
+      "problem_family": "mms_issue",
+      "persona_level": "Easy",
+      "num_blockers": 2,
+      "blocker_layers_present": [
+        "data",
+        "mms_app"
+      ],
+      "contains_assistant_side_action": false,
+      "contains_user_side_action": true,
+      "contains_hybrid_action": false,
+      "requires_roaming_account_check": false,
+      "requires_data_refuel": false,
+      "expected_terminal_action": "repair_all",
+      "target_success_signal": "can_send_mms_true",
+      "smoke_candidate": true,
+      "builder_version": "v1",
+      "stage2_oracle_mode": "static_precomputed_v1",
+      "stage3_oracle_mode": "heuristic_precomputed_v1",
+      "repairability": "repairable",
+      "repair_owner_set": [
+        "user"
+      ],
+      "decision_policy_version": "first_pass_v1",
+      "num_selected_blockers": 2,
+      "num_deferred_blockers": 0
+    }
+  },
+  {
+    "instance_id": "telecom_mms_task_mms_issuebad_network_preference__user_abroad_roaming_disabled_offPERSONA_None",
+    "family": "telecom_mms_recovery",
+    "original_task_id": "[mms_issue]bad_network_preference|user_abroad_roaming_disabled_off[PERSONA:None]",
+    "source_task": {
+      "description": {
+        "purpose": "Test resolution path: MMS (Picture/Group Messaging) Issues.",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": [],
+        "communicate_info": null,
+        "nl_assertions": null,
+        "reward_basis": [
+          "TERMINAL_DECISION"
+        ],
+        "success_mode": "transfer_required",
+        "expected_terminal_action": "transfer",
+        "selected_blocker_ids": [],
+        "deferred_blocker_ids": [
+          "user_abroad_roaming_disabled_off",
+          "bad_network_preference"
+        ],
+        "transfer_reason": "hybrid_blocker_requires_transfer_v1"
+      }
+    },
+    "user_context": {
+      "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+      "known_info": "You are John Smith with phone number 555-123-2002. You are currently abroad in France.",
+      "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+    },
+    "stage1": {
+      "input": {
+        "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+        "known_info": "You are John Smith with phone number 555-123-2002. You are currently abroad in France.",
+        "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      },
+      "oracle_output": {
+        "domain": "telecom",
+        "problem_family": "mms_issue",
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        },
+        "symptom_report": {
+          "cannot_send_mms": true,
+          "wants_resolution": true,
+          "target_success_signal": "can_send_mms_true"
+        },
+        "context_flags": {
+          "is_abroad_claimed": true,
+          "refuel_allowed": true,
+          "max_refuel_gb": 2.0,
+          "plan_change_allowed": false
+        },
+        "conversation_risk_flags": [
+          "mild_frustration_after_unsuccessful_attempt",
+          "tool_grounding_required"
+        ]
+      }
+    },
+    "stage2": {
+      "input": {
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        }
+      },
+      "oracle_output": {
+        "candidate_customers": [
+          "C1001"
+        ],
+        "resolved_customer_id": "C1001",
+        "candidate_line_ids": [
+          "L1001",
+          "L1002",
+          "L1003"
+        ],
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "assistant_account_snapshot": {
+          "line_status": "active",
+          "roaming_enabled_on_account": false,
+          "plan_id": "P1002",
+          "data_used_gb": 8.7,
+          "data_limit_gb": 15.0
+        },
+        "resolution_status": "resolved"
+      }
+    },
+    "stage3": {
+      "input": {
+        "resolved_customer_id": "C1001",
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "problem_family": "mms_issue"
+      },
+      "oracle_output": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "connected",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection",
+          "is_abroad": true,
+          "roaming_enabled_on_device": false,
+          "roaming_enabled_on_account": false,
+          "airplane_mode": false,
+          "sim_status": "active",
+          "network_mode_preference": "2g_only",
+          "wifi_calling_enabled": false,
+          "apn_mms_ok": true,
+          "messaging_sms_permission": true,
+          "messaging_storage_permission": true,
+          "data_usage_exceeded": false
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "bad_network_preference",
+            "blocker_layer": "data",
+            "repair_owner": "user",
+            "repair_action_family": "set_network_mode_preference",
+            "diagnostic_evidence": [
+              "check_network_mode_preference"
+            ],
+            "verification_signal": "network_mode_sufficient"
+          },
+          {
+            "blocker_id": "user_abroad_roaming_disabled_off",
+            "blocker_layer": "data",
+            "repair_owner": "hybrid",
+            "repair_action_family": "enable_and_toggle_roaming",
+            "diagnostic_evidence": [
+              "check_network_status",
+              "get_details_by_id"
+            ],
+            "verification_signal": "mobile_data_available"
+          }
+        ]
+      }
+    },
+    "stage4": {
+      "input": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "connected",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection"
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "bad_network_preference"
+          },
+          {
+            "blocker_id": "user_abroad_roaming_disabled_off"
+          }
+        ]
+      },
+      "oracle_output": {
+        "per_blocker": [
+          {
+            "blocker_id": "user_abroad_roaming_disabled_off",
+            "should_repair": false,
+            "repair_order": 1,
+            "canonical_repair_steps": [
+              {
+                "requestor": "assistant",
+                "tool_name": "enable_roaming",
+                "arguments": {
+                  "customer_id": "C1001",
+                  "line_id": "L1002"
+                }
+              },
+              {
+                "requestor": "user",
+                "tool_name": "toggle_roaming",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "transfer",
+            "adjudication_label": "transfer_data_blocker",
+            "refusal_code": "hybrid_blocker_requires_transfer_v1",
+            "depends_on": []
+          },
+          {
+            "blocker_id": "bad_network_preference",
+            "should_repair": false,
+            "repair_order": 2,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "set_network_mode_preference",
+                "arguments": {
+                  "mode": "4g_5g_preferred"
+                }
+              }
+            ],
+            "oracle_execute_decision": "transfer",
+            "adjudication_label": "transfer_data_blocker",
+            "refusal_code": "hybrid_blocker_requires_transfer_v1",
+            "depends_on": []
+          }
+        ],
+        "repairability": "transfer_required",
+        "transfer_reason": "hybrid_blocker_requires_transfer_v1",
+        "decision_policy_version": "first_pass_v1"
+      }
+    },
+    "stage5": {
+      "input": {
+        "repairability": "transfer_required",
+        "per_blocker": [
+          {
+            "blocker_id": "user_abroad_roaming_disabled_off",
+            "should_repair": false
+          },
+          {
+            "blocker_id": "bad_network_preference",
+            "should_repair": false
+          }
+        ]
+      },
+      "oracle_output": {
+        "final_action": "transfer",
+        "selected_blocker_ids": [],
+        "deferred_blocker_ids": [
+          "user_abroad_roaming_disabled_off",
+          "bad_network_preference"
+        ],
+        "response_mode": "telecom_structured_execution",
+        "verification_plan": {
+          "required_postchecks": [],
+          "success_condition": "transfer_required"
+        },
+        "transfer_reason": "hybrid_blocker_requires_transfer_v1",
+        "cancelled_reservation_ids": [],
+        "refused_reservation_ids": [
+          "user_abroad_roaming_disabled_off",
+          "bad_network_preference"
+        ]
+      }
+    },
+    "metadata": {
+      "domain": "telecom",
+      "family_version": "telecom_mms_fixed_tree_v1",
+      "subset_version": "smoke10",
+      "source_split": "base",
+      "source_subsplit": "train",
+      "problem_family": "mms_issue",
+      "persona_level": "None",
+      "num_blockers": 2,
+      "blocker_layers_present": [
+        "data"
+      ],
+      "contains_assistant_side_action": true,
+      "contains_user_side_action": true,
+      "contains_hybrid_action": true,
+      "requires_roaming_account_check": true,
+      "requires_data_refuel": false,
+      "expected_terminal_action": "transfer",
+      "target_success_signal": "can_send_mms_true",
+      "smoke_candidate": true,
+      "builder_version": "v1",
+      "stage2_oracle_mode": "static_precomputed_v1",
+      "stage3_oracle_mode": "heuristic_precomputed_v1",
+      "repairability": "transfer_required",
+      "repair_owner_set": [
+        "hybrid",
+        "user"
+      ],
+      "decision_policy_version": "first_pass_v1",
+      "num_selected_blockers": 0,
+      "num_deferred_blockers": 2
+    }
+  },
+  {
+    "instance_id": "telecom_mms_task_mms_issuebreak_app_storage_permission__data_usage_exceededPERSONA_Easy",
+    "family": "telecom_mms_recovery",
+    "original_task_id": "[mms_issue]break_app_storage_permission|data_usage_exceeded[PERSONA:Easy]",
+    "source_task": {
+      "description": {
+        "purpose": "Test resolution path: MMS (Picture/Group Messaging) Issues.",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "grant_app_permission_0",
+            "requestor": "user",
+            "name": "grant_app_permission",
+            "arguments": {
+              "app_name": "messaging",
+              "permission": "storage"
+            },
+            "info": null,
+            "compare_args": null
+          }
+        ],
+        "env_assertions": [],
+        "communicate_info": null,
+        "nl_assertions": null,
+        "reward_basis": [
+          "TERMINAL_DECISION"
+        ],
+        "success_mode": "partial_resolution_only",
+        "expected_terminal_action": "repair_subset",
+        "selected_blocker_ids": [
+          "break_app_storage_permission"
+        ],
+        "deferred_blocker_ids": [
+          "data_usage_exceeded"
+        ],
+        "transfer_reason": null
+      }
+    },
+    "user_context": {
+      "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+      "known_info": "You are John Smith with phone number 555-123-2002. You are currently at home in the United States.",
+      "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+    },
+    "stage1": {
+      "input": {
+        "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+        "known_info": "You are John Smith with phone number 555-123-2002. You are currently at home in the United States.",
+        "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      },
+      "oracle_output": {
+        "domain": "telecom",
+        "problem_family": "mms_issue",
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        },
+        "symptom_report": {
+          "cannot_send_mms": true,
+          "wants_resolution": true,
+          "target_success_signal": "can_send_mms_true"
+        },
+        "context_flags": {
+          "is_abroad_claimed": false,
+          "refuel_allowed": true,
+          "max_refuel_gb": 2.0,
+          "plan_change_allowed": false
+        },
+        "conversation_risk_flags": [
+          "mild_frustration_after_unsuccessful_attempt",
+          "tool_grounding_required"
+        ]
+      }
+    },
+    "stage2": {
+      "input": {
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        }
+      },
+      "oracle_output": {
+        "candidate_customers": [
+          "C1001"
+        ],
+        "resolved_customer_id": "C1001",
+        "candidate_line_ids": [
+          "L1001",
+          "L1002",
+          "L1003"
+        ],
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "assistant_account_snapshot": {
+          "line_status": "active",
+          "roaming_enabled_on_account": true,
+          "plan_id": "P1002",
+          "data_used_gb": 15.1,
+          "data_limit_gb": 15.0
+        },
+        "resolution_status": "resolved"
+      }
+    },
+    "stage3": {
+      "input": {
+        "resolved_customer_id": "C1001",
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "problem_family": "mms_issue"
+      },
+      "oracle_output": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "connected",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection",
+          "is_abroad": false,
+          "roaming_enabled_on_device": false,
+          "roaming_enabled_on_account": true,
+          "airplane_mode": false,
+          "sim_status": "active",
+          "network_mode_preference": "4g_5g_preferred",
+          "wifi_calling_enabled": false,
+          "apn_mms_ok": true,
+          "messaging_sms_permission": true,
+          "messaging_storage_permission": false,
+          "data_usage_exceeded": true
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "break_app_storage_permission",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "grant_app_permission_storage",
+            "diagnostic_evidence": [
+              "check_app_permissions"
+            ],
+            "verification_signal": "can_send_mms_true"
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "blocker_layer": "data",
+            "repair_owner": "assistant",
+            "repair_action_family": "refuel_data",
+            "diagnostic_evidence": [
+              "get_details_by_id"
+            ],
+            "verification_signal": "mobile_data_available"
+          }
+        ]
+      }
+    },
+    "stage4": {
+      "input": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "connected",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection"
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "break_app_storage_permission"
+          },
+          {
+            "blocker_id": "data_usage_exceeded"
+          }
+        ]
+      },
+      "oracle_output": {
+        "per_blocker": [
+          {
+            "blocker_id": "break_app_storage_permission",
+            "should_repair": true,
+            "repair_order": 1,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "grant_app_permission",
+                "arguments": {
+                  "app_name": "messaging",
+                  "permission": "storage"
+                }
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_mms_app_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "data_usage_exceeded"
+            ]
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "should_repair": false,
+            "repair_order": 2,
+            "canonical_repair_steps": [
+              {
+                "requestor": "assistant",
+                "tool_name": "refuel_data",
+                "arguments": {
+                  "customer_id": "C1001",
+                  "line_id": "L1002",
+                  "gb_amount": 2.0
+                }
+              }
+            ],
+            "oracle_execute_decision": "defer",
+            "adjudication_label": "defer_data_blocker",
+            "refusal_code": "deferred_assistant_side_blocker_v1",
+            "depends_on": []
+          }
+        ],
+        "repairability": "partially_repairable",
+        "transfer_reason": null,
+        "decision_policy_version": "first_pass_v1"
+      }
+    },
+    "stage5": {
+      "input": {
+        "repairability": "partially_repairable",
+        "per_blocker": [
+          {
+            "blocker_id": "break_app_storage_permission",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "should_repair": false
+          }
+        ]
+      },
+      "oracle_output": {
+        "final_action": "repair_subset",
+        "selected_blocker_ids": [
+          "break_app_storage_permission"
+        ],
+        "deferred_blocker_ids": [
+          "data_usage_exceeded"
+        ],
+        "response_mode": "telecom_structured_execution",
+        "verification_plan": {
+          "required_postchecks": [],
+          "success_condition": "partial_resolution_only"
+        },
+        "transfer_reason": null,
+        "cancelled_reservation_ids": [
+          "break_app_storage_permission"
+        ],
+        "refused_reservation_ids": [
+          "data_usage_exceeded"
+        ]
+      }
+    },
+    "metadata": {
+      "domain": "telecom",
+      "family_version": "telecom_mms_fixed_tree_v1",
+      "subset_version": "smoke10",
+      "source_split": "base",
+      "source_subsplit": "train",
+      "problem_family": "mms_issue",
+      "persona_level": "Easy",
+      "num_blockers": 2,
+      "blocker_layers_present": [
+        "data",
+        "mms_app"
+      ],
+      "contains_assistant_side_action": true,
+      "contains_user_side_action": true,
+      "contains_hybrid_action": false,
+      "requires_roaming_account_check": false,
+      "requires_data_refuel": true,
+      "expected_terminal_action": "repair_subset",
+      "target_success_signal": "can_send_mms_true",
+      "smoke_candidate": true,
+      "builder_version": "v1",
+      "stage2_oracle_mode": "static_precomputed_v1",
+      "stage3_oracle_mode": "heuristic_precomputed_v1",
+      "repairability": "partially_repairable",
+      "repair_owner_set": [
+        "assistant",
+        "user"
+      ],
+      "decision_policy_version": "first_pass_v1",
+      "num_selected_blockers": 1,
+      "num_deferred_blockers": 1
+    }
+  },
+  {
+    "instance_id": "telecom_mms_task_mms_issuebad_wifi_calling__data_mode_off__data_usage_exceededPERSONA_Easy",
+    "family": "telecom_mms_recovery",
+    "original_task_id": "[mms_issue]bad_wifi_calling|data_mode_off|data_usage_exceeded[PERSONA:Easy]",
+    "source_task": {
+      "description": {
+        "purpose": "Test resolution path: MMS (Picture/Group Messaging) Issues.",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "toggle_data_0",
+            "requestor": "user",
+            "name": "toggle_data",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "toggle_wifi_calling_1",
+            "requestor": "user",
+            "name": "toggle_wifi_calling",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          }
+        ],
+        "env_assertions": [],
+        "communicate_info": null,
+        "nl_assertions": null,
+        "reward_basis": [
+          "TERMINAL_DECISION"
+        ],
+        "success_mode": "partial_resolution_only",
+        "expected_terminal_action": "repair_subset",
+        "selected_blocker_ids": [
+          "data_mode_off",
+          "bad_wifi_calling"
+        ],
+        "deferred_blocker_ids": [
+          "data_usage_exceeded"
+        ],
+        "transfer_reason": null
+      }
+    },
+    "user_context": {
+      "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+      "known_info": "You are John Smith with phone number 555-123-2002. You are currently at home in the United States.",
+      "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+    },
+    "stage1": {
+      "input": {
+        "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+        "known_info": "You are John Smith with phone number 555-123-2002. You are currently at home in the United States.",
+        "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      },
+      "oracle_output": {
+        "domain": "telecom",
+        "problem_family": "mms_issue",
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        },
+        "symptom_report": {
+          "cannot_send_mms": true,
+          "wants_resolution": true,
+          "target_success_signal": "can_send_mms_true"
+        },
+        "context_flags": {
+          "is_abroad_claimed": false,
+          "refuel_allowed": true,
+          "max_refuel_gb": 2.0,
+          "plan_change_allowed": false
+        },
+        "conversation_risk_flags": [
+          "mild_frustration_after_unsuccessful_attempt",
+          "tool_grounding_required"
+        ]
+      }
+    },
+    "stage2": {
+      "input": {
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        }
+      },
+      "oracle_output": {
+        "candidate_customers": [
+          "C1001"
+        ],
+        "resolved_customer_id": "C1001",
+        "candidate_line_ids": [
+          "L1001",
+          "L1002",
+          "L1003"
+        ],
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "assistant_account_snapshot": {
+          "line_status": "active",
+          "roaming_enabled_on_account": true,
+          "plan_id": "P1002",
+          "data_used_gb": 15.1,
+          "data_limit_gb": 15.0
+        },
+        "resolution_status": "resolved"
+      }
+    },
+    "stage3": {
+      "input": {
+        "resolved_customer_id": "C1001",
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "problem_family": "mms_issue"
+      },
+      "oracle_output": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "connected",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection",
+          "is_abroad": false,
+          "roaming_enabled_on_device": false,
+          "roaming_enabled_on_account": true,
+          "airplane_mode": false,
+          "sim_status": "active",
+          "network_mode_preference": "4g_5g_preferred",
+          "wifi_calling_enabled": true,
+          "apn_mms_ok": true,
+          "messaging_sms_permission": true,
+          "messaging_storage_permission": true,
+          "data_usage_exceeded": true
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "bad_wifi_calling",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_wifi_calling",
+            "diagnostic_evidence": [
+              "check_wifi_calling_status"
+            ],
+            "verification_signal": "can_send_mms_true"
+          },
+          {
+            "blocker_id": "data_mode_off",
+            "blocker_layer": "data",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_data",
+            "diagnostic_evidence": [
+              "check_network_status"
+            ],
+            "verification_signal": "mobile_data_available"
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "blocker_layer": "data",
+            "repair_owner": "assistant",
+            "repair_action_family": "refuel_data",
+            "diagnostic_evidence": [
+              "get_details_by_id"
+            ],
+            "verification_signal": "mobile_data_available"
+          }
+        ]
+      }
+    },
+    "stage4": {
+      "input": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "connected",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection"
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "bad_wifi_calling"
+          },
+          {
+            "blocker_id": "data_mode_off"
+          },
+          {
+            "blocker_id": "data_usage_exceeded"
+          }
+        ]
+      },
+      "oracle_output": {
+        "per_blocker": [
+          {
+            "blocker_id": "data_mode_off",
+            "should_repair": true,
+            "repair_order": 1,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_data",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_data_blocker",
+            "refusal_code": null,
+            "depends_on": []
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "should_repair": true,
+            "repair_order": 2,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_wifi_calling",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_mms_app_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "data_mode_off",
+              "data_usage_exceeded"
+            ]
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "should_repair": false,
+            "repair_order": 3,
+            "canonical_repair_steps": [
+              {
+                "requestor": "assistant",
+                "tool_name": "refuel_data",
+                "arguments": {
+                  "customer_id": "C1001",
+                  "line_id": "L1002",
+                  "gb_amount": 2.0
+                }
+              }
+            ],
+            "oracle_execute_decision": "defer",
+            "adjudication_label": "defer_data_blocker",
+            "refusal_code": "deferred_assistant_side_blocker_v1",
+            "depends_on": [
+              "data_mode_off"
+            ]
+          }
+        ],
+        "repairability": "partially_repairable",
+        "transfer_reason": null,
+        "decision_policy_version": "first_pass_v1"
+      }
+    },
+    "stage5": {
+      "input": {
+        "repairability": "partially_repairable",
+        "per_blocker": [
+          {
+            "blocker_id": "data_mode_off",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "should_repair": false
+          }
+        ]
+      },
+      "oracle_output": {
+        "final_action": "repair_subset",
+        "selected_blocker_ids": [
+          "data_mode_off",
+          "bad_wifi_calling"
+        ],
+        "deferred_blocker_ids": [
+          "data_usage_exceeded"
+        ],
+        "response_mode": "telecom_structured_execution",
+        "verification_plan": {
+          "required_postchecks": [],
+          "success_condition": "partial_resolution_only"
+        },
+        "transfer_reason": null,
+        "cancelled_reservation_ids": [
+          "data_mode_off",
+          "bad_wifi_calling"
+        ],
+        "refused_reservation_ids": [
+          "data_usage_exceeded"
+        ]
+      }
+    },
+    "metadata": {
+      "domain": "telecom",
+      "family_version": "telecom_mms_fixed_tree_v1",
+      "subset_version": "smoke10",
+      "source_split": "base",
+      "source_subsplit": "train",
+      "problem_family": "mms_issue",
+      "persona_level": "Easy",
+      "num_blockers": 3,
+      "blocker_layers_present": [
+        "data",
+        "mms_app"
+      ],
+      "contains_assistant_side_action": true,
+      "contains_user_side_action": true,
+      "contains_hybrid_action": false,
+      "requires_roaming_account_check": false,
+      "requires_data_refuel": true,
+      "expected_terminal_action": "repair_subset",
+      "target_success_signal": "can_send_mms_true",
+      "smoke_candidate": true,
+      "builder_version": "v1",
+      "stage2_oracle_mode": "static_precomputed_v1",
+      "stage3_oracle_mode": "heuristic_precomputed_v1",
+      "repairability": "partially_repairable",
+      "repair_owner_set": [
+        "assistant",
+        "user"
+      ],
+      "decision_policy_version": "first_pass_v1",
+      "num_selected_blockers": 2,
+      "num_deferred_blockers": 1
+    }
+  },
+  {
+    "instance_id": "telecom_mms_task_mms_issuebreak_apn_mms_setting__data_mode_off__user_abroad_roaming_disabled_onPERSONA_Hard",
+    "family": "telecom_mms_recovery",
+    "original_task_id": "[mms_issue]break_apn_mms_setting|data_mode_off|user_abroad_roaming_disabled_on[PERSONA:Hard]",
+    "source_task": {
+      "description": {
+        "purpose": "Test resolution path: MMS (Picture/Group Messaging) Issues.",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "toggle_data_0",
+            "requestor": "user",
+            "name": "toggle_data",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "reset_apn_settings_1",
+            "requestor": "user",
+            "name": "reset_apn_settings",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "reboot_device_2",
+            "requestor": "user",
+            "name": "reboot_device",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          }
+        ],
+        "env_assertions": [],
+        "communicate_info": null,
+        "nl_assertions": null,
+        "reward_basis": [
+          "TERMINAL_DECISION"
+        ],
+        "success_mode": "partial_resolution_only",
+        "expected_terminal_action": "repair_subset",
+        "selected_blocker_ids": [
+          "data_mode_off",
+          "break_apn_mms_setting"
+        ],
+        "deferred_blocker_ids": [
+          "user_abroad_roaming_disabled_on"
+        ],
+        "transfer_reason": null
+      }
+    },
+    "user_context": {
+      "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+      "known_info": "You are John Smith with phone number 555-123-2002. You are currently abroad in France.",
+      "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+    },
+    "stage1": {
+      "input": {
+        "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+        "known_info": "You are John Smith with phone number 555-123-2002. You are currently abroad in France.",
+        "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      },
+      "oracle_output": {
+        "domain": "telecom",
+        "problem_family": "mms_issue",
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        },
+        "symptom_report": {
+          "cannot_send_mms": true,
+          "wants_resolution": true,
+          "target_success_signal": "can_send_mms_true"
+        },
+        "context_flags": {
+          "is_abroad_claimed": true,
+          "refuel_allowed": true,
+          "max_refuel_gb": 2.0,
+          "plan_change_allowed": false
+        },
+        "conversation_risk_flags": [
+          "mild_frustration_after_unsuccessful_attempt",
+          "tool_grounding_required"
+        ]
+      }
+    },
+    "stage2": {
+      "input": {
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        }
+      },
+      "oracle_output": {
+        "candidate_customers": [
+          "C1001"
+        ],
+        "resolved_customer_id": "C1001",
+        "candidate_line_ids": [
+          "L1001",
+          "L1002",
+          "L1003"
+        ],
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "assistant_account_snapshot": {
+          "line_status": "active",
+          "roaming_enabled_on_account": false,
+          "plan_id": "P1002",
+          "data_used_gb": 8.7,
+          "data_limit_gb": 15.0
+        },
+        "resolution_status": "resolved"
+      }
+    },
+    "stage3": {
+      "input": {
+        "resolved_customer_id": "C1001",
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "problem_family": "mms_issue"
+      },
+      "oracle_output": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "connected",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection",
+          "is_abroad": true,
+          "roaming_enabled_on_device": true,
+          "roaming_enabled_on_account": false,
+          "airplane_mode": false,
+          "sim_status": "active",
+          "network_mode_preference": "4g_5g_preferred",
+          "wifi_calling_enabled": false,
+          "apn_mms_ok": false,
+          "messaging_sms_permission": true,
+          "messaging_storage_permission": true,
+          "data_usage_exceeded": false
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "reset_apn_then_reboot",
+            "diagnostic_evidence": [
+              "check_apn_settings"
+            ],
+            "verification_signal": "can_send_mms_true"
+          },
+          {
+            "blocker_id": "data_mode_off",
+            "blocker_layer": "data",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_data",
+            "diagnostic_evidence": [
+              "check_network_status"
+            ],
+            "verification_signal": "mobile_data_available"
+          },
+          {
+            "blocker_id": "user_abroad_roaming_disabled_on",
+            "blocker_layer": "data",
+            "repair_owner": "assistant",
+            "repair_action_family": "enable_roaming",
+            "diagnostic_evidence": [
+              "check_network_status",
+              "get_details_by_id"
+            ],
+            "verification_signal": "mobile_data_available"
+          }
+        ]
+      }
+    },
+    "stage4": {
+      "input": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "connected",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection"
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "break_apn_mms_setting"
+          },
+          {
+            "blocker_id": "data_mode_off"
+          },
+          {
+            "blocker_id": "user_abroad_roaming_disabled_on"
+          }
+        ]
+      },
+      "oracle_output": {
+        "per_blocker": [
+          {
+            "blocker_id": "data_mode_off",
+            "should_repair": true,
+            "repair_order": 1,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_data",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_data_blocker",
+            "refusal_code": null,
+            "depends_on": []
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "should_repair": true,
+            "repair_order": 2,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "reset_apn_settings",
+                "arguments": {}
+              },
+              {
+                "requestor": "user",
+                "tool_name": "reboot_device",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_mms_app_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "data_mode_off",
+              "user_abroad_roaming_disabled_on"
+            ]
+          },
+          {
+            "blocker_id": "user_abroad_roaming_disabled_on",
+            "should_repair": false,
+            "repair_order": 3,
+            "canonical_repair_steps": [
+              {
+                "requestor": "assistant",
+                "tool_name": "enable_roaming",
+                "arguments": {
+                  "customer_id": "C1001",
+                  "line_id": "L1002"
+                }
+              }
+            ],
+            "oracle_execute_decision": "defer",
+            "adjudication_label": "defer_data_blocker",
+            "refusal_code": "deferred_assistant_side_blocker_v1",
+            "depends_on": [
+              "data_mode_off"
+            ]
+          }
+        ],
+        "repairability": "partially_repairable",
+        "transfer_reason": null,
+        "decision_policy_version": "first_pass_v1"
+      }
+    },
+    "stage5": {
+      "input": {
+        "repairability": "partially_repairable",
+        "per_blocker": [
+          {
+            "blocker_id": "data_mode_off",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "user_abroad_roaming_disabled_on",
+            "should_repair": false
+          }
+        ]
+      },
+      "oracle_output": {
+        "final_action": "repair_subset",
+        "selected_blocker_ids": [
+          "data_mode_off",
+          "break_apn_mms_setting"
+        ],
+        "deferred_blocker_ids": [
+          "user_abroad_roaming_disabled_on"
+        ],
+        "response_mode": "telecom_structured_execution",
+        "verification_plan": {
+          "required_postchecks": [],
+          "success_condition": "partial_resolution_only"
+        },
+        "transfer_reason": null,
+        "cancelled_reservation_ids": [
+          "data_mode_off",
+          "break_apn_mms_setting"
+        ],
+        "refused_reservation_ids": [
+          "user_abroad_roaming_disabled_on"
+        ]
+      }
+    },
+    "metadata": {
+      "domain": "telecom",
+      "family_version": "telecom_mms_fixed_tree_v1",
+      "subset_version": "smoke10",
+      "source_split": "base",
+      "source_subsplit": "train",
+      "problem_family": "mms_issue",
+      "persona_level": "Hard",
+      "num_blockers": 3,
+      "blocker_layers_present": [
+        "data",
+        "mms_app"
+      ],
+      "contains_assistant_side_action": true,
+      "contains_user_side_action": true,
+      "contains_hybrid_action": false,
+      "requires_roaming_account_check": true,
+      "requires_data_refuel": false,
+      "expected_terminal_action": "repair_subset",
+      "target_success_signal": "can_send_mms_true",
+      "smoke_candidate": true,
+      "builder_version": "v1",
+      "stage2_oracle_mode": "static_precomputed_v1",
+      "stage3_oracle_mode": "heuristic_precomputed_v1",
+      "repairability": "partially_repairable",
+      "repair_owner_set": [
+        "assistant",
+        "user"
+      ],
+      "decision_policy_version": "first_pass_v1",
+      "num_selected_blockers": 2,
+      "num_deferred_blockers": 1
+    }
+  },
+  {
+    "instance_id": "telecom_mms_task_mms_issueairplane_mode_on__bad_network_preference__break_apn_mms_setting__data_usage_exceededPERSONA_Hard",
+    "family": "telecom_mms_recovery",
+    "original_task_id": "[mms_issue]airplane_mode_on|bad_network_preference|break_apn_mms_setting|data_usage_exceeded[PERSONA:Hard]",
+    "source_task": {
+      "description": {
+        "purpose": "Test resolution path: MMS (Picture/Group Messaging) Issues.",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "toggle_airplane_mode_0",
+            "requestor": "user",
+            "name": "toggle_airplane_mode",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "set_network_mode_preference_1",
+            "requestor": "user",
+            "name": "set_network_mode_preference",
+            "arguments": {
+              "mode": "4g_5g_preferred"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "reset_apn_settings_2",
+            "requestor": "user",
+            "name": "reset_apn_settings",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "reboot_device_3",
+            "requestor": "user",
+            "name": "reboot_device",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          }
+        ],
+        "env_assertions": [],
+        "communicate_info": null,
+        "nl_assertions": null,
+        "reward_basis": [
+          "TERMINAL_DECISION"
+        ],
+        "success_mode": "partial_resolution_only",
+        "expected_terminal_action": "repair_subset",
+        "selected_blocker_ids": [
+          "airplane_mode_on",
+          "bad_network_preference",
+          "break_apn_mms_setting"
+        ],
+        "deferred_blocker_ids": [
+          "data_usage_exceeded"
+        ],
+        "transfer_reason": null
+      }
+    },
+    "user_context": {
+      "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+      "known_info": "You are John Smith with phone number 555-123-2002. You are currently at home in the United States.",
+      "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+    },
+    "stage1": {
+      "input": {
+        "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+        "known_info": "You are John Smith with phone number 555-123-2002. You are currently at home in the United States.",
+        "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      },
+      "oracle_output": {
+        "domain": "telecom",
+        "problem_family": "mms_issue",
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        },
+        "symptom_report": {
+          "cannot_send_mms": true,
+          "wants_resolution": true,
+          "target_success_signal": "can_send_mms_true"
+        },
+        "context_flags": {
+          "is_abroad_claimed": false,
+          "refuel_allowed": true,
+          "max_refuel_gb": 2.0,
+          "plan_change_allowed": false
+        },
+        "conversation_risk_flags": [
+          "mild_frustration_after_unsuccessful_attempt",
+          "tool_grounding_required"
+        ]
+      }
+    },
+    "stage2": {
+      "input": {
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        }
+      },
+      "oracle_output": {
+        "candidate_customers": [
+          "C1001"
+        ],
+        "resolved_customer_id": "C1001",
+        "candidate_line_ids": [
+          "L1001",
+          "L1002",
+          "L1003"
+        ],
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "assistant_account_snapshot": {
+          "line_status": "active",
+          "roaming_enabled_on_account": true,
+          "plan_id": "P1002",
+          "data_used_gb": 15.1,
+          "data_limit_gb": 15.0
+        },
+        "resolution_status": "resolved"
+      }
+    },
+    "stage3": {
+      "input": {
+        "resolved_customer_id": "C1001",
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "problem_family": "mms_issue"
+      },
+      "oracle_output": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "no_service",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection",
+          "is_abroad": false,
+          "roaming_enabled_on_device": false,
+          "roaming_enabled_on_account": true,
+          "airplane_mode": true,
+          "sim_status": "active",
+          "network_mode_preference": "2g_only",
+          "wifi_calling_enabled": false,
+          "apn_mms_ok": false,
+          "messaging_sms_permission": true,
+          "messaging_storage_permission": true,
+          "data_usage_exceeded": true
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "blocker_layer": "service",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_airplane_mode",
+            "diagnostic_evidence": [
+              "check_network_status",
+              "check_status_bar"
+            ],
+            "verification_signal": "service_restored"
+          },
+          {
+            "blocker_id": "bad_network_preference",
+            "blocker_layer": "data",
+            "repair_owner": "user",
+            "repair_action_family": "set_network_mode_preference",
+            "diagnostic_evidence": [
+              "check_network_mode_preference"
+            ],
+            "verification_signal": "network_mode_sufficient"
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "reset_apn_then_reboot",
+            "diagnostic_evidence": [
+              "check_apn_settings"
+            ],
+            "verification_signal": "can_send_mms_true"
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "blocker_layer": "data",
+            "repair_owner": "assistant",
+            "repair_action_family": "refuel_data",
+            "diagnostic_evidence": [
+              "get_details_by_id"
+            ],
+            "verification_signal": "mobile_data_available"
+          }
+        ]
+      }
+    },
+    "stage4": {
+      "input": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "no_service",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection"
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on"
+          },
+          {
+            "blocker_id": "bad_network_preference"
+          },
+          {
+            "blocker_id": "break_apn_mms_setting"
+          },
+          {
+            "blocker_id": "data_usage_exceeded"
+          }
+        ]
+      },
+      "oracle_output": {
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "should_repair": true,
+            "repair_order": 1,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_airplane_mode",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_service_blocker",
+            "refusal_code": null,
+            "depends_on": []
+          },
+          {
+            "blocker_id": "bad_network_preference",
+            "should_repair": true,
+            "repair_order": 2,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "set_network_mode_preference",
+                "arguments": {
+                  "mode": "4g_5g_preferred"
+                }
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_data_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "airplane_mode_on"
+            ]
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "should_repair": true,
+            "repair_order": 3,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "reset_apn_settings",
+                "arguments": {}
+              },
+              {
+                "requestor": "user",
+                "tool_name": "reboot_device",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_mms_app_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "airplane_mode_on",
+              "data_usage_exceeded",
+              "bad_network_preference"
+            ]
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "should_repair": false,
+            "repair_order": 4,
+            "canonical_repair_steps": [
+              {
+                "requestor": "assistant",
+                "tool_name": "refuel_data",
+                "arguments": {
+                  "customer_id": "C1001",
+                  "line_id": "L1002",
+                  "gb_amount": 2.0
+                }
+              }
+            ],
+            "oracle_execute_decision": "defer",
+            "adjudication_label": "defer_data_blocker",
+            "refusal_code": "deferred_assistant_side_blocker_v1",
+            "depends_on": [
+              "airplane_mode_on"
+            ]
+          }
+        ],
+        "repairability": "partially_repairable",
+        "transfer_reason": null,
+        "decision_policy_version": "first_pass_v1"
+      }
+    },
+    "stage5": {
+      "input": {
+        "repairability": "partially_repairable",
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "bad_network_preference",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "should_repair": false
+          }
+        ]
+      },
+      "oracle_output": {
+        "final_action": "repair_subset",
+        "selected_blocker_ids": [
+          "airplane_mode_on",
+          "bad_network_preference",
+          "break_apn_mms_setting"
+        ],
+        "deferred_blocker_ids": [
+          "data_usage_exceeded"
+        ],
+        "response_mode": "telecom_structured_execution",
+        "verification_plan": {
+          "required_postchecks": [],
+          "success_condition": "partial_resolution_only"
+        },
+        "transfer_reason": null,
+        "cancelled_reservation_ids": [
+          "airplane_mode_on",
+          "bad_network_preference",
+          "break_apn_mms_setting"
+        ],
+        "refused_reservation_ids": [
+          "data_usage_exceeded"
+        ]
+      }
+    },
+    "metadata": {
+      "domain": "telecom",
+      "family_version": "telecom_mms_fixed_tree_v1",
+      "subset_version": "smoke10",
+      "source_split": "base",
+      "source_subsplit": "train",
+      "problem_family": "mms_issue",
+      "persona_level": "Hard",
+      "num_blockers": 4,
+      "blocker_layers_present": [
+        "data",
+        "mms_app",
+        "service"
+      ],
+      "contains_assistant_side_action": true,
+      "contains_user_side_action": true,
+      "contains_hybrid_action": false,
+      "requires_roaming_account_check": false,
+      "requires_data_refuel": true,
+      "expected_terminal_action": "repair_subset",
+      "target_success_signal": "can_send_mms_true",
+      "smoke_candidate": true,
+      "builder_version": "v1",
+      "stage2_oracle_mode": "static_precomputed_v1",
+      "stage3_oracle_mode": "heuristic_precomputed_v1",
+      "repairability": "partially_repairable",
+      "repair_owner_set": [
+        "assistant",
+        "user"
+      ],
+      "decision_policy_version": "first_pass_v1",
+      "num_selected_blockers": 3,
+      "num_deferred_blockers": 1
+    }
+  },
+  {
+    "instance_id": "telecom_mms_task_mms_issuebad_wifi_calling__break_apn_mms_setting__unseat_sim_card__user_abroad_roaming_enabled_offPERSONA_Easy",
+    "family": "telecom_mms_recovery",
+    "original_task_id": "[mms_issue]bad_wifi_calling|break_apn_mms_setting|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Easy]",
+    "source_task": {
+      "description": {
+        "purpose": "Test resolution path: MMS (Picture/Group Messaging) Issues.",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "reseat_sim_card_0",
+            "requestor": "user",
+            "name": "reseat_sim_card",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "toggle_roaming_1",
+            "requestor": "user",
+            "name": "toggle_roaming",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "toggle_wifi_calling_2",
+            "requestor": "user",
+            "name": "toggle_wifi_calling",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "reset_apn_settings_3",
+            "requestor": "user",
+            "name": "reset_apn_settings",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "reboot_device_4",
+            "requestor": "user",
+            "name": "reboot_device",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          }
+        ],
+        "env_assertions": [
+          {
+            "env_type": "user",
+            "func_name": "assert_can_send_mms",
+            "arguments": {
+              "expected_status": true
+            },
+            "assert_value": true,
+            "message": null
+          }
+        ],
+        "communicate_info": null,
+        "nl_assertions": null,
+        "reward_basis": [
+          "ENV_ASSERTION"
+        ],
+        "success_mode": "can_send_mms_true",
+        "expected_terminal_action": "repair_all",
+        "selected_blocker_ids": [
+          "unseat_sim_card",
+          "user_abroad_roaming_enabled_off",
+          "bad_wifi_calling",
+          "break_apn_mms_setting"
+        ],
+        "deferred_blocker_ids": [],
+        "transfer_reason": null
+      }
+    },
+    "user_context": {
+      "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+      "known_info": "You are John Smith with phone number 555-123-2002. You are currently abroad in France.",
+      "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+    },
+    "stage1": {
+      "input": {
+        "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+        "known_info": "You are John Smith with phone number 555-123-2002. You are currently abroad in France.",
+        "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      },
+      "oracle_output": {
+        "domain": "telecom",
+        "problem_family": "mms_issue",
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        },
+        "symptom_report": {
+          "cannot_send_mms": true,
+          "wants_resolution": true,
+          "target_success_signal": "can_send_mms_true"
+        },
+        "context_flags": {
+          "is_abroad_claimed": true,
+          "refuel_allowed": true,
+          "max_refuel_gb": 2.0,
+          "plan_change_allowed": false
+        },
+        "conversation_risk_flags": [
+          "mild_frustration_after_unsuccessful_attempt",
+          "tool_grounding_required"
+        ]
+      }
+    },
+    "stage2": {
+      "input": {
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        }
+      },
+      "oracle_output": {
+        "candidate_customers": [
+          "C1001"
+        ],
+        "resolved_customer_id": "C1001",
+        "candidate_line_ids": [
+          "L1001",
+          "L1002",
+          "L1003"
+        ],
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "assistant_account_snapshot": {
+          "line_status": "active",
+          "roaming_enabled_on_account": true,
+          "plan_id": "P1002",
+          "data_used_gb": 8.7,
+          "data_limit_gb": 15.0
+        },
+        "resolution_status": "resolved"
+      }
+    },
+    "stage3": {
+      "input": {
+        "resolved_customer_id": "C1001",
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "problem_family": "mms_issue"
+      },
+      "oracle_output": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "no_service",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection",
+          "is_abroad": true,
+          "roaming_enabled_on_device": false,
+          "roaming_enabled_on_account": true,
+          "airplane_mode": false,
+          "sim_status": "missing",
+          "network_mode_preference": "4g_5g_preferred",
+          "wifi_calling_enabled": true,
+          "apn_mms_ok": false,
+          "messaging_sms_permission": true,
+          "messaging_storage_permission": true,
+          "data_usage_exceeded": false
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "bad_wifi_calling",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_wifi_calling",
+            "diagnostic_evidence": [
+              "check_wifi_calling_status"
+            ],
+            "verification_signal": "can_send_mms_true"
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "reset_apn_then_reboot",
+            "diagnostic_evidence": [
+              "check_apn_settings"
+            ],
+            "verification_signal": "can_send_mms_true"
+          },
+          {
+            "blocker_id": "unseat_sim_card",
+            "blocker_layer": "service",
+            "repair_owner": "user",
+            "repair_action_family": "reseat_sim_card",
+            "diagnostic_evidence": [
+              "check_sim_status",
+              "check_network_status"
+            ],
+            "verification_signal": "service_restored"
+          },
+          {
+            "blocker_id": "user_abroad_roaming_enabled_off",
+            "blocker_layer": "data",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_roaming",
+            "diagnostic_evidence": [
+              "check_network_status",
+              "get_details_by_id"
+            ],
+            "verification_signal": "mobile_data_available"
+          }
+        ]
+      }
+    },
+    "stage4": {
+      "input": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "no_service",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection"
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "bad_wifi_calling"
+          },
+          {
+            "blocker_id": "break_apn_mms_setting"
+          },
+          {
+            "blocker_id": "unseat_sim_card"
+          },
+          {
+            "blocker_id": "user_abroad_roaming_enabled_off"
+          }
+        ]
+      },
+      "oracle_output": {
+        "per_blocker": [
+          {
+            "blocker_id": "unseat_sim_card",
+            "should_repair": true,
+            "repair_order": 1,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "reseat_sim_card",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_service_blocker",
+            "refusal_code": null,
+            "depends_on": []
+          },
+          {
+            "blocker_id": "user_abroad_roaming_enabled_off",
+            "should_repair": true,
+            "repair_order": 2,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_roaming",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_data_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "unseat_sim_card"
+            ]
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "should_repair": true,
+            "repair_order": 3,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_wifi_calling",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_mms_app_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "unseat_sim_card",
+              "user_abroad_roaming_enabled_off"
+            ]
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "should_repair": true,
+            "repair_order": 4,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "reset_apn_settings",
+                "arguments": {}
+              },
+              {
+                "requestor": "user",
+                "tool_name": "reboot_device",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_mms_app_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "unseat_sim_card",
+              "user_abroad_roaming_enabled_off"
+            ]
+          }
+        ],
+        "repairability": "repairable",
+        "transfer_reason": null,
+        "decision_policy_version": "first_pass_v1"
+      }
+    },
+    "stage5": {
+      "input": {
+        "repairability": "repairable",
+        "per_blocker": [
+          {
+            "blocker_id": "unseat_sim_card",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "user_abroad_roaming_enabled_off",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "should_repair": true
+          }
+        ]
+      },
+      "oracle_output": {
+        "final_action": "repair_all",
+        "selected_blocker_ids": [
+          "unseat_sim_card",
+          "user_abroad_roaming_enabled_off",
+          "bad_wifi_calling",
+          "break_apn_mms_setting"
+        ],
+        "deferred_blocker_ids": [],
+        "response_mode": "telecom_structured_execution",
+        "verification_plan": {
+          "required_postchecks": [
+            "can_send_mms"
+          ],
+          "success_condition": "can_send_mms_true"
+        },
+        "transfer_reason": null,
+        "cancelled_reservation_ids": [
+          "unseat_sim_card",
+          "user_abroad_roaming_enabled_off",
+          "bad_wifi_calling",
+          "break_apn_mms_setting"
+        ],
+        "refused_reservation_ids": []
+      }
+    },
+    "metadata": {
+      "domain": "telecom",
+      "family_version": "telecom_mms_fixed_tree_v1",
+      "subset_version": "smoke10",
+      "source_split": "base",
+      "source_subsplit": "train",
+      "problem_family": "mms_issue",
+      "persona_level": "Easy",
+      "num_blockers": 4,
+      "blocker_layers_present": [
+        "data",
+        "mms_app",
+        "service"
+      ],
+      "contains_assistant_side_action": false,
+      "contains_user_side_action": true,
+      "contains_hybrid_action": false,
+      "requires_roaming_account_check": true,
+      "requires_data_refuel": false,
+      "expected_terminal_action": "repair_all",
+      "target_success_signal": "can_send_mms_true",
+      "smoke_candidate": true,
+      "builder_version": "v1",
+      "stage2_oracle_mode": "static_precomputed_v1",
+      "stage3_oracle_mode": "heuristic_precomputed_v1",
+      "repairability": "repairable",
+      "repair_owner_set": [
+        "user"
+      ],
+      "decision_policy_version": "first_pass_v1",
+      "num_selected_blockers": 4,
+      "num_deferred_blockers": 0
+    }
+  },
+  {
+    "instance_id": "telecom_mms_task_mms_issuebad_network_preference__bad_wifi_calling__break_app_sms_permission__data_mode_off__unseat_sim_card__user_abroad_roaming_enabled_offPERSONA_Hard",
+    "family": "telecom_mms_recovery",
+    "original_task_id": "[mms_issue]bad_network_preference|bad_wifi_calling|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "source_task": {
+      "description": {
+        "purpose": "Test resolution path: MMS (Picture/Group Messaging) Issues.",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "evaluation_criteria": {
+        "actions": [
+          {
+            "action_id": "reseat_sim_card_0",
+            "requestor": "user",
+            "name": "reseat_sim_card",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "toggle_data_1",
+            "requestor": "user",
+            "name": "toggle_data",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "toggle_roaming_2",
+            "requestor": "user",
+            "name": "toggle_roaming",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "set_network_mode_preference_3",
+            "requestor": "user",
+            "name": "set_network_mode_preference",
+            "arguments": {
+              "mode": "4g_5g_preferred"
+            },
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "toggle_wifi_calling_4",
+            "requestor": "user",
+            "name": "toggle_wifi_calling",
+            "arguments": {},
+            "info": null,
+            "compare_args": null
+          },
+          {
+            "action_id": "grant_app_permission_5",
+            "requestor": "user",
+            "name": "grant_app_permission",
+            "arguments": {
+              "app_name": "messaging",
+              "permission": "sms"
+            },
+            "info": null,
+            "compare_args": null
+          }
+        ],
+        "env_assertions": [
+          {
+            "env_type": "user",
+            "func_name": "assert_can_send_mms",
+            "arguments": {
+              "expected_status": true
+            },
+            "assert_value": true,
+            "message": null
+          }
+        ],
+        "communicate_info": null,
+        "nl_assertions": null,
+        "reward_basis": [
+          "ENV_ASSERTION"
+        ],
+        "success_mode": "can_send_mms_true",
+        "expected_terminal_action": "repair_all",
+        "selected_blocker_ids": [
+          "unseat_sim_card",
+          "data_mode_off",
+          "user_abroad_roaming_enabled_off",
+          "bad_network_preference",
+          "bad_wifi_calling",
+          "break_app_sms_permission"
+        ],
+        "deferred_blocker_ids": [],
+        "transfer_reason": null
+      }
+    },
+    "user_context": {
+      "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+      "known_info": "You are John Smith with phone number 555-123-2002. You are currently abroad in France.",
+      "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+    },
+    "stage1": {
+      "input": {
+        "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+        "known_info": "You are John Smith with phone number 555-123-2002. You are currently abroad in France.",
+        "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      },
+      "oracle_output": {
+        "domain": "telecom",
+        "problem_family": "mms_issue",
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        },
+        "symptom_report": {
+          "cannot_send_mms": true,
+          "wants_resolution": true,
+          "target_success_signal": "can_send_mms_true"
+        },
+        "context_flags": {
+          "is_abroad_claimed": true,
+          "refuel_allowed": true,
+          "max_refuel_gb": 2.0,
+          "plan_change_allowed": false
+        },
+        "conversation_risk_flags": [
+          "mild_frustration_after_unsuccessful_attempt",
+          "tool_grounding_required"
+        ]
+      }
+    },
+    "stage2": {
+      "input": {
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        }
+      },
+      "oracle_output": {
+        "candidate_customers": [
+          "C1001"
+        ],
+        "resolved_customer_id": "C1001",
+        "candidate_line_ids": [
+          "L1001",
+          "L1002",
+          "L1003"
+        ],
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "assistant_account_snapshot": {
+          "line_status": "active",
+          "roaming_enabled_on_account": true,
+          "plan_id": "P1002",
+          "data_used_gb": 8.7,
+          "data_limit_gb": 15.0
+        },
+        "resolution_status": "resolved"
+      }
+    },
+    "stage3": {
+      "input": {
+        "resolved_customer_id": "C1001",
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "problem_family": "mms_issue"
+      },
+      "oracle_output": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "no_service",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection",
+          "is_abroad": true,
+          "roaming_enabled_on_device": false,
+          "roaming_enabled_on_account": true,
+          "airplane_mode": false,
+          "sim_status": "missing",
+          "network_mode_preference": "2g_only",
+          "wifi_calling_enabled": true,
+          "apn_mms_ok": true,
+          "messaging_sms_permission": false,
+          "messaging_storage_permission": true,
+          "data_usage_exceeded": false
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "bad_network_preference",
+            "blocker_layer": "data",
+            "repair_owner": "user",
+            "repair_action_family": "set_network_mode_preference",
+            "diagnostic_evidence": [
+              "check_network_mode_preference"
+            ],
+            "verification_signal": "network_mode_sufficient"
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_wifi_calling",
+            "diagnostic_evidence": [
+              "check_wifi_calling_status"
+            ],
+            "verification_signal": "can_send_mms_true"
+          },
+          {
+            "blocker_id": "break_app_sms_permission",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "grant_app_permission_sms",
+            "diagnostic_evidence": [
+              "check_app_permissions"
+            ],
+            "verification_signal": "can_send_mms_true"
+          },
+          {
+            "blocker_id": "data_mode_off",
+            "blocker_layer": "data",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_data",
+            "diagnostic_evidence": [
+              "check_network_status"
+            ],
+            "verification_signal": "mobile_data_available"
+          },
+          {
+            "blocker_id": "unseat_sim_card",
+            "blocker_layer": "service",
+            "repair_owner": "user",
+            "repair_action_family": "reseat_sim_card",
+            "diagnostic_evidence": [
+              "check_sim_status",
+              "check_network_status"
+            ],
+            "verification_signal": "service_restored"
+          },
+          {
+            "blocker_id": "user_abroad_roaming_enabled_off",
+            "blocker_layer": "data",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_roaming",
+            "diagnostic_evidence": [
+              "check_network_status",
+              "get_details_by_id"
+            ],
+            "verification_signal": "mobile_data_available"
+          }
+        ]
+      }
+    },
+    "stage4": {
+      "input": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "no_service",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection"
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "bad_network_preference"
+          },
+          {
+            "blocker_id": "bad_wifi_calling"
+          },
+          {
+            "blocker_id": "break_app_sms_permission"
+          },
+          {
+            "blocker_id": "data_mode_off"
+          },
+          {
+            "blocker_id": "unseat_sim_card"
+          },
+          {
+            "blocker_id": "user_abroad_roaming_enabled_off"
+          }
+        ]
+      },
+      "oracle_output": {
+        "per_blocker": [
+          {
+            "blocker_id": "unseat_sim_card",
+            "should_repair": true,
+            "repair_order": 1,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "reseat_sim_card",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_service_blocker",
+            "refusal_code": null,
+            "depends_on": []
+          },
+          {
+            "blocker_id": "data_mode_off",
+            "should_repair": true,
+            "repair_order": 2,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_data",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_data_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "unseat_sim_card"
+            ]
+          },
+          {
+            "blocker_id": "user_abroad_roaming_enabled_off",
+            "should_repair": true,
+            "repair_order": 3,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_roaming",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_data_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "unseat_sim_card",
+              "data_mode_off"
+            ]
+          },
+          {
+            "blocker_id": "bad_network_preference",
+            "should_repair": true,
+            "repair_order": 4,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "set_network_mode_preference",
+                "arguments": {
+                  "mode": "4g_5g_preferred"
+                }
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_data_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "unseat_sim_card",
+              "data_mode_off"
+            ]
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "should_repair": true,
+            "repair_order": 5,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_wifi_calling",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_mms_app_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "unseat_sim_card",
+              "data_mode_off",
+              "user_abroad_roaming_enabled_off",
+              "bad_network_preference"
+            ]
+          },
+          {
+            "blocker_id": "break_app_sms_permission",
+            "should_repair": true,
+            "repair_order": 6,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "grant_app_permission",
+                "arguments": {
+                  "app_name": "messaging",
+                  "permission": "sms"
+                }
+              }
+            ],
+            "oracle_execute_decision": "repair",
+            "adjudication_label": "repair_mms_app_blocker",
+            "refusal_code": null,
+            "depends_on": [
+              "unseat_sim_card",
+              "data_mode_off",
+              "user_abroad_roaming_enabled_off",
+              "bad_network_preference"
+            ]
+          }
+        ],
+        "repairability": "repairable",
+        "transfer_reason": null,
+        "decision_policy_version": "first_pass_v1"
+      }
+    },
+    "stage5": {
+      "input": {
+        "repairability": "repairable",
+        "per_blocker": [
+          {
+            "blocker_id": "unseat_sim_card",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "data_mode_off",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "user_abroad_roaming_enabled_off",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "bad_network_preference",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "break_app_sms_permission",
+            "should_repair": true
+          }
+        ]
+      },
+      "oracle_output": {
+        "final_action": "repair_all",
+        "selected_blocker_ids": [
+          "unseat_sim_card",
+          "data_mode_off",
+          "user_abroad_roaming_enabled_off",
+          "bad_network_preference",
+          "bad_wifi_calling",
+          "break_app_sms_permission"
+        ],
+        "deferred_blocker_ids": [],
+        "response_mode": "telecom_structured_execution",
+        "verification_plan": {
+          "required_postchecks": [
+            "can_send_mms"
+          ],
+          "success_condition": "can_send_mms_true"
+        },
+        "transfer_reason": null,
+        "cancelled_reservation_ids": [
+          "unseat_sim_card",
+          "data_mode_off",
+          "user_abroad_roaming_enabled_off",
+          "bad_network_preference",
+          "bad_wifi_calling",
+          "break_app_sms_permission"
+        ],
+        "refused_reservation_ids": []
+      }
+    },
+    "metadata": {
+      "domain": "telecom",
+      "family_version": "telecom_mms_fixed_tree_v1",
+      "subset_version": "smoke10",
+      "source_split": "base",
+      "source_subsplit": "train",
+      "problem_family": "mms_issue",
+      "persona_level": "Hard",
+      "num_blockers": 6,
+      "blocker_layers_present": [
+        "data",
+        "mms_app",
+        "service"
+      ],
+      "contains_assistant_side_action": false,
+      "contains_user_side_action": true,
+      "contains_hybrid_action": false,
+      "requires_roaming_account_check": true,
+      "requires_data_refuel": false,
+      "expected_terminal_action": "repair_all",
+      "target_success_signal": "can_send_mms_true",
+      "smoke_candidate": true,
+      "builder_version": "v1",
+      "stage2_oracle_mode": "static_precomputed_v1",
+      "stage3_oracle_mode": "heuristic_precomputed_v1",
+      "repairability": "repairable",
+      "repair_owner_set": [
+        "user"
+      ],
+      "decision_policy_version": "first_pass_v1",
+      "num_selected_blockers": 6,
+      "num_deferred_blockers": 0
+    }
+  },
+  {
+    "instance_id": "telecom_mms_task_mms_issueairplane_mode_on__bad_network_preference__bad_wifi_calling__break_apn_mms_setting__break_app_storage_permission__data_mode_off__data_usage_exceeded__unseat_sim_card__user_abroad_roaming_disabled_offPERSONA_Easy",
+    "family": "telecom_mms_recovery",
+    "original_task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_off[PERSONA:Easy]",
+    "source_task": {
+      "description": {
+        "purpose": "Test resolution path: MMS (Picture/Group Messaging) Issues.",
+        "relevant_policies": null,
+        "notes": null
+      },
+      "evaluation_criteria": {
+        "actions": [],
+        "env_assertions": [],
+        "communicate_info": null,
+        "nl_assertions": null,
+        "reward_basis": [
+          "TERMINAL_DECISION"
+        ],
+        "success_mode": "transfer_required",
+        "expected_terminal_action": "transfer",
+        "selected_blocker_ids": [],
+        "deferred_blocker_ids": [
+          "airplane_mode_on",
+          "unseat_sim_card",
+          "data_mode_off",
+          "user_abroad_roaming_disabled_off",
+          "data_usage_exceeded",
+          "bad_network_preference",
+          "bad_wifi_calling",
+          "break_apn_mms_setting",
+          "break_app_storage_permission"
+        ],
+        "transfer_reason": "hybrid_blocker_requires_transfer_v1"
+      }
+    },
+    "user_context": {
+      "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+      "known_info": "You are John Smith with phone number 555-123-2002. You are currently abroad in France.",
+      "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+    },
+    "stage1": {
+      "input": {
+        "reason_for_call": "You are unable to send MMS messages using your messaging app for the past few hours. You want to fix it and successfully send an MMS message.",
+        "known_info": "You are John Smith with phone number 555-123-2002. You are currently abroad in France.",
+        "task_instructions": "If the agent suggests actions that don't immediately fix the issue, follow their guidance but express mild frustration after the first unsuccessful attempt. You are willing to refuel 2.0 GB of data if necessary, but you do not want to change your mobile data plan. If the tool call does not return updated status information, you might need to perform another tool call to get the updated status. \nWhenever the agent asks you about your device, always ground your responses on the results of tool calls. \nFor example: If the agent asks what the status bar shows, always ground your response on the results of the `get_status_bar` tool call. If the agent asks if you are able to send an MMS message, always ground your response on the results of the `can_send_mms` tool call.\nNever make up the results of tool calls, always ground your responses on the results of tool calls.\nIf you are unsure about whether an action is necessary, always ask the agent for clarification.\n"
+      },
+      "oracle_output": {
+        "domain": "telecom",
+        "problem_family": "mms_issue",
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        },
+        "symptom_report": {
+          "cannot_send_mms": true,
+          "wants_resolution": true,
+          "target_success_signal": "can_send_mms_true"
+        },
+        "context_flags": {
+          "is_abroad_claimed": true,
+          "refuel_allowed": true,
+          "max_refuel_gb": 2.0,
+          "plan_change_allowed": false
+        },
+        "conversation_risk_flags": [
+          "mild_frustration_after_unsuccessful_attempt",
+          "tool_grounding_required"
+        ]
+      }
+    },
+    "stage2": {
+      "input": {
+        "customer_lookup": {
+          "full_name": "John Smith",
+          "phone_number": "555-123-2002",
+          "lookup_confidence": "high"
+        },
+        "line_selector": {
+          "type": "phone_number",
+          "value": "555-123-2002"
+        }
+      },
+      "oracle_output": {
+        "candidate_customers": [
+          "C1001"
+        ],
+        "resolved_customer_id": "C1001",
+        "candidate_line_ids": [
+          "L1001",
+          "L1002",
+          "L1003"
+        ],
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "assistant_account_snapshot": {
+          "line_status": "active",
+          "roaming_enabled_on_account": false,
+          "plan_id": "P1002",
+          "data_used_gb": 15.1,
+          "data_limit_gb": 15.0
+        },
+        "resolution_status": "resolved"
+      }
+    },
+    "stage3": {
+      "input": {
+        "resolved_customer_id": "C1001",
+        "resolved_line_id": "L1002",
+        "target_phone_number": "555-123-2002",
+        "problem_family": "mms_issue"
+      },
+      "oracle_output": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "no_service",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection",
+          "is_abroad": true,
+          "roaming_enabled_on_device": false,
+          "roaming_enabled_on_account": false,
+          "airplane_mode": true,
+          "sim_status": "missing",
+          "network_mode_preference": "2g_only",
+          "wifi_calling_enabled": true,
+          "apn_mms_ok": false,
+          "messaging_sms_permission": true,
+          "messaging_storage_permission": false,
+          "data_usage_exceeded": true
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "blocker_layer": "service",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_airplane_mode",
+            "diagnostic_evidence": [
+              "check_network_status",
+              "check_status_bar"
+            ],
+            "verification_signal": "service_restored"
+          },
+          {
+            "blocker_id": "bad_network_preference",
+            "blocker_layer": "data",
+            "repair_owner": "user",
+            "repair_action_family": "set_network_mode_preference",
+            "diagnostic_evidence": [
+              "check_network_mode_preference"
+            ],
+            "verification_signal": "network_mode_sufficient"
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_wifi_calling",
+            "diagnostic_evidence": [
+              "check_wifi_calling_status"
+            ],
+            "verification_signal": "can_send_mms_true"
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "reset_apn_then_reboot",
+            "diagnostic_evidence": [
+              "check_apn_settings"
+            ],
+            "verification_signal": "can_send_mms_true"
+          },
+          {
+            "blocker_id": "break_app_storage_permission",
+            "blocker_layer": "mms_app",
+            "repair_owner": "user",
+            "repair_action_family": "grant_app_permission_storage",
+            "diagnostic_evidence": [
+              "check_app_permissions"
+            ],
+            "verification_signal": "can_send_mms_true"
+          },
+          {
+            "blocker_id": "data_mode_off",
+            "blocker_layer": "data",
+            "repair_owner": "user",
+            "repair_action_family": "toggle_data",
+            "diagnostic_evidence": [
+              "check_network_status"
+            ],
+            "verification_signal": "mobile_data_available"
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "blocker_layer": "data",
+            "repair_owner": "assistant",
+            "repair_action_family": "refuel_data",
+            "diagnostic_evidence": [
+              "get_details_by_id"
+            ],
+            "verification_signal": "mobile_data_available"
+          },
+          {
+            "blocker_id": "unseat_sim_card",
+            "blocker_layer": "service",
+            "repair_owner": "user",
+            "repair_action_family": "reseat_sim_card",
+            "diagnostic_evidence": [
+              "check_sim_status",
+              "check_network_status"
+            ],
+            "verification_signal": "service_restored"
+          },
+          {
+            "blocker_id": "user_abroad_roaming_disabled_off",
+            "blocker_layer": "data",
+            "repair_owner": "hybrid",
+            "repair_action_family": "enable_and_toggle_roaming",
+            "diagnostic_evidence": [
+              "check_network_status",
+              "get_details_by_id"
+            ],
+            "verification_signal": "mobile_data_available"
+          }
+        ]
+      }
+    },
+    "stage4": {
+      "input": {
+        "observed_state": {
+          "can_send_mms": false,
+          "service_status": "no_service",
+          "mobile_data_working": false,
+          "internet_speed_desc": "No Connection"
+        },
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on"
+          },
+          {
+            "blocker_id": "bad_network_preference"
+          },
+          {
+            "blocker_id": "bad_wifi_calling"
+          },
+          {
+            "blocker_id": "break_apn_mms_setting"
+          },
+          {
+            "blocker_id": "break_app_storage_permission"
+          },
+          {
+            "blocker_id": "data_mode_off"
+          },
+          {
+            "blocker_id": "data_usage_exceeded"
+          },
+          {
+            "blocker_id": "unseat_sim_card"
+          },
+          {
+            "blocker_id": "user_abroad_roaming_disabled_off"
+          }
+        ]
+      },
+      "oracle_output": {
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "should_repair": false,
+            "repair_order": 1,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_airplane_mode",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "transfer",
+            "adjudication_label": "transfer_service_blocker",
+            "refusal_code": "hybrid_blocker_requires_transfer_v1",
+            "depends_on": []
+          },
+          {
+            "blocker_id": "unseat_sim_card",
+            "should_repair": false,
+            "repair_order": 2,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "reseat_sim_card",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "transfer",
+            "adjudication_label": "transfer_service_blocker",
+            "refusal_code": "hybrid_blocker_requires_transfer_v1",
+            "depends_on": [
+              "airplane_mode_on"
+            ]
+          },
+          {
+            "blocker_id": "data_mode_off",
+            "should_repair": false,
+            "repair_order": 3,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_data",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "transfer",
+            "adjudication_label": "transfer_data_blocker",
+            "refusal_code": "hybrid_blocker_requires_transfer_v1",
+            "depends_on": [
+              "airplane_mode_on",
+              "unseat_sim_card"
+            ]
+          },
+          {
+            "blocker_id": "user_abroad_roaming_disabled_off",
+            "should_repair": false,
+            "repair_order": 4,
+            "canonical_repair_steps": [
+              {
+                "requestor": "assistant",
+                "tool_name": "enable_roaming",
+                "arguments": {
+                  "customer_id": "C1001",
+                  "line_id": "L1002"
+                }
+              },
+              {
+                "requestor": "user",
+                "tool_name": "toggle_roaming",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "transfer",
+            "adjudication_label": "transfer_data_blocker",
+            "refusal_code": "hybrid_blocker_requires_transfer_v1",
+            "depends_on": [
+              "airplane_mode_on",
+              "unseat_sim_card",
+              "data_mode_off"
+            ]
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "should_repair": false,
+            "repair_order": 5,
+            "canonical_repair_steps": [
+              {
+                "requestor": "assistant",
+                "tool_name": "refuel_data",
+                "arguments": {
+                  "customer_id": "C1001",
+                  "line_id": "L1002",
+                  "gb_amount": 2.0
+                }
+              }
+            ],
+            "oracle_execute_decision": "transfer",
+            "adjudication_label": "transfer_data_blocker",
+            "refusal_code": "hybrid_blocker_requires_transfer_v1",
+            "depends_on": [
+              "airplane_mode_on",
+              "unseat_sim_card",
+              "data_mode_off"
+            ]
+          },
+          {
+            "blocker_id": "bad_network_preference",
+            "should_repair": false,
+            "repair_order": 6,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "set_network_mode_preference",
+                "arguments": {
+                  "mode": "4g_5g_preferred"
+                }
+              }
+            ],
+            "oracle_execute_decision": "transfer",
+            "adjudication_label": "transfer_data_blocker",
+            "refusal_code": "hybrid_blocker_requires_transfer_v1",
+            "depends_on": [
+              "airplane_mode_on",
+              "unseat_sim_card",
+              "data_mode_off"
+            ]
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "should_repair": false,
+            "repair_order": 7,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "toggle_wifi_calling",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "transfer",
+            "adjudication_label": "transfer_mms_app_blocker",
+            "refusal_code": "hybrid_blocker_requires_transfer_v1",
+            "depends_on": [
+              "airplane_mode_on",
+              "unseat_sim_card",
+              "data_mode_off",
+              "user_abroad_roaming_disabled_off",
+              "data_usage_exceeded",
+              "bad_network_preference"
+            ]
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "should_repair": false,
+            "repair_order": 8,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "reset_apn_settings",
+                "arguments": {}
+              },
+              {
+                "requestor": "user",
+                "tool_name": "reboot_device",
+                "arguments": {}
+              }
+            ],
+            "oracle_execute_decision": "transfer",
+            "adjudication_label": "transfer_mms_app_blocker",
+            "refusal_code": "hybrid_blocker_requires_transfer_v1",
+            "depends_on": [
+              "airplane_mode_on",
+              "unseat_sim_card",
+              "data_mode_off",
+              "user_abroad_roaming_disabled_off",
+              "data_usage_exceeded",
+              "bad_network_preference"
+            ]
+          },
+          {
+            "blocker_id": "break_app_storage_permission",
+            "should_repair": false,
+            "repair_order": 9,
+            "canonical_repair_steps": [
+              {
+                "requestor": "user",
+                "tool_name": "grant_app_permission",
+                "arguments": {
+                  "app_name": "messaging",
+                  "permission": "storage"
+                }
+              }
+            ],
+            "oracle_execute_decision": "transfer",
+            "adjudication_label": "transfer_mms_app_blocker",
+            "refusal_code": "hybrid_blocker_requires_transfer_v1",
+            "depends_on": [
+              "airplane_mode_on",
+              "unseat_sim_card",
+              "data_mode_off",
+              "user_abroad_roaming_disabled_off",
+              "data_usage_exceeded",
+              "bad_network_preference"
+            ]
+          }
+        ],
+        "repairability": "transfer_required",
+        "transfer_reason": "hybrid_blocker_requires_transfer_v1",
+        "decision_policy_version": "first_pass_v1"
+      }
+    },
+    "stage5": {
+      "input": {
+        "repairability": "transfer_required",
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "should_repair": false
+          },
+          {
+            "blocker_id": "unseat_sim_card",
+            "should_repair": false
+          },
+          {
+            "blocker_id": "data_mode_off",
+            "should_repair": false
+          },
+          {
+            "blocker_id": "user_abroad_roaming_disabled_off",
+            "should_repair": false
+          },
+          {
+            "blocker_id": "data_usage_exceeded",
+            "should_repair": false
+          },
+          {
+            "blocker_id": "bad_network_preference",
+            "should_repair": false
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "should_repair": false
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "should_repair": false
+          },
+          {
+            "blocker_id": "break_app_storage_permission",
+            "should_repair": false
+          }
+        ]
+      },
+      "oracle_output": {
+        "final_action": "transfer",
+        "selected_blocker_ids": [],
+        "deferred_blocker_ids": [
+          "airplane_mode_on",
+          "unseat_sim_card",
+          "data_mode_off",
+          "user_abroad_roaming_disabled_off",
+          "data_usage_exceeded",
+          "bad_network_preference",
+          "bad_wifi_calling",
+          "break_apn_mms_setting",
+          "break_app_storage_permission"
+        ],
+        "response_mode": "telecom_structured_execution",
+        "verification_plan": {
+          "required_postchecks": [],
+          "success_condition": "transfer_required"
+        },
+        "transfer_reason": "hybrid_blocker_requires_transfer_v1",
+        "cancelled_reservation_ids": [],
+        "refused_reservation_ids": [
+          "airplane_mode_on",
+          "unseat_sim_card",
+          "data_mode_off",
+          "user_abroad_roaming_disabled_off",
+          "data_usage_exceeded",
+          "bad_network_preference",
+          "bad_wifi_calling",
+          "break_apn_mms_setting",
+          "break_app_storage_permission"
+        ]
+      }
+    },
+    "metadata": {
+      "domain": "telecom",
+      "family_version": "telecom_mms_fixed_tree_v1",
+      "subset_version": "smoke10",
+      "source_split": "base",
+      "source_subsplit": "train",
+      "problem_family": "mms_issue",
+      "persona_level": "Easy",
+      "num_blockers": 9,
+      "blocker_layers_present": [
+        "data",
+        "mms_app",
+        "service"
+      ],
+      "contains_assistant_side_action": true,
+      "contains_user_side_action": true,
+      "contains_hybrid_action": true,
+      "requires_roaming_account_check": true,
+      "requires_data_refuel": true,
+      "expected_terminal_action": "transfer",
+      "target_success_signal": "can_send_mms_true",
+      "smoke_candidate": true,
+      "builder_version": "v1",
+      "stage2_oracle_mode": "static_precomputed_v1",
+      "stage3_oracle_mode": "heuristic_precomputed_v1",
+      "repairability": "transfer_required",
+      "repair_owner_set": [
+        "assistant",
+        "hybrid",
+        "user"
+      ],
+      "decision_policy_version": "first_pass_v1",
+      "num_selected_blockers": 0,
+      "num_deferred_blockers": 9
+    }
+  }
+]

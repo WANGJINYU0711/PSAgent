@@ -1,0 +1,53 @@
+{
+  "subset_name": "telecom_mms_fixed_tree_smoke10",
+  "source_subset": "base",
+  "family": "telecom_mms_recovery",
+  "selection_criteria": {
+    "only_from_base": true,
+    "exclude_small": true,
+    "cover_persona_levels": [
+      "None",
+      "Easy",
+      "Hard"
+    ],
+    "cover_blocker_counts": [
+      "2",
+      "3",
+      "4",
+      "6",
+      "9"
+    ],
+    "cover_layers": [
+      "service",
+      "data",
+      "mms_app"
+    ],
+    "cover_action_ownership": [
+      "user",
+      "assistant",
+      "hybrid"
+    ]
+  },
+  "notes": [
+    "Smoke10 is a fixed handpicked subset of base.",
+    "Subset and transfer examples exist inside smoke10, but not every sanity-check example from base is included.",
+    "In particular, [mms_issue]bad_network_preference|user_abroad_roaming_disabled_on[PERSONA:None] is a base-only subset sample, not a smoke10 sample."
+  ],
+  "sanity_check_examples": {
+    "subset_in_smoke10": "[mms_issue]break_app_storage_permission|data_usage_exceeded[PERSONA:Easy]",
+    "transfer_in_smoke10": "[mms_issue]bad_network_preference|user_abroad_roaming_disabled_off[PERSONA:None]",
+    "base_only_subset_example": "[mms_issue]bad_network_preference|user_abroad_roaming_disabled_on[PERSONA:None]"
+  },
+  "task_ids": [
+    "[mms_issue]airplane_mode_on|break_app_both_permissions[PERSONA:Hard]",
+    "[mms_issue]bad_network_preference|break_app_both_permissions[PERSONA:Easy]",
+    "[mms_issue]bad_network_preference|user_abroad_roaming_disabled_off[PERSONA:None]",
+    "[mms_issue]break_app_storage_permission|data_usage_exceeded[PERSONA:Easy]",
+    "[mms_issue]bad_wifi_calling|data_mode_off|data_usage_exceeded[PERSONA:Easy]",
+    "[mms_issue]break_apn_mms_setting|data_mode_off|user_abroad_roaming_disabled_on[PERSONA:Hard]",
+    "[mms_issue]bad_wifi_calling|break_apn_mms_setting|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Easy]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|break_apn_mms_setting|data_usage_exceeded[PERSONA:Hard]",
+    "[mms_issue]bad_network_preference|bad_wifi_calling|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_off[PERSONA:Easy]"
+  ]
+}

@@ -19,9 +19,16 @@ from typing import Any, Callable, Dict, Iterable, Optional
 
 from evaluator import DEFAULT_COST_SPEC, evaluate_terminal_prediction
 from adapters.airline_adapter import AirlineTaskAdapter
+from adapters.telecom_mms_adapter import TelecomMMSTaskAdapter
 from executors.bench_backed_executor import BenchBackedExecutor
 from executors.llm_bench_executor import LLMBenchExecutor
 from executors.simulated_executor import SimulatedExecutor
+from executors.telecom_bench_backed_executor import TelecomBenchBackedExecutor
+from executors.telecom_llm_bench_executor import TelecomLLMBenchExecutor
+from telecom_mms_evaluator import (
+    DEFAULT_COST_SPEC as TELECOM_DEFAULT_COST_SPEC,
+    evaluate_terminal_prediction as evaluate_telecom_terminal_prediction,
+)
 from tree_family.generator import TreeFamilyGenerator
 
 
@@ -126,6 +133,7 @@ class FixedTreeEnvironment:
         self.family_executor = None
         self.task_adapter = None
         self.current_task_descriptor = None
+        self._family_stages: list[str] | None = None
 
         runtime_catalog = list(agent_catalog)
         if family_kind is not None:
@@ -156,7 +164,8 @@ class FixedTreeEnvironment:
 
         self.family_spec = family_spec
         self.family_agent_map = family_agent_map
-        self.task_adapter = AirlineTaskAdapter()
+        self.task_adapter = None
+        self._family_stages = list(family_spec.stages)
         if self.executor_name == "simulated":
             self.family_executor = SimulatedExecutor(
                 stages=list(family_spec.stages),
@@ -214,6 +223,8 @@ class FixedTreeEnvironment:
         self.current_instance_id = str(instance["instance_id"])
         self._last_episode_log = None
         if self.family_kind is not None:
+            self._ensure_family_executor_for_instance(self.current_instance)
+            self.task_adapter = self._select_task_adapter(self.current_instance)
             assert self.task_adapter is not None
             self.current_task_descriptor = self.task_adapter.build_task_descriptor(
                 self.current_instance
@@ -260,7 +271,7 @@ class FixedTreeEnvironment:
         evaluator_result = self.evaluate_terminal_outcome(stage_outputs, path)
         terminal_cost = evaluator_result["terminal_penalty"]
         path_agent_cost = sum(self.agent_catalog[agent_id].cost for agent_id in path)
-        total_cost = terminal_cost + DEFAULT_COST_SPEC.path_agent_cost_weight * path_agent_cost
+        total_cost = terminal_cost + self._path_agent_cost_weight() * path_agent_cost
 
         final_action = (
             stage_outputs.get("stage5", {}).get("output", {}).get("final_action")
@@ -323,7 +334,7 @@ class FixedTreeEnvironment:
         evaluator_result = self.evaluate_terminal_outcome(stage_outputs, path)
         terminal_cost = evaluator_result["terminal_penalty"]
         path_agent_cost = float(execution["path_agent_cost"])
-        total_cost = terminal_cost + DEFAULT_COST_SPEC.path_agent_cost_weight * path_agent_cost
+        total_cost = terminal_cost + self._path_agent_cost_weight() * path_agent_cost
         final_action = execution.get("final_action")
         oracle_action = (
             self.current_instance.get("stage5", {})
@@ -379,22 +390,25 @@ class FixedTreeEnvironment:
                 "output": deepcopy(row.get("output", {})),
                 "source": "simulated_executor",
             }
-        stage_outputs.setdefault(
-            "stage5",
-            {
-                "input": {},
-                "output": {
-                    "final_action": execution.get("final_action"),
-                    "cancelled_reservation_ids": list(
-                        execution.get("cancelled_reservation_ids", [])
-                    ),
-                    "refused_reservation_ids": list(
-                        execution.get("refused_reservation_ids", [])
-                    ),
-                },
-                "source": "simulated_executor",
+        stage_outputs["stage5"] = {
+            "input": deepcopy(stage_outputs.get("stage5", {}).get("input", {})),
+            "output": {
+                "final_action": execution.get("final_action"),
+                "cancelled_reservation_ids": list(
+                    execution.get("cancelled_reservation_ids", [])
+                ),
+                "refused_reservation_ids": list(
+                    execution.get("refused_reservation_ids", [])
+                ),
+                "selected_blocker_ids": list(
+                    execution.get("selected_blocker_ids", execution.get("cancelled_reservation_ids", []))
+                ),
+                "deferred_blocker_ids": list(
+                    execution.get("deferred_blocker_ids", execution.get("refused_reservation_ids", []))
+                ),
             },
-        )
+            "source": "simulated_executor",
+        }
         return stage_outputs
 
     def compute_leaf_type(self, path: list[str]) -> str:
@@ -425,10 +439,61 @@ class FixedTreeEnvironment:
         if self.current_instance is None:
             raise RuntimeError("No current instance loaded.")
         predicted_stage5_output = stage_outputs.get("stage5", {}).get("output", {})
+        family = self.current_instance.get("family")
+        if family == "telecom_mms_recovery":
+            return evaluate_telecom_terminal_prediction(
+                instance=self.current_instance,
+                predicted_stage5_output=predicted_stage5_output,
+            )
         return evaluate_terminal_prediction(
             instance=self.current_instance,
             predicted_stage5_output=predicted_stage5_output,
         )
+
+    def _select_task_adapter(self, instance: JsonDict):
+        family = instance.get("family")
+        if family == "telecom_mms_recovery":
+            return TelecomMMSTaskAdapter()
+        return AirlineTaskAdapter()
+
+    def _path_agent_cost_weight(self) -> float:
+        if self.current_instance and self.current_instance.get("family") == "telecom_mms_recovery":
+            return TELECOM_DEFAULT_COST_SPEC.path_agent_cost_weight
+        return DEFAULT_COST_SPEC.path_agent_cost_weight
+
+    def _ensure_family_executor_for_instance(self, instance: JsonDict) -> None:
+        if self.family_kind is None or self._family_stages is None:
+            return
+        if self.executor_name != "bench_backed":
+            if self.executor_name != "llm_bench":
+                return
+        family = instance.get("family")
+        if self.executor_name == "bench_backed":
+            if family == "telecom_mms_recovery":
+                if not isinstance(self.family_executor, TelecomBenchBackedExecutor):
+                    self.family_executor = TelecomBenchBackedExecutor(
+                        stages=list(self._family_stages),
+                        seed=self.family_seed,
+                    )
+            else:
+                if not isinstance(self.family_executor, BenchBackedExecutor):
+                    self.family_executor = BenchBackedExecutor(
+                        stages=list(self._family_stages),
+                        seed=self.family_seed,
+                    )
+            return
+        if family == "telecom_mms_recovery":
+            if not isinstance(self.family_executor, TelecomLLMBenchExecutor):
+                self.family_executor = TelecomLLMBenchExecutor(
+                    stages=list(self._family_stages),
+                    seed=self.family_seed,
+                )
+        else:
+            if not isinstance(self.family_executor, LLMBenchExecutor):
+                self.family_executor = LLMBenchExecutor(
+                    stages=list(self._family_stages),
+                    seed=self.family_seed,
+                )
 
     def get_episode_log(self) -> JsonDict:
         """Return the most recent episode log."""

@@ -143,6 +143,14 @@ class SimulatedExecutor(BaseExecutor):
         return 0.52
 
     def _oracle_reservation_ids(self, raw_instance: dict[str, Any]) -> list[str]:
+        if raw_instance.get("family") == "telecom_mms_recovery":
+            rows = (
+                raw_instance.get("stage4", {})
+                .get("oracle_output", {})
+                .get("per_blocker", [])
+                or []
+            )
+            return [row.get("blocker_id") for row in rows if row.get("blocker_id")]
         rows = (
             raw_instance.get("stage4", {})
             .get("oracle_output", {})
@@ -175,6 +183,13 @@ class SimulatedExecutor(BaseExecutor):
         stage_scores: dict[str, float],
         stage_success: dict[str, bool],
     ) -> dict[str, Any]:
+        if raw_instance.get("family") == "telecom_mms_recovery":
+            return self._build_telecom_terminal_prediction(
+                raw_instance=raw_instance,
+                visible_blocker_ids=visible_reservation_ids,
+                stage_scores=stage_scores,
+                stage_success=stage_success,
+            )
         oracle_rows = (
             raw_instance.get("stage4", {})
             .get("oracle_output", {})
@@ -212,5 +227,51 @@ class SimulatedExecutor(BaseExecutor):
             "final_action": final_action,
             "cancelled_reservation_ids": sorted(cancelled_ids),
             "refused_reservation_ids": sorted(refused_ids),
+            "response_mode": "simulated_family_executor",
+        }
+
+    def _build_telecom_terminal_prediction(
+        self,
+        raw_instance: dict[str, Any],
+        visible_blocker_ids: list[str],
+        stage_scores: dict[str, float],
+        stage_success: dict[str, bool],
+    ) -> dict[str, Any]:
+        oracle_rows = (
+            raw_instance.get("stage4", {})
+            .get("oracle_output", {})
+            .get("per_blocker", [])
+            or []
+        )
+        row_map = {row.get("blocker_id"): deepcopy(row) for row in oracle_rows if row.get("blocker_id")}
+        visible_rows = [row_map[bid] for bid in visible_blocker_ids if bid in row_map]
+
+        selected_ids = [
+            row["blocker_id"]
+            for row in visible_rows
+            if row.get("oracle_execute_decision") == "repair"
+        ]
+        deferred_ids: list[str] = []
+
+        if stage_scores.get("stage4", 1.0) < 0.62 and selected_ids:
+            deferred_ids.append(selected_ids.pop())
+        if not stage_success.get("stage3", True) and selected_ids:
+            deferred_ids.append(selected_ids.pop())
+
+        if selected_ids and deferred_ids:
+            final_action = "repair_subset"
+        elif selected_ids:
+            final_action = "repair_all"
+        else:
+            final_action = "transfer"
+
+        selected_ids = sorted(selected_ids)
+        deferred_ids = sorted(deferred_ids)
+        return {
+            "final_action": final_action,
+            "selected_blocker_ids": selected_ids,
+            "deferred_blocker_ids": deferred_ids,
+            "cancelled_reservation_ids": selected_ids,
+            "refused_reservation_ids": deferred_ids,
             "response_mode": "simulated_family_executor",
         }
