@@ -27,7 +27,10 @@ from epsilon_exp3 import EpsilonExp3Policy  # noqa: E402
 from fixed_tree_env import FixedTreeEnvironment  # noqa: E402
 from full_share import FullSharePolicy  # noqa: E402
 from full_unshare import FullUnsharePolicy  # noqa: E402
+from mechanism_utils import choose_path_with_mechanism  # noqa: E402
 from naive_mixed import NaiveMixedPolicy  # noqa: E402
+from oracle_policy import OraclePolicy  # noqa: E402
+from risky_ps import RiskyPSPolicy  # noqa: E402
 
 
 POLICIES = {
@@ -36,6 +39,8 @@ POLICIES = {
     "epsilon_exp3": lambda seed: EpsilonExp3Policy(seed=seed),
     "direct_multistage_exp3": lambda seed: DirectMultiStageExp3Policy(seed=seed),
     "naive_mixed": lambda seed: NaiveMixedPolicy(seed=seed),
+    "risky_ps": lambda seed: RiskyPSPolicy(seed=seed),
+    "oracle": lambda seed: OraclePolicy(seed=seed),
 }
 
 
@@ -50,6 +55,7 @@ def load_instances(path: Path) -> list[dict[str, Any]]:
 def run_one(
     instances: list[dict[str, Any]],
     method: str,
+    mechanism: str,
     family_kind: str,
     seed: int,
 ) -> dict[str, Any]:
@@ -62,16 +68,23 @@ def run_one(
     logs: list[dict[str, Any]] = []
     for _ in range(len(instances)):
         instance = rng.choice(instances)
-        path = policy.select_path(instance, env)
+        path, _selection_meta, should_update = choose_path_with_mechanism(
+            policy,
+            instance,
+            env,
+            mechanism,
+        )
         env.reset(instance)
         result = env.run_path(path)
-        policy.update(result)
+        if should_update:
+            policy.update(result)
         logs.append(result.episode_log)
 
     count = len(logs)
     return {
         "family_kind": family_kind,
         "method": method,
+        "mechanism": mechanism,
         "seed": seed,
         "episodes": count,
         "mean_total_cost": sum(log["total_cost"] for log in logs) / count,
@@ -111,6 +124,11 @@ def main() -> None:
         nargs="+",
         default=list(POLICIES),
     )
+    parser.add_argument(
+        "--mechanism",
+        choices=["algorithm_direct", "theta_guided_agent", "agent_only"],
+        default="algorithm_direct",
+    )
     args = parser.parse_args()
 
     instances = load_instances(args.data)
@@ -118,7 +136,7 @@ def main() -> None:
     for family_kind in args.family_kinds:
         for method in args.methods:
             for seed in args.seeds:
-                rows.append(run_one(instances, method, family_kind, seed))
+                rows.append(run_one(instances, method, args.mechanism, family_kind, seed))
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     json_path = args.output_dir / "results.json"

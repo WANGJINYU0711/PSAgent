@@ -21,8 +21,11 @@ from epsilon_exp3 import EpsilonExp3Policy  # noqa: E402
 from fixed_tree_env import FixedTreeEnvironment  # noqa: E402
 from full_share import FullSharePolicy  # noqa: E402
 from full_unshare import FullUnsharePolicy  # noqa: E402
+from mechanism_utils import choose_path_with_mechanism  # noqa: E402
 from naive_mixed import NaiveMixedPolicy  # noqa: E402
+from oracle_policy import OraclePolicy  # noqa: E402
 from random_path import RandomPathPolicy  # noqa: E402
+from risky_ps import RiskyPSPolicy  # noqa: E402
 
 
 PolicyFactory = Callable[[int], Any]
@@ -37,6 +40,8 @@ POLICY_REGISTRY: dict[str, PolicyFactory] = {
     "random_path": lambda seed: RandomPathPolicy(seed=seed),
     "direct_multistage_exp3": lambda seed: DirectMultiStageExp3Policy(seed=seed),
     "epsilon_exp3": lambda seed: EpsilonExp3Policy(seed=seed),
+    "risky_ps": lambda seed: RiskyPSPolicy(seed=seed),
+    "oracle": lambda seed: OraclePolicy(seed=seed),
 }
 
 
@@ -50,16 +55,19 @@ def load_instances(path: Path) -> list[dict[str, Any]]:
 
 def make_episode_log(
     method: str,
+    mechanism: str,
     seed: int,
     episode_index: int,
     instance: dict[str, Any],
     result: Any,
     policy: Any,
     catalog_preset: str,
+    selection_meta: dict[str, Any],
 ) -> dict[str, Any]:
     metadata = instance.get("metadata", {})
     log = {
         "method": method,
+        "mechanism": mechanism,
         "seed": seed,
         "catalog_preset": catalog_preset,
         "episode_index": episode_index,
@@ -77,6 +85,8 @@ def make_episode_log(
         "path_agent_cost": result.path_agent_cost,
         "total_cost": result.total_cost,
         "success": result.success,
+        "selection_signal_summary": selection_meta.get("selection_signal_summary"),
+        "agent_llm_raw_output": selection_meta.get("agent_llm_raw_output"),
     }
     if isinstance(getattr(result, "episode_log", None), dict):
         for field in (
@@ -97,7 +107,7 @@ def make_episode_log(
     return log
 
 
-def summarize_logs(method: str, seed: int, logs: list[dict[str, Any]], policy: Any) -> dict[str, Any]:
+def summarize_logs(method: str, mechanism: str, seed: int, logs: list[dict[str, Any]], policy: Any) -> dict[str, Any]:
     num_episodes = len(logs)
     total_cost = sum(log["total_cost"] for log in logs)
     terminal_cost = sum(log["terminal_cost"] for log in logs)
@@ -106,6 +116,7 @@ def summarize_logs(method: str, seed: int, logs: list[dict[str, Any]], policy: A
     unshared_count = num_episodes - shared_count
     return {
         "method": method,
+        "mechanism": mechanism,
         "seed": seed,
         "episodes": num_episodes,
         "mean_total_cost": (total_cost / num_episodes) if num_episodes else 0.0,
@@ -142,6 +153,11 @@ def main() -> None:
         default="day3_default",
         help="Agent catalog preset name.",
     )
+    parser.add_argument(
+        "--mechanism",
+        choices=["algorithm_direct", "theta_guided_agent", "agent_only"],
+        default="algorithm_direct",
+    )
     args = parser.parse_args()
 
     instances = load_instances(args.data)
@@ -157,28 +173,36 @@ def main() -> None:
     policy.bind_env(env)
     policy.reset()
 
-    output_dir = args.output_dir / args.method / f"seed_{args.seed}"
+    output_dir = args.output_dir / args.mechanism / args.method / f"seed_{args.seed}"
     output_dir.mkdir(parents=True, exist_ok=True)
     logs: list[dict[str, Any]] = []
 
     for episode_index in range(args.episodes):
         instance = rng.choice(instances)
-        path = policy.select_path(instance, env)
+        path, selection_meta, should_update = choose_path_with_mechanism(
+            policy,
+            instance,
+            env,
+            args.mechanism,
+        )
         env.reset(instance)
         result = env.run_path(path)
-        policy.update(result)
+        if should_update:
+            policy.update(result)
         log = make_episode_log(
             args.method,
+            args.mechanism,
             args.seed,
             episode_index,
             instance,
             result,
             policy,
             catalog_preset,
+            selection_meta,
         )
         logs.append(log)
 
-    summary = summarize_logs(args.method, args.seed, logs, policy)
+    summary = summarize_logs(args.method, args.mechanism, args.seed, logs, policy)
 
     log_path = output_dir / "episode_logs.jsonl"
     with log_path.open("w", encoding="utf-8") as handle:

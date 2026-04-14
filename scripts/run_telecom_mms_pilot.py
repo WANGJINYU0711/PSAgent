@@ -27,6 +27,10 @@ from direct_multistage_exp3 import DirectMultiStageExp3Policy  # noqa: E402
 from epsilon_exp3 import EpsilonExp3Policy  # noqa: E402
 from fixed_tree_env import FixedTreeEnvironment  # noqa: E402
 from full_share import FullSharePolicy  # noqa: E402
+from mechanism_utils import choose_path_with_mechanism  # noqa: E402
+from oracle_policy import OraclePolicy  # noqa: E402
+from oracle_eval import find_best_stationary_path  # noqa: E402
+from risky_ps import RiskyPSPolicy  # noqa: E402
 
 
 PolicyFactory = Callable[[int], Any]
@@ -35,6 +39,8 @@ POLICIES: dict[str, PolicyFactory] = {
     "direct_multistage_exp3": lambda seed: DirectMultiStageExp3Policy(seed=seed),
     "epsilon_exp3": lambda seed: EpsilonExp3Policy(seed=seed),
     "full_share": lambda seed: FullSharePolicy(seed=seed),
+    "risky_ps": lambda seed: RiskyPSPolicy(seed=seed),
+    "oracle": lambda seed: OraclePolicy(seed=seed),
 }
 
 
@@ -67,16 +73,19 @@ def select_pilot_instances(instances: list[dict[str, Any]], per_action: int) -> 
 
 def make_episode_row(
     method: str,
+    mechanism: str,
     family_kind: str,
     seed: int,
     episode_index: int,
     instance: dict[str, Any],
     result: Any,
+    selection_meta: dict[str, Any],
 ) -> dict[str, Any]:
     metadata = instance.get("metadata", {})
     episode_log = result.episode_log or {}
     return {
         "method": method,
+        "mechanism": mechanism,
         "family_kind": family_kind,
         "seed": seed,
         "episode_index": episode_index,
@@ -95,6 +104,8 @@ def make_episode_row(
         "missed_cancel_count": int(episode_log.get("missed_cancel_count", 0)),
         "false_refuse_count": int(episode_log.get("false_refuse_count", 0)),
         "missed_refuse_count": int(episode_log.get("missed_refuse_count", 0)),
+        "selection_signal_summary": selection_meta.get("selection_signal_summary"),
+        "agent_llm_raw_output": selection_meta.get("agent_llm_raw_output"),
     }
 
 
@@ -102,23 +113,44 @@ def mean(values: list[float]) -> float:
     return statistics.fmean(values) if values else 0.0
 
 
-def summarize_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def summarize_rows(
+    rows: list[dict[str, Any]],
+    stationary_oracle_by_run: dict[tuple[str, int], dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     overall_summary: list[dict[str, Any]] = []
     by_action_summary: list[dict[str, Any]] = []
 
-    grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        grouped[(row["method"], row["family_kind"])].append(row)
+        grouped[(row["method"], row["mechanism"], row["family_kind"])].append(row)
 
-    for (method, family_kind), group_rows in sorted(grouped.items()):
+    for (method, mechanism, family_kind), group_rows in sorted(grouped.items()):
+        cumulative_total_cost = sum(r["total_cost"] for r in group_rows)
+        unique_runs = sorted({(r["family_kind"], r["seed"]) for r in group_rows})
+        oracle_cumulative_total_cost = sum(
+            stationary_oracle_by_run[(run_family_kind, run_seed)]["cumulative_total_cost"]
+            for run_family_kind, run_seed in unique_runs
+        )
+        cumulative_regret = cumulative_total_cost - oracle_cumulative_total_cost
+        mean_regret = cumulative_regret / len(group_rows)
+        oracle_stationary_paths = {
+            f"seed_{run_seed}": list(stationary_oracle_by_run[(run_family_kind, run_seed)]["path"])
+            for run_family_kind, run_seed in unique_runs
+        }
         overall_summary.append(
             {
                 "method": method,
+                "mechanism": mechanism,
                 "family_kind": family_kind,
                 "episodes": len(group_rows),
                 "exact_match_mean": mean([float(r["exact_match"]) for r in group_rows]),
                 "terminal_penalty_mean": mean([r["terminal_penalty"] for r in group_rows]),
                 "total_cost_mean": mean([r["total_cost"] for r in group_rows]),
+                "algorithm_cumulative_total_cost": cumulative_total_cost,
+                "oracle_stationary_paths": oracle_stationary_paths,
+                "oracle_stationary_total_cost": oracle_cumulative_total_cost,
+                "cumulative_regret": cumulative_regret,
+                "mean_regret": mean_regret,
                 "oracle_action_distribution": dict(Counter(r["oracle_action"] for r in group_rows)),
                 "final_action_distribution": dict(Counter(r["final_action"] for r in group_rows)),
             }
@@ -128,15 +160,25 @@ def summarize_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], li
         for row in group_rows:
             action_groups[row["oracle_action"]].append(row)
         for oracle_action, action_rows in sorted(action_groups.items()):
+            action_cumulative_total_cost = sum(r["total_cost"] for r in action_rows)
+            oracle_action_total_cost = sum(
+                stationary_oracle_by_run[(r["family_kind"], r["seed"])]["episode_total_costs_by_instance_id"][r["instance_id"]]
+                for r in action_rows
+            )
+            action_cumulative_regret = action_cumulative_total_cost - oracle_action_total_cost
             by_action_summary.append(
                 {
                     "method": method,
+                    "mechanism": mechanism,
                     "family_kind": family_kind,
                     "oracle_action": oracle_action,
                     "episodes": len(action_rows),
                     "exact_match_mean": mean([float(r["exact_match"]) for r in action_rows]),
                     "terminal_penalty_mean": mean([r["terminal_penalty"] for r in action_rows]),
                     "total_cost_mean": mean([r["total_cost"] for r in action_rows]),
+                    "oracle_stationary_total_cost": oracle_action_total_cost,
+                    "cumulative_regret": action_cumulative_regret,
+                    "mean_regret": action_cumulative_regret / len(action_rows),
                     "final_action_distribution": dict(Counter(r["final_action"] for r in action_rows)),
                 }
             )
@@ -169,6 +211,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def run_pilot(
     instances: list[dict[str, Any]],
     methods: list[str],
+    mechanism: str,
     family_kinds: list[str],
     seeds: list[int],
 ) -> list[dict[str, Any]]:
@@ -186,21 +229,54 @@ def run_pilot(
                 policy.bind_env(env)
                 policy.reset()
                 for episode_index, instance in enumerate(instances):
-                    path = policy.select_path(instance, env)
+                    path, selection_meta, should_update = choose_path_with_mechanism(
+                        policy,
+                        instance,
+                        env,
+                        mechanism,
+                    )
                     env.reset(instance)
                     result = env.run_path(path)
-                    policy.update(result)
+                    if should_update:
+                        policy.update(result)
                     rows.append(
                         make_episode_row(
                             method=method,
+                            mechanism=mechanism,
                             family_kind=family_kind,
                             seed=seed,
                             episode_index=episode_index,
                             instance=instance,
                             result=result,
+                            selection_meta=selection_meta,
                         )
                     )
     return rows
+
+
+def compute_stationary_oracle_by_run(
+    instances: list[dict[str, Any]],
+    family_kinds: list[str],
+    seeds: list[int],
+) -> dict[tuple[str, int], dict[str, Any]]:
+    summaries: dict[tuple[str, int], dict[str, Any]] = {}
+    for family_kind in family_kinds:
+        for seed in seeds:
+            env = FixedTreeEnvironment(
+                agent_catalog=[],
+                family_kind=family_kind,
+                family_seed=seed,
+                executor_name="simulated",
+            )
+            best_path, summary = find_best_stationary_path(instances, env)
+            summary = dict(summary)
+            summary["path"] = list(best_path)
+            summary["episode_total_costs_by_instance_id"] = {
+                instance["instance_id"]: cost
+                for instance, cost in zip(instances, summary["episode_total_costs"])
+            }
+            summaries[(family_kind, seed)] = summary
+    return summaries
 
 
 def main() -> None:
@@ -224,23 +300,40 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1])
     parser.add_argument("--family-kinds", nargs="+", default=["neutral", "strong"])
     parser.add_argument("--per-action", type=int, default=3)
+    parser.add_argument(
+        "--mechanism",
+        choices=["algorithm_direct", "theta_guided_agent", "agent_only"],
+        default="algorithm_direct",
+    )
     args = parser.parse_args()
 
     instances = load_instances(args.data)
     pilot_instances = select_pilot_instances(instances, per_action=args.per_action)
-    rows = run_pilot(
+    stationary_oracle_by_run = compute_stationary_oracle_by_run(
         instances=pilot_instances,
-        methods=args.methods,
         family_kinds=args.family_kinds,
         seeds=args.seeds,
     )
-    overall_summary, by_action_summary = summarize_rows(rows)
+    rows = run_pilot(
+        instances=pilot_instances,
+        methods=args.methods,
+        mechanism=args.mechanism,
+        family_kinds=args.family_kinds,
+        seeds=args.seeds,
+    )
+    for row in rows:
+        oracle_run = stationary_oracle_by_run[(row["family_kind"], row["seed"])]
+        oracle_episode_cost = oracle_run["episode_total_costs_by_instance_id"][row["instance_id"]]
+        row["oracle_stationary_episode_cost"] = oracle_episode_cost
+        row["episode_regret"] = row["total_cost"] - oracle_episode_cost
+    overall_summary, by_action_summary = summarize_rows(rows, stationary_oracle_by_run)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     freeze_config = {
         "dataset": str(args.data),
         "executor_name": "simulated",
         "methods": args.methods,
+        "mechanism": args.mechanism,
         "family_kinds": args.family_kinds,
         "seeds": args.seeds,
         "per_action": args.per_action,
@@ -248,10 +341,20 @@ def main() -> None:
         "terminal_action_distribution": dict(
             Counter(instance["stage5"]["oracle_output"]["final_action"] for instance in pilot_instances)
         ),
+        "regret_definition": "algorithm_cumulative_total_cost - stationary_oracle_cumulative_total_cost",
+        "per_instance_oracle_note": "per-instance oracle is retained for sanity/supporting analysis only",
     }
     write_json(args.output_dir / "pilot_config.json", freeze_config)
     write_json(args.output_dir / "pilot_split.json", pilot_instances)
     write_jsonl(args.output_dir / "episode_logs.jsonl", rows)
+    write_json(args.output_dir / "stationary_oracle_summary.json", {
+        f"{family_kind}::seed_{seed}": {
+            "path": summary["path"],
+            "cumulative_total_cost": summary["cumulative_total_cost"],
+            "mean_total_cost": summary["mean_total_cost"],
+        }
+        for (family_kind, seed), summary in stationary_oracle_by_run.items()
+    })
     write_json(args.output_dir / "overall_summary.json", overall_summary)
     write_json(args.output_dir / "by_action_summary.json", by_action_summary)
     write_csv(args.output_dir / "overall_summary.csv", overall_summary)
@@ -262,6 +365,7 @@ def main() -> None:
         "pilot_instances": len(pilot_instances),
         "output_dir": str(args.output_dir),
         "methods": args.methods,
+        "mechanism": args.mechanism,
         "family_kinds": args.family_kinds,
         "seeds": args.seeds,
     }, indent=2))

@@ -1,20 +1,27 @@
-"""All-share endpoint baseline with leaf-centric subtree aggregation.
+"""Full-Share baseline with recursive subtree aggregation.
 
-This version treats each complete root-to-leaf path as a leaf arm. It maintains:
+This baseline keeps the Full-Share program state explicitly at the leaf level
+and derives every internal-node quantity from subtree aggregates:
 
-- ``theta[leaf]``: leaf-level score
-- ``leaf_weights[leaf]``: current leaf weight
-- ``prefix_weights[prefix]``: aggregate subtree weight for every prefix
+- ``theta[leaf]``: leaf score
+- ``leaf_weights[leaf]``: ``exp(eta * theta[leaf])``
+- ``prefix_weights[prefix]``: subtree aggregate rooted at ``prefix``
 
-Selection is implemented by explicit prefix/subtree sampling. Starting from the
-root prefix, the policy repeatedly compares the aggregate weights of the legal
-child prefixes and samples the next child until a complete leaf is reached. The
-update follows the shared endpoint mechanics:
+Selection uses only the subtree aggregates, mirroring Algorithm 2 in
+``notes/PartialShare.md``: at each internal node we sample a child in
+proportion to that child subtree's aggregate mass. Update is a single-leaf
+change followed by ancestor delta propagation:
 
-1. update the selected leaf score
-2. recompute the selected leaf weight
-3. compute ``delta = new_w - old_w``
-4. add that delta to every ancestor prefix aggregate
+1. estimate the sampled leaf loss
+2. update ``theta[leaf]``
+3. recompute ``leaf_weights[leaf]``
+4. propagate ``delta = new_weight - old_weight`` to every ancestor prefix
+
+Under the current ``force_shared`` feedback protocol we still treat the sampled
+leaf as the shared endpoint, but the uploaded loss is now the standard
+leaf-bandit importance-weighted estimator ``observed_cost / path_prob``. This
+keeps the recursive aggregation structure unchanged while making the leaf update
+closer to the estimator semantics implied by ``notes/PartialShare.md``.
 """
 
 from __future__ import annotations
@@ -39,6 +46,9 @@ class FullSharePolicy(BasePolicy):
         self.theta: dict[LeafKey, float] = {}
         self.leaf_weights: dict[LeafKey, float] = {}
         self.prefix_weights: dict[PrefixKey, float] = {}
+        self.last_stage_probs: dict[str, float] = {}
+        self.last_path_prob: float = 0.0
+        self.last_estimated_loss: float | None = None
 
     @property
     def name(self) -> str:
@@ -56,6 +66,9 @@ class FullSharePolicy(BasePolicy):
         self.theta = {}
         self.leaf_weights = {}
         self.prefix_weights = {}
+        self.last_stage_probs = {}
+        self.last_path_prob = 0.0
+        self.last_estimated_loss = None
 
         for path in self.paths:
             leaf = tuple(path)
@@ -70,8 +83,12 @@ class FullSharePolicy(BasePolicy):
             self.bind_env(env)
 
         current_prefix: PrefixKey = ()
+        self.last_stage_probs = {}
+        self.last_path_prob = 1.0
         for stage_name in env.STAGE_NAMES:
-            current_prefix = self._sample_child_prefix(current_prefix, stage_name, env)
+            current_prefix, conditional_prob = self._sample_child_prefix(current_prefix, stage_name, env)
+            self.last_stage_probs[stage_name] = conditional_prob
+            self.last_path_prob *= conditional_prob
         if len(current_prefix) != len(env.STAGE_NAMES):
             raise RuntimeError(
                 "FullSharePolicy failed to sample a complete leaf path. "
@@ -84,18 +101,10 @@ class FullSharePolicy(BasePolicy):
         if leaf not in self.theta or leaf not in self.leaf_weights:
             raise KeyError(f"Selected path is unknown to FullSharePolicy: {leaf}")
 
-        observed_cost = episode_result.total_cost
-        old_weight = self.leaf_weights[leaf]
-
-        # Shared endpoint update: the leaf score moves by the observed shared cost,
-        # then the induced weight delta is pushed to every ancestor prefix.
-        self.theta[leaf] = self.theta[leaf] - self.eta * observed_cost
-        new_weight = math.exp(self.theta[leaf])
-        self.leaf_weights[leaf] = new_weight
-
-        delta = new_weight - old_weight
-        for prefix in self._prefixes(leaf):
-            self.prefix_weights[prefix] = self.prefix_weights.get(prefix, 0.0) + delta
+        estimated_loss = self._leaf_estimated_loss(episode_result)
+        self.last_estimated_loss = estimated_loss
+        delta = self._apply_leaf_update(leaf, estimated_loss)
+        self._propagate_delta_to_prefixes(leaf, delta)
 
     def _prefixes(self, leaf: LeafKey) -> list[PrefixKey]:
         return [tuple(leaf[:depth]) for depth in range(0, len(leaf) + 1)]
@@ -131,7 +140,7 @@ class FullSharePolicy(BasePolicy):
         current_prefix: PrefixKey,
         stage_name: str,
         env: FixedTreeEnvironment,
-    ) -> PrefixKey:
+    ) -> tuple[PrefixKey, float]:
         child_prefixes = self._child_prefixes(current_prefix, stage_name, env)
         if not child_prefixes:
             raise RuntimeError(
@@ -139,15 +148,47 @@ class FullSharePolicy(BasePolicy):
                 f"current_prefix={list(current_prefix)} stage_name={stage_name}"
             )
 
-        weights = [
+        child_weights = [
             max(0.0, self.prefix_weights.get(child_prefix, 0.0))
             for child_prefix in child_prefixes
         ]
-        if sum(weights) <= 0:
-            return child_prefixes[self.rng.randrange(len(child_prefixes))]
+        if sum(child_weights) <= 0:
+            selected_idx = self.rng.randrange(len(child_prefixes))
+            return child_prefixes[selected_idx], 1.0 / len(child_prefixes)
 
-        selected_idx = self._sample_index(weights)
-        return child_prefixes[selected_idx]
+        # Recursive aggregation: each child competes only through its subtree mass.
+        selected_idx = self._sample_index(child_weights)
+        total_weight = sum(child_weights)
+        conditional_prob = child_weights[selected_idx] / total_weight
+        return child_prefixes[selected_idx], conditional_prob
+
+    def _leaf_estimated_loss(self, episode_result: EpisodeResult) -> float:
+        """Return the sampled leaf's importance-weighted loss estimate.
+
+        This is the standard leaf-bandit first-pass estimator:
+
+        ``estimated_loss = observed_cost / sampled_leaf_probability``
+
+        It is unbiased for the sampled leaf loss under the recursive sampling
+        distribution induced by subtree aggregation.
+        """
+
+        return episode_result.total_cost / max(self.last_path_prob, 1e-12)
+
+    def _apply_leaf_update(self, leaf: LeafKey, estimated_loss: float) -> float:
+        """Update a single leaf and return its induced weight delta."""
+
+        old_weight = self.leaf_weights[leaf]
+        self.theta[leaf] = self.theta[leaf] - estimated_loss
+        new_weight = math.exp(self.eta * self.theta[leaf])
+        self.leaf_weights[leaf] = new_weight
+        return new_weight - old_weight
+
+    def _propagate_delta_to_prefixes(self, leaf: LeafKey, delta: float) -> None:
+        """Push a leaf weight change to every ancestor subtree aggregate."""
+
+        for prefix in self._prefixes(leaf):
+            self.prefix_weights[prefix] = self.prefix_weights.get(prefix, 0.0) + delta
 
     def get_state(self) -> dict[str, Any]:
         top_leaves = sorted(
@@ -164,4 +205,12 @@ class FullSharePolicy(BasePolicy):
                 {"path": list(path), "weight": round(weight, 6), "theta": round(self.theta[path], 6)}
                 for path, weight in top_leaves
             ],
+        }
+
+    def get_last_selection_info(self) -> dict[str, Any]:
+        return {
+            "stage_probs": dict(self.last_stage_probs),
+            "path_prob": self.last_path_prob,
+            "estimated_loss": self.last_estimated_loss,
+            "update_type": "full_share_iw_leaf_v2",
         }

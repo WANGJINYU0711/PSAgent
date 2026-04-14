@@ -1,9 +1,8 @@
-# PartialShare.pdf
+# Analysis of Partial-Share (PS) Algorithm
 
-Source: `PartialShare.pdf`
+Converted from PDF using `pdftotext -layout` for Codex-friendly reading.
 
-Note: extracted with layout preserved where possible; formulas may contain minor PDF-to-text noise.
-
+> Note: Formula layout and line breaks are OCR/text-extraction based, so a few equations may need manual cleanup.
 
 ## Page 1
 
@@ -18,72 +17,73 @@ Analysis of Partial-Share (PS) Algorithm
                      1
 ```
 
-
 ## Page 2
 
 ```text
-Algorithm 1 Adaptive Partial-Share (PS) Algorithm
- 1: Input: Tree T , Shared leaves Lshr , learning rate η, exploration rate ϵ.
- 2: Pre-processing: Label node i as Safe if subtree(i) ⊆ Lshr , else Risky.
- 3: Initialize: θℓ ← 0, ∀ℓ ∈ L.
- 4:   Compute initial aggregates for all edges (i, j):
-                                X                                                           X                 
-              Sshr [i, j] ←               exp(ηθℓ ), Sunshr [i, j] ← exp                                 ηθℓ
-                           ℓ∈subtree(j)∩Lshr                                       ℓ∈subtree(j)∩Lunshr
-
- 5: for each round t = 1, . . . , T do
- 6:    1. Adaptive Selection:
- 7:    i ← root, Πt (i) ← 1
- 8:    while i is not a leaf do
- 9:      Calculate exploitation probability based on subtree exponential weights:
-
-                                                     Sshr [i, j] + Sunshr [i, j]
-                               Pexp (j) = P
-                                               k∈Children(i) (Sshr [i, k] + Sunshr [i, k])
-
-10:        Determine local exploration rate: ϵi ← ϵ if i is Risky else 0.
-11:        Construct sampling distribution for child j:
-                                                                         ϵi
-                                     pt (j) = (1 − ϵi )Pexp (j) +
-                                                                    |Children(i)|
-
-12:        Sample child j ∼ pt (·).
-13:        Update path probability for child j:
-
-                                                Πt (j) ← Πt (i) · pt (j)
-
-14:        i←j
-15:    end while
-16:    Let leaf ℓt ← i. Observe cost ct .
-17:    2. Hybrid Update:
-18:    valold ← exp(ηθℓt )                                     ▷ Record leaf weight before update
-19:    if ℓt ∈ Lshr then                                             ▷ Full-Information Mode
-20:        θℓt ← θℓt − ct
-21:        Calculate change: ∆ ← exp(ηθℓt ) − valold
-22:        Back-propagation: Propagate ∆ to Sshr along ancestors:
-
-                                 Sshr [parent, child] ← Sshr [parent, child] + ∆
-
-23:    else                                                                                    ▷ Bandit Mode
-24:       θold ← θℓt                                                         ▷ (modified) record θ before update
-25:       θℓt ← θℓt − ct /Πt (ℓt )
-26:       (modified) Compute multiplicative factor:
-                                                                        
-                                               r ← exp η(θℓt − θold )
-
-27:        (modified) Back-propagation: Update Sunshr along ancestors multiplicatively:
-
-                                Sunshr [parent, child] ← Sunshr [parent, child] · r
-
-28:    end if
-29: end for
+Algorithm 1 Adaptive Partial-Share (PS) Algorithm (Shared branch with IPS update)
+ 1: Input: Tree T , shared leaf set Lshr , learning rate η, exploration base rate ϵ.
+ 2: Notation: For a node i, let L(i) denote the set of leaf descendants of i.
+ 3: Pre-processing: Label a non-leaf node i as Safe if L(i) ⊆ Lshr , and Risky otherwise.
+ 4: Initialize:
+ 5:   θℓ ← 0, ∀ℓ ∈ L
+ 6:   For every edge (i, j) with j ∈ Children(i):
+                                  X
+                 Sshr [i, j] ←            exp(ηθℓ ),     Sunshr [i, j] ← 1{L(j) ∩ Lunshr ̸= ∅}.
+                                ℓ∈L(j)∩Lshr
 
 
+ 7:   Interpret Sunshr [i, j] as a maintained unshared aggregate state, updated online along sampled un-
+    shared paths.
+ 8: for each round t = 1, . . . , T do
+ 9:    1. Adaptive Selection
+10:    i ← root, Πt (root) ← 1
+11:    Initialize sampled path Pt ← ∅
+12:    while i is not a leaf do
+13:        for each j ∈ Children(i) do
+
+                                                       Sshr [i, j] + Sunshr [i, j]
+                             Ptexp (j | i) ← P                                             
+                                                 k∈Children(i) Sshr [i, k] + Sunshr [i, k]
+
+14:         end for
+                                   ϵi ← ϵ · 1{i is Risky and Children(i) ̸⊆ L}
+15:         for each j ∈ Children(i) do
+                                                                              ϵi
+                                 pt (j | i) ← (1 − ϵi )Ptexp (j | i) +
+                                                                         |Children(i)|
+
+16:          end for
+17:          Sample jt ∼ pt (· | i)
+18:          Append (i, jt ) to Pt
+19:          Πt (jt ) ← Πt (i) pt (jt | i)
+20:          i ← jt
+21:      end while
+22:      Let sampled leaf be ℓt ← i. Observe terminal cost ct .
+23:      2. Hybrid Update
+24:      if ℓt ∈ Lshr then                                                                     ▷ Shared branch
+25:          valold ← exp(ηθℓt )
+26:          θℓt ← θℓt − Πtc(ℓt t )
+27:          ∆t ← exp(ηθℓt ) − valold
+28:          Back-propagation: Propagate ∆t to Sshr along sampled ancestors:
+
+                       Sshr [u, v] ← Sshr [u, v] + ∆t ,       ∀(u, v) ∈ Pt such that ℓt ∈ L(v)
+
+29:       else                                                                          ▷ Unshared branch
+30:          Back-propagation: Propagate multiplicative updates to Sunshr along sampled risky ances-
+      tors:
+                                                                       
+                                                             ct
+               Sunshr [u, v] ← Sunshr [u, v] · exp −η                     , ∀(u, v) ∈ Pt with u risky
+                                                      Πt (u) pt (v | u)
+
+31:    end if
+32: end for
 
 
-                                                         2
+
+
+                                                          2
 ```
-
 
 ## Page 3
 
@@ -103,21 +103,24 @@ Algorithm 2 Full-Share Algorithm (Recursive Aggregation)
                                      P (j|i) = P                           =
                                                  ℓ∈subtree(i) exp(η · θℓ )   W [i]
 
-10:        i←j
-11:    end while
-12:    Let leaf ℓt ← i.
-13:    Observe cost ct at leaf ℓt .
-14:    Update:
-15:    θold ← θℓt
-16:    θℓt ← θℓt − ct
-17:    Propagate Change:
-18:    Calculate weight change at leaf: ∆ = exp(η · θℓt ) − exp(η · θold )
-19:    curr ← ℓt
+10:         i←j
+11:     end while
+12:     Let leaf ℓt ← i.
+13:     Observe cost ct at leaf ℓt .
+14:     Update:
+15:     θold ← θℓt
+16:     θℓt ← θℓt − Πtc(ℓt t )
+17:     Propagate Change:
+18:     Calculate weight change at leaf:
+
+                                          ∆ = exp(η · θℓt ) − exp(η · θold )
+
+19:     curr ← ℓt
 20:    while curr ̸= root do
-21:        W [curr] ← W [curr] + ∆
-22:        curr ← P arent(curr)
-23:        W [curr] ← W [curr] + ∆
-24:    end while
+21:       W [curr] ← W [curr] + ∆
+22:       curr ← P arent(curr)
+23:    end while
+24:    W [root] ← W [root] + ∆
 25: end for
 
 
@@ -125,7 +128,6 @@ Algorithm 2 Full-Share Algorithm (Recursive Aggregation)
 
                                                         3
 ```
-
 
 ## Page 4
 
@@ -153,15 +155,15 @@ Lemma PS-2: Moments of the Estimator at a Risky Node
 Lemma 1 (Exact Second Moment Bound at a Risky Node). For any risky non-leaf node i, let z[j, t]
 be the estimated cost for child j constructed by the PS algorithm. Let Ht−1 be the history up to round
 t − 1. Then the conditional weighted second moment of the estimators satisfies:
-                X                                      X                             1     X
-                       pt (j|i) · Et z[j, t]2 | Ht−1 ≤
-                                                   
-                                                         pt (j|i)(1 − ρj,t ) +          2
-                                                                                                ρj,t .   (3)
-                                                                                  Πt (i)
-                j∈Ci                                  j∈Ci                                 j∈Ci
-                                                      |           {z          }   |       {z       }
-                                                              Shared Mass         Unshared Variance
+                   X                               X                               1     X
+                          pt (j | i) Et z[j, t]2 ≤
+                                               
+                                                     pt (j | i) (1 − ρj,t ) +         2
+                                                                                              ρj,t .     (3)
+                                                                                Πt (i)
+                   j∈Ci                           j∈Ci                                   j∈Ci
+                                                  |           {z         }      |       {z       }
+                                                         Shared Mass            Unshared Variance
 
 
 Lemma PS-3: Equivalence of Virtual and Effective Expected
@@ -170,7 +172,7 @@ Lemma 2 (Expectation Bridge). Let ỹ[k, t] ≜ Et [z[k, t] | Ht−1 ] be the ex
 (effective cost) for child k. Then the expected virtual loss (used by Hedge) satisfies:
                                                           
                                    X
-                              Et     qt (j|i)z[j, t] Ht−1  = Ek∼qt (·|i) [ỹ[k, t]] .        (4)
+                              Et     pt (j|i)z[j, t] Ht−1  = Ek∼pt (·|i) [ỹ[k, t]] .        (4)
                                     j∈Ci
 
 
@@ -193,7 +195,6 @@ regret with respect to the optimal child j ∗ satisfies
 
                                                           4
 ```
-
 
 ## Page 5
 
@@ -221,10 +222,10 @@ the subtree of child j is shared or unshared. Recall that
 
 where we used y[j, t] ≤ 1 and Et [I(Jt = j)] = pt (j|i).
    Multiplying both sides by pt (j|i) and summing over j ∈ Ci gives
-                        X                                X                                   1    X
-                              pt (j|i)Et [z[j, t]2 ] ≤          pt (j|i)(1 − ρj,t ) +           2
-                                                                                                    ρj,t .
-                                                                                          Πt (i)
+                        X                                X                                  1    X
+                              pt (j|i)Et [z[j, t]2 ] ≤          pt (j|i)(1 − ρj,t ) +          2
+                                                                                                   ρj,t .
+                                                                                         Πt (i)
                        j∈Ci                              j∈Ci                                     j∈Ci
 
 This proves the claim.
@@ -233,13 +234,13 @@ A.2     Proof of Lemma 2
 Proof. By linearity of expectation,
                                                    
                                    X                    X
-                              Et    qt (j|i)z[j, t] =   qt (j|i)Et [z[j, t]]
-                                         j∈Ci                          j∈Ci
+                              Et    pt (j|i)z[j, t] =   pt (j|i)Et [z[j, t]]
+                                        j∈Ci                           j∈Ci
                                                                        X
-                                                                   =          qt (j|i)ỹ[j, t].
+                                                                   =          pt (j|i)ỹ[j, t].
                                                                        j∈Ci
 
-By definition, the right-hand side is exactly Ek∼qt (·|i) [ỹ[k, t]].
+By definition, the right-hand side is exactly Ek∼pt (·|i) [ỹ[k, t]].
    To make ỹ[k, t] explicit, distinguish two cases:
 
     • Case 1: Shared subtree under child k. Then the estimator is deterministic:
@@ -263,7 +264,6 @@ Therefore the bridge identity holds.
 
                                                                   5
 ```
-
 
 ## Page 6
 
@@ -319,7 +319,6 @@ which proves (5).
 
                                                           6
 ```
-
 
 ## Page 7
 
@@ -401,7 +400,6 @@ directly on the leaf set L(i).
                                                        7
 ```
 
-
 ## Page 8
 
 ```text
@@ -478,7 +476,6 @@ which proves the claim.                                                         
 
                                                               8
 ```
-
 
 ## Page 9
 
@@ -571,7 +568,6 @@ Take any optimal child j ∗ ∈ Ci∗ . By definition of Ci∗ ,
                                                               9
 ```
 
-
 ## Page 10
 
 ```text
@@ -644,7 +640,6 @@ We set one of pu , pu′ to p∗ and the other to
                                                                 10
 ```
 
-
 ## Page 11
 
 ```text
@@ -713,7 +708,6 @@ and the other is the non-leaf node vR with
 
                                                           11
 ```
-
 
 ## Page 12
 
@@ -790,7 +784,6 @@ We then have, at any time t > Tδ ,
 
                                                            12
 ```
-
 
 ## Page 13
 
