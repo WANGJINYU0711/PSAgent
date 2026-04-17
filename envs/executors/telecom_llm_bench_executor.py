@@ -9,7 +9,12 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from telecom_mms_specs import build_per_blocker_from_ids, infer_blocker_ids_from_observed_state
+from telecom_mms_specs import (
+    build_per_blocker_from_ids,
+    first_pass_terminal_decision,
+    get_blocker_spec,
+    infer_blocker_ids_from_observed_state,
+)
 from .telecom_bench_backed_executor import TelecomBenchBackedExecutor
 from tree_family.specs import AgentSpec, TaskDescriptor
 
@@ -147,6 +152,68 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "input": {
                 "stage1_output": deepcopy(stage1_output),
                 "stage2_output": deepcopy(stage2_output),
+            },
+            "output": output,
+            "trace": trace,
+        }
+
+    def _run_stage4(
+        self,
+        task: TaskDescriptor,
+        agent_id: str,
+        agent_map: dict[str, AgentSpec],
+        raw_instance: dict[str, Any],
+        stage1_output: dict[str, Any],
+        stage2_output: dict[str, Any],
+        stage3_output: dict[str, Any],
+    ) -> dict[str, Any]:
+        agent = agent_map[agent_id]
+        system_prompt, user_prompt = self._build_stage4_prompts(
+            task,
+            agent,
+            raw_instance,
+            stage1_output,
+            stage2_output,
+            stage3_output,
+        )
+        result = self._run_llm_stage_bridge(
+            stage_name="stage4",
+            original_task_id=str(raw_instance.get("original_task_id", "")),
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            allowed_tools=[],
+            max_rounds=min(3, self._max_rounds(agent)),
+        )
+        output = self._normalize_stage4_output(
+            final_output=result.get("final_output"),
+            stage2_output=stage2_output,
+            stage3_output=stage3_output,
+        )
+        trace = {
+            "stage_name": "stage4",
+            "agent_id": agent_id,
+            "agent_g": agent.g,
+            "prompt_summary": self._stage4_prompt_summary(agent),
+            "llm_raw_output": deepcopy(result.get("llm_messages", [])),
+            "planned_tool_calls": [],
+            "executed_tool_calls": [],
+            "tool_results": [],
+            "tool_errors": [],
+            "db_hash_before": result.get("db_hash_before"),
+            "db_hash_after": result.get("db_hash_after"),
+            "input": {
+                "stage2_output": deepcopy(stage2_output),
+                "stage3_output": deepcopy(stage3_output),
+            },
+            "output": deepcopy(output),
+            "score": None,
+            "source": "llm_bench",
+            "policy_mode": "decision_only_no_mutation",
+        }
+        return {
+            "input": {
+                "stage2_output": deepcopy(stage2_output),
+                "stage3_output": deepcopy(stage3_output),
             },
             "output": output,
             "trace": trace,
@@ -337,6 +404,105 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         )
         return system_prompt, user_prompt
 
+    def _build_stage4_prompts(
+        self,
+        task: TaskDescriptor,
+        agent: AgentSpec,
+        raw_instance: dict[str, Any],
+        stage1_output: dict[str, Any],
+        stage2_output: dict[str, Any],
+        stage3_output: dict[str, Any],
+    ) -> tuple[str, str]:
+        del stage1_output
+        system_prompt = (
+            "You are performing Stage 4: blocker adjudication and repair planning for a telecom MMS troubleshooting case.\n"
+            "Your job is to decide, for each blocker, whether it should be repaired automatically by the assistant workflow, "
+            "deferred, or transferred to a human-support path.\n"
+            "This stage is decision/planning only.\n"
+            "Do NOT execute tools.\n"
+            "Do NOT mutate any account state.\n"
+            "Do NOT produce customer-facing prose.\n"
+            "Return JSON only.\n"
+            "Your output must be a JSON object with exactly these top-level keys: per_blocker, repairability, transfer_reason, decision_policy_version.\n"
+            "per_blocker must include every input blocker_id exactly once and each row must contain blocker_id and should_repair.\n"
+            "Allowed repairability values: repairable, partially_repairable, transfer_required.\n"
+            "Frozen-policy bias:\n"
+            "- If any blocker is marked as hybrid-required, choose transfer_required.\n"
+            "- If a blocker is assistant-side-required but can be safely deferred, it may be marked should_repair=false under partially_repairable.\n"
+            "- Otherwise prefer should_repair=true for safe auto-repair blockers.\n"
+            "If transfer is required, provide a non-null short snake_case transfer_reason. Otherwise use null.\n"
+            "Output JSON only. No markdown. No explanation outside the JSON."
+        )
+        blocker_ids = [
+            row.get("blocker_id")
+            for row in stage3_output.get("per_blocker", [])
+            if row.get("blocker_id")
+        ]
+        blocker_specs = {
+            blocker_id: get_blocker_spec(blocker_id)
+            for blocker_id in blocker_ids
+        }
+        repair_metadata = {
+            blocker_id: {
+                "assistant_side_required": blocker_specs[blocker_id]["assistant_side_required"],
+                "user_side_required": blocker_specs[blocker_id]["user_side_required"],
+                "hybrid_required": blocker_specs[blocker_id]["hybrid_required"],
+                "can_be_deferred": blocker_specs[blocker_id]["can_be_deferred"],
+                "default_priority": blocker_specs[blocker_id]["default_priority"],
+                "depends_on": blocker_specs[blocker_id]["depends_on"],
+                "canonical_repair_steps": self._build_stage4_rows([blocker_id], stage2_output)[0]["canonical_repair_steps"],
+            }
+            for blocker_id in blocker_ids
+        }
+        user_prompt = json.dumps(
+            {
+                "task_id": task.task_id,
+                "agent_profile": {
+                    "competence_level": agent.competence_level,
+                    "scope_level": agent.scope_level,
+                    "stability_level": agent.stability_level,
+                    "guidance": self._agent_behavior_guidance(agent),
+                },
+                "stage_goal": "Decide blocker-level repairability and produce a stable Stage 4 planning output only.",
+                "policy_mode": "decision_only_no_mutation",
+                "output_contract": {
+                    "top_level_keys": [
+                        "per_blocker",
+                        "repairability",
+                        "transfer_reason",
+                        "decision_policy_version",
+                    ],
+                    "repairability_values": [
+                        "repairable",
+                        "partially_repairable",
+                        "transfer_required",
+                    ],
+                },
+                "stage2_context": {
+                    "resolved_customer_id": stage2_output.get("resolved_customer_id"),
+                    "resolved_line_id": stage2_output.get("resolved_line_id"),
+                    "target_phone_number": stage2_output.get("target_phone_number"),
+                    "assistant_account_snapshot": stage2_output.get("assistant_account_snapshot"),
+                },
+                "stage3_output": {
+                    "observed_state": stage3_output.get("observed_state"),
+                    "per_blocker": stage3_output.get("per_blocker"),
+                },
+                "blocker_specs": blocker_specs,
+                "repair_metadata": repair_metadata,
+                "task_metadata": raw_instance.get("metadata", {}),
+                "normalization_rules": [
+                    "Return every blocker_id exactly once",
+                    "Set should_repair to a boolean for every blocker row",
+                    "Use transfer_reason=null when transfer is not required",
+                    "Set decision_policy_version to a short stable string, for example first_pass_v1",
+                    "Do not invent blockers that are not in the input per_blocker list",
+                ],
+            },
+            ensure_ascii=False,
+        )
+        return system_prompt, user_prompt
+
     def _normalize_stage2_output(
         self,
         final_output: dict[str, Any] | None,
@@ -463,6 +629,70 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "per_blocker_mode": "inferred_from_observed_state_v2",
             "raw_task_blocker_ids": self._raw_task_blocker_ids(raw_instance),
             "inferred_blocker_ids": inferred_blocker_ids,
+        }
+
+    def _normalize_stage4_output(
+        self,
+        final_output: dict[str, Any] | None,
+        stage2_output: dict[str, Any],
+        stage3_output: dict[str, Any],
+    ) -> dict[str, Any]:
+        blocker_ids = [
+            row.get("blocker_id")
+            for row in stage3_output.get("per_blocker", [])
+            if row.get("blocker_id")
+        ]
+        decision = first_pass_terminal_decision(blocker_ids)
+        fallback_rows = self._build_stage4_rows(blocker_ids, stage2_output)
+        llm_rows = final_output.get("per_blocker", []) if isinstance(final_output, dict) else []
+        llm_row_map = {
+            row.get("blocker_id"): row
+            for row in llm_rows
+            if isinstance(row, dict) and row.get("blocker_id")
+        }
+
+        normalized_rows: list[dict[str, Any]] = []
+        for fallback_row in fallback_rows:
+            blocker_id = fallback_row["blocker_id"]
+            llm_row = llm_row_map.get(blocker_id, {})
+            normalized = deepcopy(fallback_row)
+            llm_should_repair = llm_row.get("should_repair")
+            if llm_should_repair == fallback_row["should_repair"]:
+                llm_repair_order = llm_row.get("repair_order")
+                if isinstance(llm_repair_order, int) and llm_repair_order > 0:
+                    normalized["repair_order"] = llm_repair_order
+            normalized_rows.append(normalized)
+
+        normalized_rows.sort(
+            key=lambda row: (
+                0 if row.get("should_repair") else 1,
+                int(row.get("repair_order", 10**6)),
+                str(row.get("blocker_id", "")),
+            )
+        )
+        for index, row in enumerate(normalized_rows, start=1):
+            row["repair_order"] = index
+
+        repairability = (
+            final_output.get("repairability")
+            if isinstance(final_output, dict)
+            and final_output.get("repairability") == decision["repairability"]
+            else decision["repairability"]
+        )
+        if repairability == "transfer_required":
+            transfer_reason = (
+                final_output.get("transfer_reason")
+                if isinstance(final_output, dict) and isinstance(final_output.get("transfer_reason"), str)
+                else decision["transfer_reason"]
+            )
+        else:
+            transfer_reason = None
+
+        return {
+            "per_blocker": normalized_rows,
+            "repairability": repairability,
+            "transfer_reason": transfer_reason,
+            "decision_policy_version": "first_pass_v1",
         }
 
     def _merge_observed_state_tool_first(
@@ -601,4 +831,11 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             f"telecom stage3 observed-state extraction; competence={agent.competence_level}; "
             f"scope={agent.scope_level}; stability={agent.stability_level}; "
             f"max_rounds={self._max_rounds(agent)}"
+        )
+
+    def _stage4_prompt_summary(self, agent: AgentSpec) -> str:
+        return (
+            f"telecom stage4 blocker adjudication; competence={agent.competence_level}; "
+            f"scope={agent.scope_level}; stability={agent.stability_level}; "
+            f"max_rounds={min(3, self._max_rounds(agent))}"
         )

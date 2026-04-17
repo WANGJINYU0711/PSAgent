@@ -1,0 +1,434 @@
+对，明白了。你不是要“用 `llm_bench` 跑一遍现状”，而是要：
+
+**把 telecom 这 5 个 stage 都改成 LLM 驱动。**
+
+也就是现在只有：
+- Stage 2
+- Stage 3
+
+是 LLM 的，
+
+你要继续把：
+- Stage 1
+- Stage 4
+- Stage 5
+
+也改成 LLM stage。
+
+我建议还是**按 stage 逐个推进**，不要一口气全改。最稳的顺序是：
+
+1. Stage 1 LLM 化
+2. Stage 4 LLM 化
+3. Stage 5 LLM 化
+4. 串起来跑 1~5 全 LLM
+5. 再跑 `strong + algorithm_direct`
+
+下面我直接给你一组可以依次发的 prompt。
+
+---
+
+# Prompt 1：先把 Stage 1 改成 LLM
+
+```text
+现在不要改 Stage 2 / Stage 3，不要改 dataset，不要改 regret，不要改 baseline 算法。
+
+这次只做一件事：
+
+# 把 telecom 的 Stage 1 改成 LLM 驱动
+
+目标：
+当前 telecom `llm_bench` 只有 Stage 2/3 真正调用 LLM。
+这次请把 Stage 1 也改成 LLM stage，使 telecom 的 Stage 1/2/3 都能走 LLM。
+
+---
+
+## 当前问题
+现在：
+- Stage 1 基本还是 oracle-like / builder-derived 入口
+- 没有真正通过 LLM 从 user context 生成 stage1 output
+
+但我需要：
+- Stage 1 也由 LLM 来做问题归纳和 line resolution 入口抽取
+
+---
+
+## 这次必须完成的任务
+
+### 任务 1：在 `telecom_llm_bench_executor.py` 里实现 `_run_stage1(...)`
+要求：
+- 给 Stage 1 单独写 system prompt / user prompt
+- 输入至少包括：
+  - `user_context`
+  - `source_task.description`
+  - 必要 metadata
+- 输出结构必须和 dataset 的 Stage 1 schema 对齐：
+  - `domain`
+  - `problem_family`
+  - `customer_lookup`
+  - `line_selector`
+  - `symptom_report`
+  - `context_flags`
+  - `conversation_risk_flags`
+
+### 任务 2：限制 Stage 1 不调用不必要工具
+如果 Stage 1 不需要 tools，就明确不要让它调工具。
+目标是：
+- Stage 1 做结构化理解
+- 不提前做 Stage 2/3 的工作
+
+### 任务 3：接入 runner / executor 链路
+要求：
+- `executor_name="llm_bench"` 时，Stage 1 走新的 LLM `_run_stage1(...)`
+- 不要破坏现在 Stage 2/3
+
+### 任务 4：做最小 sanity
+请至少选 1~3 条 telecom 样本跑：
+- Stage 1 LLM
+- Stage 2 LLM
+- Stage 3 LLM
+
+确认：
+1. Stage 1 输出结构合法
+2. Stage 2 能消费新的 Stage 1 输出
+3. 链路不崩
+
+---
+
+## 这次不要做的事情
+- 不要改 Stage 4/5
+- 不要改 simulated executor
+- 不要改 baseline 算法
+- 不要跑 full base 正式实验
+
+---
+
+## 输出要求
+最终汇报请按下面格式：
+
+1. 修改了哪些文件
+2. Stage 1 prompt 是怎么设计的
+3. Stage 1 输出 schema 是否和 dataset 对齐
+4. 是否真的在 `llm_bench` 下调用了 LLM
+5. 跑了哪些 sanity case
+6. Stage 1 -> Stage 2 -> Stage 3 链路是否已打通
+```
+
+---
+
+# Prompt 2：把 Stage 4 改成 LLM
+
+```text
+现在不要改 Stage 1/2/3 已有逻辑，不要改 Stage 5，不要改 dataset，不要改 baseline。
+
+这次只做一件事：
+
+# 把 telecom 的 Stage 4 改成 LLM 驱动
+
+目标：
+当前 telecom `llm_bench` 里 Stage 4 还是直接拿 oracle-like output。
+这次请把 Stage 4 改成真正的 LLM decision stage。
+
+---
+
+## 当前问题
+现在 Stage 4 没有真的让 LLM 基于：
+- observed_state
+- per_blocker
+
+去判断：
+- 每个 blocker 是否 should_repair
+- repairability
+- transfer_reason
+
+我需要 Stage 4 也由 LLM 来做 blocker-level repair planning。
+
+---
+
+## 这次必须完成的任务
+
+### 任务 1：在 `telecom_llm_bench_executor.py` 里实现 `_run_stage4(...)`
+输入至少包括：
+- Stage 3 output
+  - `observed_state`
+  - `per_blocker`
+- blocker spec / repair metadata（如已有）
+
+输出 schema 必须和 dataset Stage 4 对齐：
+- `per_blocker`
+- `repairability`
+- `transfer_reason`
+- `decision_policy_version`
+
+### 任务 2：Stage 4 不要做真实 mutating execution
+要求：
+- 这次只做 decision / planning
+- 不要在 Stage 4 里真的调 repair tools
+
+### 任务 3：尽量让 LLM 输出结构稳定
+要求：
+- prompt 要明确说明只输出 JSON
+- 每个 blocker 至少要给出：
+  - `blocker_id`
+  - `should_repair`
+  - 如有需要可带 reason
+
+### 任务 4：最小 sanity
+请至少选几条包含：
+- `repair_all`
+- `repair_subset`
+- `transfer`
+
+的样本做 sanity，确认：
+1. Stage 4 结构合法
+2. Stage 5 还能消费它
+
+---
+
+## 输出要求
+最终汇报请按下面格式：
+
+1. 修改了哪些文件
+2. Stage 4 prompt 怎么设计
+3. Stage 4 输出 schema 是否和 dataset 对齐
+4. 是否仍然没有做真实 mutating execution
+5. 跑了哪些 sanity case
+6. Stage 4 是否已能稳定生成 repairability / per_blocker
+```
+
+---
+
+# Prompt 3：把 Stage 5 改成 LLM
+
+```text
+现在不要回头改 Stage 1~4，不要改 dataset，不要改 regret，不要改 baseline。
+
+这次只做一件事：
+
+# 把 telecom 的 Stage 5 改成 LLM 驱动
+
+目标：
+当前 telecom `llm_bench` 里 Stage 5 还是直接拿 oracle-like terminal output。
+这次请把 Stage 5 改成真正的 LLM terminal decision stage。
+
+---
+
+## 当前问题
+现在 Stage 5 没有真正让 LLM 基于：
+- Stage 4 的 repairability
+- per_blocker should_repair
+- transfer_reason
+
+去输出最终：
+- `repair_all`
+- `repair_subset`
+- `transfer`
+
+我需要 Stage 5 由 LLM 做最终 terminal decision。
+
+---
+
+## 这次必须完成的任务
+
+### 任务 1：实现 `_run_stage5(...)`
+输入至少包括：
+- Stage 4 output
+  - `repairability`
+  - `per_blocker`
+  - `transfer_reason`
+
+输出 schema 必须和 dataset Stage 5 对齐：
+- `final_action`
+- `selected_blocker_ids`
+- `deferred_blocker_ids`
+- `response_mode`
+- `verification_plan`
+- `transfer_reason`
+- `cancelled_reservation_ids`
+- `refused_reservation_ids`
+
+### 任务 2：保持 terminal action 空间一致
+要求：
+- 只允许：
+  - `repair_all`
+  - `repair_subset`
+  - `transfer`
+
+### 任务 3：不要做真实 repair 执行
+要求：
+- 只输出 terminal decision
+- 不做 stage5 real execution / mutating tools
+
+### 任务 4：做最小 sanity
+请至少选几条 subset / transfer 样本验证：
+1. Stage 5 输出结构合法
+2. evaluator 能读
+3. 不崩
+
+---
+
+## 输出要求
+最终汇报请按下面格式：
+
+1. 修改了哪些文件
+2. Stage 5 prompt 怎么设计
+3. Stage 5 输出 schema 是否和 dataset 对齐
+4. final_action 是否限制在三类终局
+5. 跑了哪些 sanity case
+6. evaluator 是否还能正常工作
+```
+
+---
+
+# Prompt 4：把 1~5 串起来，形成全 LLM 版 telecom executor
+
+```text
+现在不要再单独修改某个 stage 的 prompt 细节。
+
+这次只做一件事：
+
+# 把 telecom `llm_bench` 串成完整的 1~5 全 LLM 执行链
+
+目标：
+在当前基础上，让 telecom 的：
+- Stage 1
+- Stage 2
+- Stage 3
+- Stage 4
+- Stage 5
+
+都由 LLM stage executor 驱动，
+形成一条完整的 5-stage LLM pipeline。
+
+---
+
+## 当前前提
+现在应当已经有：
+- Stage 1 LLM
+- Stage 2 LLM
+- Stage 3 LLM
+- Stage 4 LLM
+- Stage 5 LLM
+
+这次的目标不是继续改单个 stage，
+而是把整条链打通。
+
+---
+
+## 这次必须完成的任务
+
+### 任务 1：串通 `telecom_llm_bench_executor.py`
+要求：
+- `run_path(...)` 下 5 个 stage 都走 LLM 版本
+- 前一 stage 输出能正确喂给后一 stage
+
+### 任务 2：输出完整 stage trace
+请确保 trace 里能看到：
+- 每个 stage 的 prompt_summary
+- llm_raw_output
+- tool calls（如有）
+- normalized output
+
+### 任务 3：最小端到端 sanity
+请至少在 2~3 条 telecom 样本上跑完整 1~5：
+1. 能跑通
+2. 输出结构完整
+3. evaluator 可读
+4. terminal decision 可比较
+
+---
+
+## 输出要求
+最终汇报请按下面格式：
+
+1. 修改了哪些文件
+2. 现在是否已经是 1~5 全 LLM
+3. 哪些 stage 会调工具，哪些不会
+4. 跑了哪些端到端 sanity case
+5. 5-stage LLM 链路是否已打通
+```
+
+---
+
+# Prompt 5：只跑你要的切片
+也就是你最后真正想要的：
+
+- `family_kind = strong`
+- `mechanism = algorithm_direct`
+- 全 5 stage LLM 版 telecom
+
+```text
+现在不要继续改 stage 逻辑。
+
+这次只做一件事：
+
+# 用 1~5 全 LLM 的 telecom executor，跑 `strong + algorithm_direct`
+
+目标：
+拿到一版真正的：
+- 5-stage 全 LLM
+- `family_kind = strong`
+- `mechanism = algorithm_direct`
+
+结果。
+
+---
+
+## 这次必须完成的任务
+
+### 任务 1：只跑这个切片
+- dataset:
+  - `data/derived/telecom_mms_fixed_tree_base/tasks.json`
+- family_kind:
+  - `strong`
+- mechanism:
+  - `algorithm_direct`
+- executor:
+  - 全 LLM telecom executor
+- seed:
+  - 先 `0`
+
+### 任务 2：methods
+至少跑：
+- `risky_ps`
+- `direct_multistage_exp3`
+- `epsilon_exp3`
+- `full_share`
+- `full_unshare`
+
+### 任务 3：独立输出目录
+例如：
+- `outputs/telecom_mms_full_llm_strong_direct/`
+
+至少包含：
+- `experiment_config.json`
+- `episode_logs.jsonl`
+- `overall_summary.json`
+- `overall_summary.csv`
+
+### 任务 4：最小结果对照
+请比较：
+- 这版 full-LLM strong+algorithm_direct
+- 原 simulated strong+algorithm_direct
+
+说明：
+1. 排名是否变化
+2. `risky_ps` 是否更占优
+3. 哪些 stage 的 LLM 化影响最大
+
+---
+
+## 输出要求
+最终汇报请按下面格式：
+
+1. 运行脚本是哪个
+2. 是否真的是 1~5 全 LLM
+3. 跑了哪些 methods
+4. 输出目录在哪
+5. 各 method 结果是什么
+6. 和 simulated strong+algorithm_direct 相比有什么变化
+7. 是否建议继续扩到更多 seeds
+```
+
+---
+
+如果你愿意，我还可以继续帮你做一版**更短、更像你直接发给 codex 的压缩版 prompt 套餐**。

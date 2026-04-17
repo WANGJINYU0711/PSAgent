@@ -14,8 +14,10 @@ from .simulated_executor import SimulatedExecutor
 from telecom_mms_specs import (
     blocker_diagnostic_evidence,
     build_per_blocker_from_ids,
+    first_pass_terminal_decision,
     get_blocker_spec,
     infer_blocker_ids_from_observed_state,
+    materialize_repair_steps,
 )
 from tree_family.specs import AgentSpec, TaskDescriptor
 
@@ -73,11 +75,28 @@ class TelecomBenchBackedExecutor(BaseExecutor):
             db_hash_before = stage3_output["trace"].get("db_hash_before")
         db_hash_after = stage3_output["trace"].get("db_hash_after", db_hash_after)
 
-        stage4_output = self._run_stage4(task, path[3], agent_map, raw_instance)
+        stage4_output = self._run_stage4(
+            task,
+            path[3],
+            agent_map,
+            raw_instance,
+            stage1_output["output"],
+            stage2_output["output"],
+            stage3_output["output"],
+        )
         stage_outputs["stage4"] = stage4_output
         stage_trace.append(stage4_output["trace"])
 
-        stage5_output = self._run_stage5(task, path[4], agent_map, raw_instance)
+        stage5_output = self._run_stage5(
+            task,
+            path[4],
+            agent_map,
+            raw_instance,
+            stage1_output["output"],
+            stage2_output["output"],
+            stage3_output["output"],
+            stage4_output["output"],
+        )
         stage_outputs["stage5"] = stage5_output
         stage_trace.append(stage5_output["trace"])
 
@@ -312,11 +331,15 @@ class TelecomBenchBackedExecutor(BaseExecutor):
         agent_id: str,
         agent_map: dict[str, AgentSpec],
         raw_instance: dict[str, Any],
+        stage1_output: dict[str, Any],
+        stage2_output: dict[str, Any],
+        stage3_output: dict[str, Any],
     ) -> dict[str, Any]:
+        del stage1_output, stage2_output
         agent = agent_map[agent_id]
         output = deepcopy(raw_instance.get("stage4", {}).get("oracle_output", {}))
         return {
-            "input": deepcopy(raw_instance.get("stage3", {}).get("oracle_output", {})),
+            "input": deepcopy(stage3_output),
             "output": output,
             "trace": {
                 "stage_name": "stage4",
@@ -326,7 +349,7 @@ class TelecomBenchBackedExecutor(BaseExecutor):
                 "executed_tool_calls": [],
                 "tool_results": [],
                 "tool_errors": [],
-                "input": deepcopy(raw_instance.get("stage3", {}).get("oracle_output", {})),
+                "input": deepcopy(stage3_output),
                 "output": deepcopy(output),
                 "score": round(self.score_helper._effective_score(task, "stage4", agent), 4),
                 "source": "oracle_like",
@@ -339,11 +362,16 @@ class TelecomBenchBackedExecutor(BaseExecutor):
         agent_id: str,
         agent_map: dict[str, AgentSpec],
         raw_instance: dict[str, Any],
+        stage1_output: dict[str, Any],
+        stage2_output: dict[str, Any],
+        stage3_output: dict[str, Any],
+        stage4_output: dict[str, Any],
     ) -> dict[str, Any]:
+        del raw_instance, stage1_output, stage3_output
         agent = agent_map[agent_id]
-        output = deepcopy(raw_instance.get("stage5", {}).get("oracle_output", {}))
+        output = self._build_stage5_output(stage4_output)
         return {
-            "input": deepcopy(raw_instance.get("stage4", {}).get("oracle_output", {})),
+            "input": deepcopy(stage4_output),
             "output": output,
             "trace": {
                 "stage_name": "stage5",
@@ -353,11 +381,106 @@ class TelecomBenchBackedExecutor(BaseExecutor):
                 "executed_tool_calls": [],
                 "tool_results": [],
                 "tool_errors": [],
-                "input": deepcopy(raw_instance.get("stage4", {}).get("oracle_output", {})),
+                "input": deepcopy(stage4_output),
                 "output": deepcopy(output),
                 "score": round(self.score_helper._effective_score(task, "stage5", agent), 4),
-                "source": "oracle_like",
+                "source": "stage4_derived",
             },
+        }
+
+    def _build_stage4_rows(
+        self,
+        blocker_ids: list[str],
+        stage2_output: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        decision = first_pass_terminal_decision(blocker_ids)
+        present = set(blocker_ids)
+        selected = set(decision["selected_blocker_ids"])
+        deferred = set(decision["deferred_blocker_ids"])
+        ordered = [
+            *decision["selected_blocker_ids"],
+            *[bid for bid in decision["deferred_blocker_ids"] if bid not in selected],
+        ]
+        rows: list[dict[str, Any]] = []
+        for repair_order, blocker_id in enumerate(ordered, start=1):
+            spec = get_blocker_spec(blocker_id)
+            if blocker_id in selected:
+                should_repair = True
+                execute_decision = "repair"
+                adjudication_label = f"repair_{spec['blocker_layer']}_blocker"
+                refusal_code = None
+            elif decision["final_action"] == "transfer":
+                should_repair = False
+                execute_decision = "transfer"
+                adjudication_label = f"transfer_{spec['blocker_layer']}_blocker"
+                refusal_code = decision["transfer_reason"]
+            elif blocker_id in deferred:
+                should_repair = False
+                execute_decision = "defer"
+                adjudication_label = f"defer_{spec['blocker_layer']}_blocker"
+                refusal_code = "deferred_assistant_side_blocker_v1"
+            else:
+                should_repair = False
+                execute_decision = "defer"
+                adjudication_label = f"defer_{spec['blocker_layer']}_blocker"
+                refusal_code = "deferred_unspecified_v1"
+            rows.append(
+                {
+                    "blocker_id": blocker_id,
+                    "should_repair": should_repair,
+                    "repair_order": repair_order,
+                    "canonical_repair_steps": materialize_repair_steps(
+                        blocker_id=blocker_id,
+                        resolved_customer_id=stage2_output.get("resolved_customer_id", ""),
+                        resolved_line_id=stage2_output.get("resolved_line_id", ""),
+                    ),
+                    "oracle_execute_decision": execute_decision,
+                    "adjudication_label": adjudication_label,
+                    "refusal_code": refusal_code,
+                    "depends_on": [dep for dep in spec["depends_on"] if dep in present],
+                }
+            )
+        return rows
+
+    def _build_stage5_output(self, stage4_output: dict[str, Any]) -> dict[str, Any]:
+        selected_blocker_ids = [
+            row.get("blocker_id")
+            for row in stage4_output.get("per_blocker", [])
+            if row.get("oracle_execute_decision") == "repair" or row.get("should_repair") is True
+        ]
+        deferred_blocker_ids = [
+            row.get("blocker_id")
+            for row in stage4_output.get("per_blocker", [])
+            if row.get("blocker_id") and row.get("blocker_id") not in selected_blocker_ids
+        ]
+        repairability = stage4_output.get("repairability")
+        if repairability == "transfer_required":
+            final_action = "transfer"
+            verification_plan = {
+                "required_postchecks": [],
+                "success_condition": "transfer_required",
+            }
+        elif deferred_blocker_ids:
+            final_action = "repair_subset"
+            verification_plan = {
+                "required_postchecks": [],
+                "success_condition": "partial_resolution_only",
+            }
+        else:
+            final_action = "repair_all"
+            verification_plan = {
+                "required_postchecks": ["can_send_mms"],
+                "success_condition": "can_send_mms_true",
+            }
+        return {
+            "final_action": final_action,
+            "selected_blocker_ids": [bid for bid in selected_blocker_ids if bid],
+            "deferred_blocker_ids": deferred_blocker_ids,
+            "response_mode": "telecom_structured_execution",
+            "verification_plan": verification_plan,
+            "transfer_reason": stage4_output.get("transfer_reason"),
+            "cancelled_reservation_ids": [bid for bid in selected_blocker_ids if bid],
+            "refused_reservation_ids": deferred_blocker_ids,
         }
 
     def _run_bench_tool_calls(
