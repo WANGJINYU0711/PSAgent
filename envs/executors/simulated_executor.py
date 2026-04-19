@@ -12,11 +12,34 @@ from tree_family.specs import AgentSpec, TaskDescriptor
 
 
 STAGE_ATTRIBUTE_FOCUS = {
-    "stage1": [1, 7, 8, 9],
-    "stage2": [2, 6, 8],
-    "stage3": [3, 4, 9],
-    "stage4": [4, 5, 9],
-    "stage5": [5, 10, 6],
+    "stage1": [
+        "user_grounding",
+        "account_lookup",
+        "line_resolution",
+        "verification",
+    ],
+    "stage2": [
+        "account_lookup",
+        "line_resolution",
+        "roaming_diagnosis",
+    ],
+    "stage3": [
+        "network_diagnosis",
+        "permission_diagnosis",
+        "apn_diagnosis",
+        "roaming_diagnosis",
+    ],
+    "stage4": [
+        "network_diagnosis",
+        "permission_diagnosis",
+        "apn_diagnosis",
+        "repair_execution",
+    ],
+    "stage5": [
+        "repair_execution",
+        "verification",
+        "terminal_decision",
+    ],
 }
 
 
@@ -82,14 +105,16 @@ class SimulatedExecutor(BaseExecutor):
         }
 
     def _effective_score(self, task: TaskDescriptor, stage_name: str, agent: AgentSpec) -> float:
-        total_attr_weight = max(1e-9, sum(task.attribute_weights.values()))
+        stage_requirement = self._stage_requirement(task, stage_name)
+        total_attr_weight = max(1e-9, sum(stage_requirement.values()))
         match = sum(
-            task.attribute_weights.get(attr_id, 0.0) * agent.attribute_skill.get(attr_id, 0.0)
-            for attr_id in task.attribute_weights
+            stage_requirement.get(attr_id, 0.0) * agent.attribute_skill.get(attr_id, 0.0)
+            for attr_id in stage_requirement
         ) / total_attr_weight
 
         competence_bonus = 0.15 if agent.competence_level == "high" else 0.0
         scope_bonus = self._scope_bonus(task, stage_name, agent)
+        deliberation_bonus = self._deliberation_bonus(task, stage_name, agent)
         difficulty_penalty = 0.35 * task.stage_difficulty.get(stage_name, 0.0)
         noise = self._deterministic_noise(
             task_id=task.task_id,
@@ -98,15 +123,16 @@ class SimulatedExecutor(BaseExecutor):
             sigma=0.03 if agent.stability_level == "stable" else 0.10,
         )
 
-        score = match + competence_bonus + scope_bonus - difficulty_penalty + noise
+        score = match + competence_bonus + scope_bonus + deliberation_bonus - difficulty_penalty + noise
         return max(0.0, min(1.0, score))
 
     def _scope_bonus(self, task: TaskDescriptor, stage_name: str, agent: AgentSpec) -> float:
         focus = set(STAGE_ATTRIBUTE_FOCUS[stage_name])
+        stage_requirement = self._stage_requirement(task, stage_name)
         top_task_attrs = {
             attr_id
             for attr_id, _ in sorted(
-                task.attribute_weights.items(),
+                stage_requirement.items(),
                 key=lambda item: item[1],
                 reverse=True,
             )[:3]
@@ -123,6 +149,22 @@ class SimulatedExecutor(BaseExecutor):
         if agent.scope_level == "broad":
             return 0.02 * min(overlap, 2)
         return 0.05 * overlap - 0.04 * max(0, 2 - overlap)
+
+    def _stage_requirement(self, task: TaskDescriptor, stage_name: str) -> dict[str, float]:
+        if task.stage_capability_requirements and stage_name in task.stage_capability_requirements:
+            return task.stage_capability_requirements[stage_name]
+        return task.attribute_weights
+
+    def _deliberation_bonus(self, task: TaskDescriptor, stage_name: str, agent: AgentSpec) -> float:
+        requirement = self._stage_deliberation_requirement(task, stage_name)
+        if requirement == "deep":
+            return 0.04 if agent.deliberation_mode == "deep" else -0.05
+        return -0.01 if agent.deliberation_mode == "deep" else 0.01
+
+    def _stage_deliberation_requirement(self, task: TaskDescriptor, stage_name: str) -> str:
+        if task.stage_deliberation_requirements and stage_name in task.stage_deliberation_requirements:
+            return task.stage_deliberation_requirements[stage_name]
+        return "deep" if task.stage_difficulty.get(stage_name, 0.0) >= 0.42 else "fast"
 
     def _deterministic_noise(
         self,

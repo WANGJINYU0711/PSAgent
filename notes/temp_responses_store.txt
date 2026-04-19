@@ -1,0 +1,268 @@
+1. 修改了哪些文件
+
+只改了 [scripts/build_telecom_mms_fixed_tree.py](/home/ubuntu/data/PSAgent/scripts/build_telecom_mms_fixed_tree.py)。  
+新增产物是脚本生成的：
+
+- [data/derived/telecom_mms_fixed_tree_base_v2_100/tasks.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/tasks.json)
+- [data/derived/telecom_mms_fixed_tree_base_v2_100/manifest.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/manifest.json)
+
+2. 新的 `100` 条 benchmark 输出路径是什么
+
+新 benchmark 路径是：
+
+- [data/derived/telecom_mms_fixed_tree_base_v2_100/tasks.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/tasks.json)
+
+配套 manifest 是：
+
+- [data/derived/telecom_mms_fixed_tree_base_v2_100/manifest.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/manifest.json)
+
+这次没有动旧的 `49` 条版本，也没有覆盖旧 smoke10。
+
+3. 选样逻辑是怎么设计的
+
+我新增了一套确定性的 coverage-oriented 选择器，不从 `split_map["base"]` 取，而是从全量 `1984` 条 `mms_issue` 候选集里选 `100` 条。
+
+逻辑是：
+
+- 先解析每条 task 的特征：`blocker count`、`persona`、`terminal action`、`ownership`、`blocker layer`、是否包含 3 类 permission blocker。
+- 按“精确 blocker 个数”分桶。
+- 做 round-robin 轮转取样，避免高 blocker-count 任务把低 blocker-count 任务完全淹没。
+- 每个桶内用贪心优先级选 coverage gain 更高的样本，优先补齐：
+  - persona
+  - terminal action
+  - permission blocker
+  - ownership
+  - blocker layer
+- 全程不使用随机数，最终 tie-break 用 `task_id` 字典序，所以结果可复现、可冻结。
+
+4. 为什么它比原来的 `49` 条覆盖更好
+
+原来的 `49` 条本质上只是 `split_map["base"]` 里的 `mms_issue` 子集，覆盖面比较窄，而且 action 分布明显偏向 `repair_subset`。
+
+新 `100` 条的改善比较直观：
+
+- blocker count：旧版没有 `1` blocker 的样本；新版补进了 `6` 条。
+- persona：旧版 `Hard/Easy/None = 17/15/17`；新版几乎完全平衡到 `34/33/33`。
+- terminal action：旧版 `repair_all/repair_subset/transfer = 11/28/10`；新版平衡到 `33/34/33`。
+- permission blockers：旧版 `sms/storage/both = 10/11/14`；新版提升到 `33/32/32`。
+- hybrid ownership：旧版只有 `10` 条；新版提升到 `33` 条。
+
+所以新版不是单纯“多了 51 条”，而是把你现在最关心的漂移维度和决策维度一起补齐了。
+
+5. 新 benchmark 的 coverage summary 是什么
+
+来自 [manifest.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/manifest.json) 的最终统计是：
+
+- task 数量：`100`
+- source 候选池：`1984` 条 `mms_issue`
+- skipped：`0`
+
+- blocker count 分布：`1:6, 2:13, 3:12, 4:12, 5:12, 6:12, 7:12, 8:12, 9:9`
+- blocker count bucket 分布：`1:6, 2:13, 3:12, 4:12, 5+:57`
+- persona 分布：`Hard:34, None:33, Easy:33`
+- terminal action 分布：`repair_all:33, repair_subset:34, transfer:33`
+- permission blocker 覆盖：`break_app_sms_permission:33, break_app_storage_permission:32, break_app_both_permissions:32`
+- ownership 覆盖：`user:100, assistant:41, hybrid:33`
+- blocker layer 分布：`service:83, data:88, mms_app:99`
+
+6. schema 是否与旧 benchmark 完全兼容
+
+是，兼容。
+
+我核对了新旧 `tasks.json` 的 row schema，顶层键完全一致：
+
+- `family`
+- `instance_id`
+- `metadata`
+- `original_task_id`
+- `source_task`
+- `stage1`
+- `stage2`
+- `stage3`
+- `stage4`
+- `stage5`
+- `user_context`
+
+并且 `metadata`、`source_task`、`stage1~stage5`、`user_context` 的子键也一致。现有 runner / evaluator 不需要额外适配。
+
+7. 旧 `49` 条版本是否保留不变
+
+保留不变。
+
+我在重跑 builder 前后核对了旧文件哈希，下面两个文件内容没有变化：
+
+- [data/derived/telecom_mms_fixed_tree_base/tasks.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base/tasks.json)
+- [data/derived/telecom_mms_fixed_tree_smoke10/tasks.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_smoke10/tasks.json)
+
+8. 跑了哪些最小验证
+
+我做了这些验证：
+
+1. `python -m py_compile scripts/build_telecom_mms_fixed_tree.py`
+2. `python scripts/build_telecom_mms_fixed_tree.py`
+3. 检查新输出数量，确认 [tasks.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/tasks.json) 正好 `100` 条
+4. 检查新旧 schema 一致
+5. 检查 manifest 覆盖统计与 `skipped_count = 0`
+6. 检查旧 `49` 条和旧 smoke10 文件哈希未变
+7. 用现有 runner 直接跑新数据：
+   - `scripts/run_telecom_mms_main_experiment.py`
+   - 输出已生成在 [outputs/telecom_base_v2_100_smoke](/home/ubuntu/data/PSAgent/outputs/telecom_base_v2_100_smoke)
+   - `overall_summary.json` 显示 `episodes = 100`
+
+如果你愿意，我下一步可以继续把这个 `base_v2_100` 的 manifest 再整理成一段论文里能直接引用的 benchmark construction 描述。
+
+
+
+
+
+
+
+1. 实际跑了哪些测试
+
+跑了：
+- 测试 A：`smoke3` 完整 `Stage1→Stage5`
+- 测试 B：`smoke10` 完整 `Stage1→Stage5`
+
+没跑测试 C。
+原因是 A/B 已经足够说明当前主问题不再是 Stage 3 后处理 bug，而是 `Stage 3` 的工具选择覆盖不足、以及 `Stage 5` 几乎不主动做 verification tools；这时继续跑 full slice 性价比不高。
+
+2. 输出目录分别在哪
+
+- `smoke3` rerun:
+[summary.json](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_152334_risky_ps_smoke3_rerun/summary.json)
+[episodes.json](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_152334_risky_ps_smoke3_rerun/episodes.json)
+[smoke_summary.md](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_152334_risky_ps_smoke3_rerun/smoke_summary.md)
+
+- `smoke10`:
+[summary.json](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_153713_risky_ps_smoke10/summary.json)
+[episodes.json](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_153713_risky_ps_smoke10/episodes.json)
+[smoke_summary.md](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_153713_risky_ps_smoke10/smoke_summary.md)
+
+- 汇总结论：
+[20260417_smoke_assessment.md](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_smoke_assessment.md)
+
+3. smoke3 相比修复前改善了什么
+
+改善很明显。
+
+修复前旧结果：
+- `exact_match_mean = 0.0`
+- `terminal_penalty_mean = 2.0`
+- `mean_regret = 0.7022`
+
+这次 `smoke3` rerun：
+- `exact_match_mean = 0.6667`
+- `terminal_penalty_mean = 0.3333`
+- `raw_total_cost_mean = 0.4460`
+- `total_cost_mean = 0.01774`
+- `mean_regret = -0.03834`
+- `raw_mean_regret = -0.96397`
+
+逐条看：
+- `idx=0`
+  - `final_action=repair_all`，但仍未 exact match
+  - `break_app_both_permissions` 没恢复出来
+  - 当前只识别到 `airplane_mode_on`
+  - 我额外抽查了一次，这条的残余问题更像是 `Stage 3` 当次根本没调 `check_app_permissions`，不是 parser / 聚合 bug
+- `idx=2`
+  - 假的 `break_app_sms_permission` 已消失
+  - `final_action=transfer`
+  - `exact_match=true`
+  - `terminal_penalty=0.0`
+- `idx=3`
+  - `break_app_storage_permission` 已恢复
+  - `final_action=repair_subset`
+  - `exact_match=true`
+  - `subset_mismatch=false`
+
+4. smoke10 的整体结果怎么样
+
+`smoke10` 总体结果是“有明显进步，但还不够稳到值得直接上 full slice”。
+
+关键指标：
+- `exact_match_mean = 0.4`
+- `terminal_penalty_mean = 2.15`
+- `raw_total_cost_mean = 2.25664`
+- `total_cost_mean = 0.08976`
+- `mean_regret = 0.01114`
+- `raw_mean_regret = 0.28004`
+- `mean_llm_call_count = 8.3`
+
+真实性统计：
+- `stage1~5` 全部都是 `llm_bench`
+- `episodes_with_stage4_mutation = 7/10`
+- `episodes_with_stage5_replay = 7/10`
+- `episodes_with_stage5_verification_tools = 1/10`
+
+这说明：
+- Stage 4 的真实 repair execution 已经常态发生
+- Stage 5 的 replay 已经真实发生
+- 但 Stage 5 的 verification tools 使用明显不足，几乎没形成稳定的“复查”阶段
+
+5. 是否还有明显 blocker drift
+
+有，而且现在更像上游工具选择问题，不像后处理 bug。
+
+现状：
+- `smoke10` 里 `subset_mismatch_count = 6/10`
+- `idx=0` 仍然明显 drift
+  - 在 `smoke3` rerun 里缺的是 `break_app_both_permissions`
+  - 在 `smoke10` 里甚至漂到了 `data_mode_off + break_apn_mms_setting`
+- `idx=2` 已经基本修好
+- `idx=3` 已经基本修好
+
+另外一个好消息是：
+- `stage2_resolved_line_id_counts = {"L1002": 10}`
+这说明之前 Stage 2 的系统性 line grounding 问题，在 `smoke10` 上已经基本消失了。
+
+6. 现在 residual errors 更像是哪些类型
+
+现在更像这两类：
+- `LLM reasoning / tool selection` 问题
+- `tool 返回 vs oracle 不一致` 的少量问题
+
+不像主要是后处理 bug 了。
+
+更具体地说：
+- Stage 3 parser 和重复 `check_app_permissions` 覆盖 bug 已经修出了实质收益
+- 但 `idx=0` 这类失败，根因更像是 Stage 3 没把关键 permission tool 调起来
+- Stage 5 现在最大短板不是 schema，而是它大多数时候根本不主动做 verification tools
+
+7. cost 主轨 `[0,1]` 是否正常
+
+正常。
+
+证据：
+- `cost_scale_version = "telecom_mms_cost_norm_v1"`
+- `smoke3 total_cost_mean = 0.01774`
+- `smoke10 total_cost_mean = 0.08976`
+
+同时 raw cost 也还在单独保留：
+- `raw_total_cost_mean`
+- `raw_mean_regret`
+
+所以现在主轨仍然是 normalized `[0,1]`，raw 轨也还在，符合你要的口径。
+
+8. 现在是否值得继续跑 strong/direct full slice
+
+现在不建议立刻跑。
+
+理由很直接：
+- `smoke10 exact_match_mean` 只有 `0.4`
+- `Stage 5` verification tools 只在 `1/10` 里真正发生
+- 现在主要残差已经不是“一个小后处理 bug”，而是上游工具选择覆盖不足
+
+这时去跑 full slice，会更像花钱确认“问题还在”，而不是拿到稳定可解释的 supporting result。
+
+9. 如果值得，下一步最推荐先扩什么
+
+不是直接 3 seeds。
+
+更推荐顺序是：
+1. 先不要跑 full slice
+2. 先把 `Stage 3` 的关键 tool coverage 和 `Stage 5` verification-tool usage 这个问题定位清楚
+3. 如果修完后 `smoke10` 能明显超过现在这版，再跑 `full slice seed0`
+4. 只有 `full slice seed0` 结果站住了，再上 `3 seeds`
+
+一句话结论：
+这轮 smoke 已经证明前面的修复是有效的，尤其 `smoke3` 从 `0/3` 提升到了 `2/3`。但当前系统还没稳到值得直接扩大实验面，最该继续盯的是 `Stage 3` 的工具调用覆盖和 `Stage 5` 的 verification 行为。

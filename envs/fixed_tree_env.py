@@ -27,6 +27,8 @@ from executors.telecom_bench_backed_executor import TelecomBenchBackedExecutor
 from executors.telecom_llm_bench_executor import TelecomLLMBenchExecutor
 from telecom_mms_evaluator import (
     DEFAULT_COST_SPEC as TELECOM_DEFAULT_COST_SPEC,
+    TELECOM_MMS_COST_SCALE_VERSION,
+    TELECOM_MMS_MAX_RAW_TOTAL_COST_V1,
     evaluate_terminal_prediction as evaluate_telecom_terminal_prediction,
 )
 from tree_family.generator import TreeFamilyGenerator
@@ -58,9 +60,17 @@ class EpisodeResult:
     final_action: Optional[str]
     oracle_action: Optional[str]
     terminal_cost: float
+    raw_terminal_penalty: float
+    raw_path_cost_component: float
+    raw_reasoning_cost_component: float
+    raw_total_cost: float
+    normalized_terminal_penalty: float
     success: bool
     path_agent_cost: float
+    reasoning_cost: float
     total_cost: float
+    total_cost_upper_bound: float
+    cost_scale_version: str
     episode_log: JsonDict = field(default_factory=dict)
 
     def to_dict(self) -> JsonDict:
@@ -269,9 +279,12 @@ class FixedTreeEnvironment:
 
         leaf_type = self.compute_leaf_type(path)
         evaluator_result = self.evaluate_terminal_outcome(stage_outputs, path)
-        terminal_cost = evaluator_result["terminal_penalty"]
         path_agent_cost = sum(self.agent_catalog[agent_id].cost for agent_id in path)
-        total_cost = terminal_cost + self._path_agent_cost_weight() * path_agent_cost
+        cost_metrics = self._build_cost_metrics(
+            evaluator_result=evaluator_result,
+            path_agent_cost=path_agent_cost,
+            reasoning_cost=0.0,
+        )
 
         final_action = (
             stage_outputs.get("stage5", {}).get("output", {}).get("final_action")
@@ -290,9 +303,9 @@ class FixedTreeEnvironment:
             "stage_trace": stage_trace,
             "final_action": final_action,
             "oracle_action": oracle_action,
-            "terminal_cost": terminal_cost,
+            "terminal_cost": cost_metrics["raw_terminal_penalty"],
             "path_agent_cost": path_agent_cost,
-            "total_cost": total_cost,
+            "total_cost": cost_metrics["normalized_total_cost"],
             "success": success,
             "evaluator_version": evaluator_result["evaluator_version"],
             "false_cancel_count": evaluator_result["false_cancel_count"],
@@ -301,6 +314,15 @@ class FixedTreeEnvironment:
             "missed_refuse_count": evaluator_result["missed_refuse_count"],
             "subset_mismatch": evaluator_result["subset_mismatch"],
             "cost_breakdown": deepcopy(evaluator_result["cost_breakdown"]),
+            "raw_terminal_penalty": cost_metrics["raw_terminal_penalty"],
+            "raw_path_cost_component": cost_metrics["raw_path_cost_component"],
+            "raw_total_cost": cost_metrics["raw_total_cost"],
+            "raw_reasoning_cost_component": cost_metrics["raw_reasoning_cost_component"],
+            "normalized_terminal_penalty": cost_metrics["normalized_terminal_penalty"],
+            "normalized_total_cost": cost_metrics["normalized_total_cost"],
+            "total_cost_upper_bound": cost_metrics["total_cost_upper_bound"],
+            "cost_scale_version": cost_metrics["cost_scale_version"],
+            "reasoning_cost": cost_metrics["raw_reasoning_cost_component"],
         }
         self._last_episode_log = deepcopy(episode_log)
 
@@ -311,10 +333,18 @@ class FixedTreeEnvironment:
             stage_outputs=stage_outputs,
             final_action=final_action,
             oracle_action=oracle_action,
-            terminal_cost=terminal_cost,
+            terminal_cost=cost_metrics["raw_terminal_penalty"],
+            raw_terminal_penalty=cost_metrics["raw_terminal_penalty"],
+            raw_path_cost_component=cost_metrics["raw_path_cost_component"],
+            raw_reasoning_cost_component=cost_metrics["raw_reasoning_cost_component"],
+            raw_total_cost=cost_metrics["raw_total_cost"],
+            normalized_terminal_penalty=cost_metrics["normalized_terminal_penalty"],
             success=success,
             path_agent_cost=path_agent_cost,
-            total_cost=total_cost,
+            reasoning_cost=cost_metrics["raw_reasoning_cost_component"],
+            total_cost=cost_metrics["normalized_total_cost"],
+            total_cost_upper_bound=cost_metrics["total_cost_upper_bound"],
+            cost_scale_version=cost_metrics["cost_scale_version"],
             episode_log=episode_log,
         )
 
@@ -332,9 +362,13 @@ class FixedTreeEnvironment:
         )
         stage_outputs = self._family_stage_outputs_from_execution(execution)
         evaluator_result = self.evaluate_terminal_outcome(stage_outputs, path)
-        terminal_cost = evaluator_result["terminal_penalty"]
         path_agent_cost = float(execution["path_agent_cost"])
-        total_cost = terminal_cost + self._path_agent_cost_weight() * path_agent_cost
+        reasoning_metrics = self._compute_family_reasoning_cost(path)
+        cost_metrics = self._build_cost_metrics(
+            evaluator_result=evaluator_result,
+            path_agent_cost=path_agent_cost,
+            reasoning_cost=reasoning_metrics["reasoning_cost"],
+        )
         final_action = execution.get("final_action")
         oracle_action = (
             self.current_instance.get("stage5", {})
@@ -350,9 +384,9 @@ class FixedTreeEnvironment:
             "stage_trace": deepcopy(execution.get("stage_trace", [])),
             "final_action": final_action,
             "oracle_action": oracle_action,
-            "terminal_cost": terminal_cost,
+            "terminal_cost": cost_metrics["raw_terminal_penalty"],
             "path_agent_cost": path_agent_cost,
-            "total_cost": total_cost,
+            "total_cost": cost_metrics["normalized_total_cost"],
             "success": success,
             "evaluator_version": evaluator_result["evaluator_version"],
             "false_cancel_count": evaluator_result["false_cancel_count"],
@@ -362,6 +396,16 @@ class FixedTreeEnvironment:
             "subset_mismatch": evaluator_result["subset_mismatch"],
             "cost_breakdown": deepcopy(evaluator_result["cost_breakdown"]),
             "family_kind": self.family_kind,
+            "raw_terminal_penalty": cost_metrics["raw_terminal_penalty"],
+            "raw_path_cost_component": cost_metrics["raw_path_cost_component"],
+            "raw_total_cost": cost_metrics["raw_total_cost"],
+            "raw_reasoning_cost_component": cost_metrics["raw_reasoning_cost_component"],
+            "normalized_terminal_penalty": cost_metrics["normalized_terminal_penalty"],
+            "normalized_total_cost": cost_metrics["normalized_total_cost"],
+            "total_cost_upper_bound": cost_metrics["total_cost_upper_bound"],
+            "cost_scale_version": cost_metrics["cost_scale_version"],
+            "reasoning_cost": cost_metrics["raw_reasoning_cost_component"],
+            "reasoning_trace": deepcopy(reasoning_metrics["trace"]),
         }
         if isinstance(execution.get("bench_aux_eval"), dict):
             episode_log["bench_aux_eval"] = deepcopy(execution["bench_aux_eval"])
@@ -374,10 +418,18 @@ class FixedTreeEnvironment:
             stage_outputs=stage_outputs,
             final_action=final_action,
             oracle_action=oracle_action,
-            terminal_cost=terminal_cost,
+            terminal_cost=cost_metrics["raw_terminal_penalty"],
+            raw_terminal_penalty=cost_metrics["raw_terminal_penalty"],
+            raw_path_cost_component=cost_metrics["raw_path_cost_component"],
+            raw_reasoning_cost_component=cost_metrics["raw_reasoning_cost_component"],
+            raw_total_cost=cost_metrics["raw_total_cost"],
+            normalized_terminal_penalty=cost_metrics["normalized_terminal_penalty"],
             success=success,
             path_agent_cost=path_agent_cost,
-            total_cost=total_cost,
+            reasoning_cost=cost_metrics["raw_reasoning_cost_component"],
+            total_cost=cost_metrics["normalized_total_cost"],
+            total_cost_upper_bound=cost_metrics["total_cost_upper_bound"],
+            cost_scale_version=cost_metrics["cost_scale_version"],
             episode_log=episode_log,
         )
 
@@ -461,6 +513,85 @@ class FixedTreeEnvironment:
             return TELECOM_DEFAULT_COST_SPEC.path_agent_cost_weight
         return DEFAULT_COST_SPEC.path_agent_cost_weight
 
+    def _build_cost_metrics(
+        self,
+        *,
+        evaluator_result: JsonDict,
+        path_agent_cost: float,
+        reasoning_cost: float,
+    ) -> JsonDict:
+        raw_terminal_penalty = float(
+            evaluator_result.get("raw_terminal_penalty", evaluator_result.get("terminal_penalty", 0.0))
+        )
+        raw_path_cost_component = self._path_agent_cost_weight() * float(path_agent_cost)
+        raw_reasoning_cost_component = float(reasoning_cost)
+        raw_total_cost = raw_terminal_penalty + raw_path_cost_component + raw_reasoning_cost_component
+
+        if self.current_instance and self.current_instance.get("family") == "telecom_mms_recovery":
+            normalized_terminal_penalty = float(
+                evaluator_result.get("normalized_terminal_penalty", 0.0)
+            )
+            normalized_total_cost = min(raw_total_cost / TELECOM_MMS_MAX_RAW_TOTAL_COST_V1, 1.0)
+            total_cost_upper_bound = TELECOM_MMS_MAX_RAW_TOTAL_COST_V1
+            cost_scale_version = TELECOM_MMS_COST_SCALE_VERSION
+        else:
+            normalized_terminal_penalty = raw_terminal_penalty
+            normalized_total_cost = raw_total_cost
+            total_cost_upper_bound = raw_total_cost
+            cost_scale_version = "raw_cost_unscaled"
+
+        return {
+            "raw_terminal_penalty": raw_terminal_penalty,
+            "raw_path_cost_component": raw_path_cost_component,
+            "raw_reasoning_cost_component": raw_reasoning_cost_component,
+            "raw_total_cost": raw_total_cost,
+            "normalized_terminal_penalty": normalized_terminal_penalty,
+            "normalized_total_cost": normalized_total_cost,
+            "total_cost_upper_bound": total_cost_upper_bound,
+            "cost_scale_version": cost_scale_version,
+        }
+
+    def _compute_family_reasoning_cost(self, path: list[str]) -> JsonDict:
+        if self.family_agent_map is None or self.current_task_descriptor is None:
+            return {"reasoning_cost": 0.0, "trace": []}
+
+        if self._family_stages is None:
+            return {"reasoning_cost": 0.0, "trace": []}
+
+        trace: list[JsonDict] = []
+        total = 0.0
+        for stage_name, agent_id in zip(self._family_stages, path):
+            agent = self.family_agent_map[agent_id]
+            requirement = self._stage_deliberation_requirement(self.current_task_descriptor, stage_name)
+            stage_cost = 0.012 if getattr(agent, "deliberation_mode", "deep") == "fast" else 0.028
+            mismatch_penalty = 0.0
+            if requirement == "deep" and getattr(agent, "deliberation_mode", "deep") == "fast":
+                mismatch_penalty = 0.022 + (0.01 * self.current_task_descriptor.stage_difficulty.get(stage_name, 0.0))
+            elif requirement == "fast" and getattr(agent, "deliberation_mode", "deep") == "deep":
+                mismatch_penalty = 0.012
+            stage_total = round(stage_cost + mismatch_penalty, 6)
+            total += stage_total
+            trace.append(
+                {
+                    "stage_name": stage_name,
+                    "agent_id": agent_id,
+                    "deliberation_mode": getattr(agent, "deliberation_mode", "deep"),
+                    "deliberation_requirement": requirement,
+                    "base_reasoning_cost": round(stage_cost, 6),
+                    "mismatch_penalty": round(mismatch_penalty, 6),
+                    "stage_reasoning_cost": stage_total,
+                }
+            )
+
+        return {"reasoning_cost": round(total, 6), "trace": trace}
+
+    def _stage_deliberation_requirement(self, task: Any, stage_name: str) -> str:
+        stage_requirements = getattr(task, "stage_deliberation_requirements", None)
+        if isinstance(stage_requirements, dict) and stage_name in stage_requirements:
+            return str(stage_requirements[stage_name])
+        difficulty = getattr(task, "stage_difficulty", {}).get(stage_name, 0.0)
+        return "deep" if difficulty >= 0.42 else "fast"
+
     def _ensure_family_executor_for_instance(self, instance: JsonDict) -> None:
         if self.family_kind is None or self._family_stages is None:
             return
@@ -507,6 +638,8 @@ class FixedTreeEnvironment:
             raise ValueError(
                 f"Path length must be {len(self.STAGE_NAMES)}. Got {len(path)}."
             )
+        prefix: tuple[str, ...] = ()
+        allowed_children = getattr(self.family_spec, "allowed_children", None)
         for expected_stage, agent_id in zip(self.STAGE_NAMES, path):
             if agent_id not in self.agent_catalog:
                 raise KeyError(f"Unknown agent_id in path: {agent_id}")
@@ -516,6 +649,14 @@ class FixedTreeEnvironment:
                     f"Agent {agent_id} belongs to {agent.stage_name}, "
                     f"but path position expects {expected_stage}."
                 )
+            if allowed_children:
+                legal_children = allowed_children.get(prefix)
+                if legal_children is not None and agent_id not in legal_children:
+                    raise ValueError(
+                        "Path violates family continuation topology. "
+                        f"prefix={list(prefix)} agent_id={agent_id}"
+                    )
+            prefix = prefix + (agent_id,)
 
 
 def _oracle_stage_bundle(env: FixedTreeEnvironment, stage_name: str) -> JsonDict:

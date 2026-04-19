@@ -1,4 +1,4 @@
-"""LLM + real telecom tool bridge for Stage 2/3 execution."""
+"""LLM + real telecom tool bridge for Stage 1/2/3/4/5 execution."""
 
 from __future__ import annotations
 
@@ -110,6 +110,26 @@ def _normalize_tool_arguments(name: str, arguments: dict[str, Any]) -> dict[str,
     return normalized
 
 
+def _execute_tool_call(env: Any, tool_call_data: dict[str, Any], fallback_requestor: str = "assistant") -> tuple[dict[str, Any], Any, bool]:
+    name = str(tool_call_data.get("name", ""))
+    normalized_arguments = _normalize_tool_arguments(name, dict(tool_call_data.get("arguments", {})))
+    explicit_requestor = str(tool_call_data.get("requestor") or "").strip().lower()
+    requestor = (
+        explicit_requestor
+        if explicit_requestor in {"assistant", "user"} and explicit_requestor != "assistant"
+        else fallback_requestor
+    )
+    tool_call = ToolCall(
+        id=str(tool_call_data.get("id", "")),
+        name=name,
+        arguments=normalized_arguments,
+        requestor=requestor,
+    )
+    tool_message = env.get_response(tool_call)
+    parsed_content = _parse_tool_message_content(tool_message.content)
+    return tool_call.model_dump(), parsed_content, bool(tool_message.error)
+
+
 def main() -> None:
     payload = json.load(sys.stdin)
     stage_name = payload["stage_name"]
@@ -120,6 +140,7 @@ def main() -> None:
     system_prompt = payload["system_prompt"]
     user_prompt = payload["user_prompt"]
     allowed_tools = list(payload.get("allowed_tools", []))
+    replay_tool_calls = list(payload.get("replay_tool_calls", []))
 
     env = get_environment(policy_type="workflow")
     task_map = _load_task_map()
@@ -127,6 +148,23 @@ def main() -> None:
     if task is not None and getattr(task, "initial_state", None) is not None:
         init_actions = getattr(task.initial_state, "initialization_actions", None)
         env.set_state(None, init_actions, [])
+
+    db_hash_before_replay = env.get_db_hash()
+    replayed_tool_calls: list[dict[str, Any]] = []
+    replay_tool_results: list[Any] = []
+    replay_tool_errors: list[dict[str, Any]] = []
+    for replay_call in replay_tool_calls:
+        replayed_call, replay_result, replay_error = _execute_tool_call(env, replay_call)
+        replayed_tool_calls.append(replayed_call)
+        replay_tool_results.append(replay_result)
+        if replay_error:
+            replay_tool_errors.append(
+                {
+                    "tool_call": replayed_call,
+                    "content": replay_result,
+                }
+            )
+    db_hash_after_replay = env.get_db_hash()
 
     tools, requestor_by_tool = _filter_tools(env, allowed_tools)
     db_hash_before = env.get_db_hash()
@@ -141,44 +179,42 @@ def main() -> None:
     final_output: dict[str, Any] | None = None
 
     for step_idx in range(max_rounds):
-        assistant = llm_generate(
-            model=model,
-            messages=messages,
-            tools=tools,
-            tool_choice="auto",
-            call_name=f"psagent_{stage_name}_telecom_llm_bench",
+        generate_kwargs = {
+            "model": model,
+            "messages": messages,
+            "call_name": f"psagent_{stage_name}_telecom_llm_bench",
             **llm_args,
-        )
+        }
+        if tools:
+            generate_kwargs["tools"] = tools
+            generate_kwargs["tool_choice"] = "auto"
+        assistant = llm_generate(**generate_kwargs)
         llm_messages.append(_assistant_step_to_dict(assistant))
         messages.append(assistant)
 
         if assistant.tool_calls:
             for tool_call in assistant.tool_calls:
-                normalized_arguments = _normalize_tool_arguments(tool_call.name, tool_call.arguments)
-                tool_call = ToolCall(
-                    id=tool_call.id,
-                    name=tool_call.name,
-                    arguments=normalized_arguments,
-                    requestor=requestor_by_tool.get(tool_call.name, "assistant"),
+                replayed_call, parsed_content, tool_error = _execute_tool_call(
+                    env,
+                    tool_call.model_dump(),
+                    fallback_requestor=requestor_by_tool.get(tool_call.name, "assistant"),
                 )
-                tool_message = env.get_response(tool_call)
-                parsed_content = _parse_tool_message_content(tool_message.content)
-                executed_tool_calls.append(tool_call.model_dump())
+                executed_tool_calls.append(replayed_call)
                 tool_results.append(parsed_content)
-                if tool_message.error:
+                if tool_error:
                     tool_errors.append(
                         {
-                            "tool_call": tool_call.model_dump(),
+                            "tool_call": replayed_call,
                             "content": parsed_content,
                         }
                     )
                 messages.append(
                     ToolMessage(
-                        id=tool_message.id,
+                        id=replayed_call["id"],
                         role="tool",
-                        content=tool_message.content,
-                        requestor=tool_message.requestor,
-                        error=tool_message.error,
+                        content=json.dumps(parsed_content, ensure_ascii=False) if not isinstance(parsed_content, str) else parsed_content,
+                        requestor=replayed_call.get("requestor", "assistant"),
+                        error=tool_error,
                     )
                 )
             continue
@@ -200,8 +236,13 @@ def main() -> None:
     result = {
         "stage_name": stage_name,
         "original_task_id": original_task_id,
+        "db_hash_before_replay": db_hash_before_replay,
+        "db_hash_after_replay": db_hash_after_replay,
         "db_hash_before": db_hash_before,
         "db_hash_after": env.get_db_hash(),
+        "replay_tool_calls": replayed_tool_calls,
+        "replay_tool_results": replay_tool_results,
+        "replay_tool_errors": replay_tool_errors,
         "llm_messages": llm_messages,
         "executed_tool_calls": executed_tool_calls,
         "tool_results": tool_results,

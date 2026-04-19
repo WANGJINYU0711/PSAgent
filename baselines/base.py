@@ -69,6 +69,30 @@ class BasePolicy(ABC):
 
         return {}
 
+    def _legal_agent_ids_for_prefix(
+        self,
+        current_prefix: tuple[str, ...],
+        stage_name: str,
+        env: FixedTreeEnvironment,
+    ) -> list[str]:
+        """Return the legal next-stage agent ids under optional family topology.
+
+        Most legacy families are plain cartesian products, so every stage agent is
+        legal. Topology-aware families may expose an explicit continuation map in
+        ``family_spec.allowed_children``; in that case we must sample only from the
+        children reachable under the current prefix.
+        """
+
+        stage_agent_ids = self.stage_agent_ids[stage_name]
+        family_spec = getattr(env, "family_spec", None)
+        allowed_children = getattr(family_spec, "allowed_children", None)
+        if not allowed_children:
+            return list(stage_agent_ids)
+        child_ids = allowed_children.get(current_prefix)
+        if child_ids is None:
+            return list(stage_agent_ids)
+        return list(child_ids)
+
     def _sample_index(self, weights: list[float]) -> int:
         """Sample an index from non-negative weights."""
 
@@ -113,10 +137,13 @@ class StagewiseScorePolicy(BasePolicy):
             self.bind_env(env)
 
         path: list[str] = []
+        current_prefix: tuple[str, ...] = ()
         for stage_name in env.STAGE_NAMES:
-            agent_ids = self.stage_agent_ids[stage_name]
+            agent_ids = self._legal_agent_ids_for_prefix(current_prefix, stage_name, env)
             if self.rng.random() < self.epsilon:
-                path.append(self.rng.choice(agent_ids))
+                chosen = self.rng.choice(agent_ids)
+                path.append(chosen)
+                current_prefix = current_prefix + (chosen,)
                 continue
 
             ranked = sorted(
@@ -125,7 +152,9 @@ class StagewiseScorePolicy(BasePolicy):
             )
             best_mean = self._mean_cost(ranked[0])
             tied = [agent_id for agent_id in ranked if math.isclose(self._mean_cost(agent_id), best_mean)]
-            path.append(self.rng.choice(tied))
+            chosen = self.rng.choice(tied)
+            path.append(chosen)
+            current_prefix = current_prefix + (chosen,)
         return path
 
     def update(self, episode_result: EpisodeResult) -> None:
@@ -169,6 +198,7 @@ class StagewiseExp3Policy(BasePolicy):
         self.weights: dict[str, float] = {}
         self.last_path_probs: list[float] = []
         self.last_stage_probs: dict[str, float] = {}
+        self.last_stage_arm_counts: dict[str, int] = {}
         self.last_path_prob: float = 0.0
 
     def bind_env(self, env: FixedTreeEnvironment) -> None:
@@ -209,13 +239,17 @@ class StagewiseExp3Policy(BasePolicy):
         path: list[str] = []
         self.last_path_probs = []
         self.last_stage_probs = {}
+        self.last_stage_arm_counts = {}
+        current_prefix: tuple[str, ...] = ()
         for stage_name in env.STAGE_NAMES:
-            agent_ids = self.stage_agent_ids[stage_name]
+            agent_ids = self._legal_agent_ids_for_prefix(current_prefix, stage_name, env)
             probs = self._stage_probs(agent_ids)
             agent_id, prob = self._sample_from_probs(agent_ids, probs)
             path.append(agent_id)
             self.last_path_probs.append(prob)
             self.last_stage_probs[stage_name] = prob
+            self.last_stage_arm_counts[stage_name] = len(agent_ids)
+            current_prefix = current_prefix + (agent_id,)
         path_prob = 1.0
         for prob in self.last_path_probs:
             path_prob *= prob
@@ -228,7 +262,7 @@ class StagewiseExp3Policy(BasePolicy):
             episode_result.selected_path,
             self.last_path_probs,
         ):
-            arms = max(1, len(self.stage_agent_ids[self._stage_for_agent(agent_id)]))
+            arms = max(1, self.last_stage_arm_counts.get(stage_name, len(self.stage_agent_ids[stage_name])))
             if self.estimator_type == "loss":
                 estimated_signal = episode_result.total_cost / max(prob, 1e-12)
                 self.weights[agent_id] *= math.exp(

@@ -119,18 +119,10 @@ def _sync_risky_ps_selection(policy: Any, env: Any, path: list[str]) -> None:
     policy.last_update_info = {}
     for stage_name, agent_id in zip(env.STAGE_NAMES, path):
         child_prefixes = policy._child_prefixes(current_prefix, stage_name, env)
-        mass_rows = policy._edge_masses(current_prefix, child_prefixes)
-        combined_masses = [row[2] for row in mass_rows]
-        num_children = len(child_prefixes)
-        if sum(combined_masses) <= 0:
-            exploit_probs = [1.0 / num_children for _ in child_prefixes]
+        if policy.safe_prefixes.get(current_prefix, False):
+            probs = policy._safe_child_probs(current_prefix, child_prefixes)
         else:
-            exploit_probs = [mass / sum(combined_masses) for mass in combined_masses]
-        local_epsilon = 0.0 if policy.safe_prefixes.get(current_prefix, False) else policy.epsilon
-        probs = [
-            (1.0 - local_epsilon) * exploit_prob + local_epsilon * (1.0 / num_children)
-            for exploit_prob in exploit_probs
-        ]
+            probs = policy._risky_child_probs(current_prefix, child_prefixes)
         child_prefix = tuple(list(current_prefix) + [agent_id])
         selected_idx = child_prefixes.index(child_prefix)
         conditional_prob = probs[selected_idx]

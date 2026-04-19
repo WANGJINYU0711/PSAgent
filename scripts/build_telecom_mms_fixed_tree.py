@@ -30,6 +30,12 @@ TELECOM_DB_PATH = REPO_ROOT / "tau2-bench" / "data" / "tau2" / "domains" / "tele
 OUTPUT_BASE_PATH = REPO_ROOT / "data" / "derived" / "telecom_mms_fixed_tree_base" / "tasks.json"
 OUTPUT_SMOKE_PATH = REPO_ROOT / "data" / "derived" / "telecom_mms_fixed_tree_smoke10" / "tasks.json"
 OUTPUT_MANIFEST_PATH = REPO_ROOT / "data" / "derived" / "telecom_mms_fixed_tree_smoke10" / "manifest.json"
+OUTPUT_BASE_V2_100_PATH = (
+    REPO_ROOT / "data" / "derived" / "telecom_mms_fixed_tree_base_v2_100" / "tasks.json"
+)
+OUTPUT_BASE_V2_100_MANIFEST_PATH = (
+    REPO_ROOT / "data" / "derived" / "telecom_mms_fixed_tree_base_v2_100" / "manifest.json"
+)
 
 TASK_ID_RE = re.compile(r"^\[(?P<family>[^\]]+)\](?P<body>.*)\[PERSONA:(?P<persona>[^\]]+)\]$")
 PHONE_RE = re.compile(r"(\d{3}-\d{3}-\d{4})")
@@ -48,6 +54,18 @@ SMOKE10_TASK_IDS = [
     "[mms_issue]bad_network_preference|bad_wifi_calling|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
     "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_off[PERSONA:Easy]",
 ]
+
+PERMISSION_BLOCKERS = [
+    "break_app_sms_permission",
+    "break_app_storage_permission",
+    "break_app_both_permissions",
+]
+PERSONA_LEVELS = ["None", "Easy", "Hard"]
+TERMINAL_ACTIONS = ["repair_all", "repair_subset", "transfer"]
+OWNERSHIP_LEVELS = ["user", "assistant", "hybrid"]
+BLOCKER_COUNT_BUCKETS = ["1", "2", "3", "4", "5+"]
+BLOCKER_LAYERS = ["service", "data", "mms_app"]
+TARGET_V2_100_COUNT = 100
 
 
 def load_json(path: Path) -> Any:
@@ -644,6 +662,130 @@ def select_mms_tasks(all_tasks: list[dict[str, Any]], split_ids: list[str]) -> l
     return sorted(selected, key=lambda task: (len(parse_task_id(task["id"])["blockers"]), task["id"]))
 
 
+def blocker_count_bucket(blocker_count: int) -> str:
+    return str(blocker_count) if blocker_count < 5 else "5+"
+
+
+def extract_selection_features(raw_task: dict[str, Any]) -> dict[str, Any]:
+    parsed = parse_task_id(raw_task["id"])
+    blockers = list(parsed["blockers"])
+    specs = [get_blocker_spec(blocker_id) for blocker_id in blockers]
+    terminal = first_pass_terminal_decision(blockers)
+    ownership = sorted({spec["repair_owner"] for spec in specs})
+    layers = sorted({spec["blocker_layer"] for spec in specs})
+    permission_blockers = [blocker_id for blocker_id in blockers if blocker_id in PERMISSION_BLOCKERS]
+    return {
+        "task_id": raw_task["id"],
+        "blockers": blockers,
+        "blocker_count": len(blockers),
+        "blocker_count_bucket": blocker_count_bucket(len(blockers)),
+        "persona": parsed["persona"],
+        "terminal_action": terminal["final_action"],
+        "repairability": terminal["repairability"],
+        "ownership": ownership,
+        "layers": layers,
+        "permission_blockers": permission_blockers,
+        "has_permission_blocker": bool(permission_blockers),
+    }
+
+
+def choose_best_balanced_task(
+    candidates: list[dict[str, Any]],
+    feature_map: dict[str, dict[str, Any]],
+    counters: dict[str, Any],
+) -> dict[str, Any]:
+    def priority(task: dict[str, Any]) -> tuple[Any, ...]:
+        feature = feature_map[task["id"]]
+        permission_score = (
+            min(counters["permission"][blocker_id] for blocker_id in feature["permission_blockers"])
+            if feature["permission_blockers"]
+            else max(counters["permission"].values(), default=0) + 1
+        )
+        ownership_score = min(counters["ownership"][owner] for owner in feature["ownership"])
+        layer_score = min(counters["layer"][layer] for layer in feature["layers"])
+        return (
+            counters["persona"][feature["persona"]],
+            counters["terminal_action"][feature["terminal_action"]],
+            permission_score,
+            ownership_score,
+            layer_score,
+            0 if feature["has_permission_blocker"] else 1,
+            task["id"],
+        )
+
+    return min(candidates, key=priority)
+
+
+def record_selected_feature(
+    feature: dict[str, Any],
+    counters: dict[str, Any],
+) -> None:
+    counters["persona"][feature["persona"]] += 1
+    counters["terminal_action"][feature["terminal_action"]] += 1
+    for blocker_id in feature["permission_blockers"]:
+        counters["permission"][blocker_id] += 1
+    for owner in feature["ownership"]:
+        counters["ownership"][owner] += 1
+    for layer in feature["layers"]:
+        counters["layer"][layer] += 1
+
+
+def select_balanced_mms_tasks(
+    all_tasks: list[dict[str, Any]],
+    target_count: int,
+) -> list[dict[str, Any]]:
+    candidates = sorted(
+        (
+            task
+            for task in all_tasks
+            if parse_task_id(task["id"])["family"] == "mms_issue"
+        ),
+        key=lambda task: (len(parse_task_id(task["id"])["blockers"]), task["id"]),
+    )
+    feature_map = {task["id"]: extract_selection_features(task) for task in candidates}
+    by_exact_count: dict[int, list[dict[str, Any]]] = {}
+    for task in candidates:
+        blocker_count = feature_map[task["id"]]["blocker_count"]
+        by_exact_count.setdefault(blocker_count, []).append(task)
+
+    exact_counts = sorted(by_exact_count)
+    selected: list[dict[str, Any]] = []
+    selected_ids: set[str] = set()
+    counters: dict[str, Any] = {
+        "persona": {persona: 0 for persona in PERSONA_LEVELS},
+        "terminal_action": {action: 0 for action in TERMINAL_ACTIONS},
+        "permission": {blocker_id: 0 for blocker_id in PERMISSION_BLOCKERS},
+        "ownership": {owner: 0 for owner in OWNERSHIP_LEVELS},
+        "layer": {layer: 0 for layer in BLOCKER_LAYERS},
+    }
+
+    while len(selected) < target_count:
+        made_progress = False
+        for exact_count in exact_counts:
+            remaining = [
+                task
+                for task in by_exact_count[exact_count]
+                if task["id"] not in selected_ids
+            ]
+            if not remaining:
+                continue
+            chosen = choose_best_balanced_task(remaining, feature_map, counters)
+            selected.append(chosen)
+            selected_ids.add(chosen["id"])
+            record_selected_feature(feature_map[chosen["id"]], counters)
+            made_progress = True
+            if len(selected) >= target_count:
+                break
+        if not made_progress:
+            break
+
+    if len(selected) != target_count:
+        raise ValueError(
+            f"Balanced telecom MMS selector expected {target_count} tasks but got {len(selected)}."
+        )
+    return selected
+
+
 def build_smoke10_manifest(base_tasks: list[dict[str, Any]]) -> dict[str, Any]:
     base_ids = {task["id"] for task in base_tasks}
     missing = [task_id for task_id in SMOKE10_TASK_IDS if task_id not in base_ids]
@@ -675,6 +817,87 @@ def build_smoke10_manifest(base_tasks: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def build_selection_coverage_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    blocker_count_distribution: dict[str, int] = {}
+    blocker_count_bucket_distribution: dict[str, int] = {}
+    persona_distribution: dict[str, int] = {}
+    terminal_action_distribution: dict[str, int] = {}
+    permission_blocker_coverage: dict[str, int] = {blocker_id: 0 for blocker_id in PERMISSION_BLOCKERS}
+    ownership_coverage: dict[str, int] = {owner: 0 for owner in OWNERSHIP_LEVELS}
+    blocker_layer_distribution: dict[str, int] = {layer: 0 for layer in BLOCKER_LAYERS}
+
+    for row in rows:
+        metadata = row["metadata"]
+        blocker_count = int(metadata["num_blockers"])
+        blocker_count_distribution[str(blocker_count)] = blocker_count_distribution.get(str(blocker_count), 0) + 1
+        bucket = blocker_count_bucket(blocker_count)
+        blocker_count_bucket_distribution[bucket] = blocker_count_bucket_distribution.get(bucket, 0) + 1
+        persona = str(metadata["persona_level"])
+        persona_distribution[persona] = persona_distribution.get(persona, 0) + 1
+        action = str(metadata["expected_terminal_action"])
+        terminal_action_distribution[action] = terminal_action_distribution.get(action, 0) + 1
+        parsed = parse_task_id(row["original_task_id"])
+        for blocker_id in parsed["blockers"]:
+            if blocker_id in permission_blocker_coverage:
+                permission_blocker_coverage[blocker_id] += 1
+        for owner in metadata["repair_owner_set"]:
+            ownership_coverage[owner] = ownership_coverage.get(owner, 0) + 1
+        for layer in metadata["blocker_layers_present"]:
+            blocker_layer_distribution[layer] = blocker_layer_distribution.get(layer, 0) + 1
+
+    return {
+        "blocker_count_distribution": blocker_count_distribution,
+        "blocker_count_bucket_distribution": blocker_count_bucket_distribution,
+        "persona_distribution": persona_distribution,
+        "terminal_action_distribution": terminal_action_distribution,
+        "permission_blocker_coverage": permission_blocker_coverage,
+        "ownership_coverage": ownership_coverage,
+        "blocker_layer_distribution": blocker_layer_distribution,
+    }
+
+
+def build_base_v2_100_manifest(
+    rows: list[dict[str, Any]],
+    *,
+    source_task_count: int,
+    skipped_count: int,
+) -> dict[str, Any]:
+    return {
+        "subset_name": "telecom_mms_fixed_tree_base_v2_100",
+        "source_subset": "all_mms_issue",
+        "subset_version": "base_v2_100",
+        "family": "telecom_mms_recovery",
+        "task_count": len(rows),
+        "selection_criteria": {
+            "selection_type": "deterministic_balanced_round_robin_greedy",
+            "target_count": TARGET_V2_100_COUNT,
+            "candidate_pool": "all telecom tasks whose id family is mms_issue",
+            "selection_rounds": [
+                "round-robin over exact blocker counts",
+                "within each blocker-count pool, choose the task with the strongest coverage gain for persona, terminal action, permission blockers, ownership, and blocker layers",
+            ],
+            "deterministic_ordering": "task_id lexical order as final tie-break",
+            "coverage_goals": {
+                "blocker_count": BLOCKER_COUNT_BUCKETS,
+                "persona_level": PERSONA_LEVELS,
+                "terminal_action": TERMINAL_ACTIONS,
+                "permission_blockers": PERMISSION_BLOCKERS,
+                "ownership": OWNERSHIP_LEVELS,
+                "blocker_layers": BLOCKER_LAYERS,
+            },
+        },
+        "notes": [
+            "This v2 benchmark expands the telecom MMS fixed-tree formal set from 49 to 100 tasks.",
+            "The legacy telecom_mms_fixed_tree_base benchmark is kept unchanged for backward compatibility.",
+            "Selection is coverage-oriented and deterministic; no random sampling and no handwritten task-id list are used.",
+        ],
+        "coverage_summary": build_selection_coverage_summary(rows),
+        "source_task_count": source_task_count,
+        "skipped_count": skipped_count,
+        "task_ids": [row["original_task_id"] for row in rows],
+    }
+
+
 def build_dataset(
     tasks: list[dict[str, Any]],
     source_split: str,
@@ -683,7 +906,27 @@ def build_dataset(
     smoke_task_ids: set[str] | None = None,
     reference_maps: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
+    rows, _skipped = build_dataset_with_stats(
+        tasks=tasks,
+        source_split=source_split,
+        source_subsplit_lookup=source_subsplit_lookup,
+        subset_version=subset_version,
+        smoke_task_ids=smoke_task_ids,
+        reference_maps=reference_maps,
+    )
+    return rows
+
+
+def build_dataset_with_stats(
+    tasks: list[dict[str, Any]],
+    source_split: str,
+    source_subsplit_lookup: dict[str, str],
+    subset_version: str,
+    smoke_task_ids: set[str] | None = None,
+    reference_maps: dict[str, dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     rows = []
+    skipped: list[dict[str, str]] = []
     for raw_task in tasks:
         try:
             rows.append(
@@ -698,7 +941,8 @@ def build_dataset(
             )
         except Exception as exc:  # noqa: BLE001
             warnings.warn(f"Skipping task {raw_task['id']}: {exc}")
-    return rows
+            skipped.append({"task_id": raw_task["id"], "reason": str(exc)})
+    return rows, skipped
 
 
 def main() -> None:
@@ -711,8 +955,15 @@ def main() -> None:
         source_subsplit_lookup[task_id] = "train"
     for task_id in split_map["test"]:
         source_subsplit_lookup[task_id] = "test"
+    source_subsplit_lookup_v2 = dict(source_subsplit_lookup)
+    for task_id in split_map["base"]:
+        source_subsplit_lookup_v2.setdefault(task_id, "base")
 
     base_tasks = select_mms_tasks(all_tasks, split_map["base"])
+    all_mms_tasks = [
+        task for task in all_tasks if parse_task_id(task["id"])["family"] == "mms_issue"
+    ]
+    base_v2_100_tasks = select_balanced_mms_tasks(all_tasks, TARGET_V2_100_COUNT)
     manifest = build_smoke10_manifest(base_tasks)
     smoke_raw = [task for task in base_tasks if task["id"] in set(manifest["task_ids"])]
 
@@ -732,19 +983,43 @@ def main() -> None:
         smoke_task_ids=set(manifest["task_ids"]),
         reference_maps=reference_maps,
     )
+    base_v2_100_rows, base_v2_100_skipped = build_dataset_with_stats(
+        tasks=base_v2_100_tasks,
+        source_split="all_mms_issue",
+        source_subsplit_lookup=source_subsplit_lookup_v2,
+        subset_version="base_v2_100",
+        smoke_task_ids=None,
+        reference_maps=reference_maps,
+    )
+    if len(base_v2_100_rows) != TARGET_V2_100_COUNT:
+        raise ValueError(
+            "telecom_mms_fixed_tree_base_v2_100 build did not produce exactly "
+            f"{TARGET_V2_100_COUNT} rows: got {len(base_v2_100_rows)}"
+        )
+    base_v2_100_manifest = build_base_v2_100_manifest(
+        base_v2_100_rows,
+        source_task_count=len(all_mms_tasks),
+        skipped_count=len(base_v2_100_skipped),
+    )
 
     dump_json(OUTPUT_BASE_PATH, base_rows)
     dump_json(OUTPUT_SMOKE_PATH, smoke_rows)
     dump_json(OUTPUT_MANIFEST_PATH, manifest)
+    dump_json(OUTPUT_BASE_V2_100_PATH, base_v2_100_rows)
+    dump_json(OUTPUT_BASE_V2_100_MANIFEST_PATH, base_v2_100_manifest)
 
     print(
         json.dumps(
             {
                 "base_count": len(base_rows),
                 "smoke_count": len(smoke_rows),
+                "base_v2_100_count": len(base_v2_100_rows),
                 "base_output": str(OUTPUT_BASE_PATH),
                 "smoke_output": str(OUTPUT_SMOKE_PATH),
                 "manifest_output": str(OUTPUT_MANIFEST_PATH),
+                "base_v2_100_output": str(OUTPUT_BASE_V2_100_PATH),
+                "base_v2_100_manifest_output": str(OUTPUT_BASE_V2_100_MANIFEST_PATH),
+                "base_v2_100_skipped_count": len(base_v2_100_skipped),
             },
             indent=2,
         )

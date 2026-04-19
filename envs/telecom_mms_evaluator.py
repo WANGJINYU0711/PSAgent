@@ -4,6 +4,14 @@ from dataclasses import dataclass
 from typing import Any
 
 
+TELECOM_MMS_MAX_RAW_TERMINAL_COST_V1 = 25.0
+TELECOM_MMS_MAX_WEIGHTED_PATH_COST_V1 = 0.14
+TELECOM_MMS_MAX_RAW_TOTAL_COST_V1 = (
+    TELECOM_MMS_MAX_RAW_TERMINAL_COST_V1 + TELECOM_MMS_MAX_WEIGHTED_PATH_COST_V1
+)
+TELECOM_MMS_COST_SCALE_VERSION = "telecom_mms_cost_norm_v1"
+
+
 @dataclass(frozen=True)
 class TelecomMMSCostSpec:
     final_action_mismatch_penalty: float = 1.0
@@ -80,11 +88,17 @@ def evaluate_terminal_prediction(
         "invalid_transfer_penalty": invalid_transfer_penalty,
         "missed_transfer_penalty": missed_transfer_penalty,
     }
-    terminal_penalty = sum(cost_breakdown.values())
+    raw_terminal_penalty = sum(cost_breakdown.values())
+    normalized_terminal_penalty = min(
+        raw_terminal_penalty / TELECOM_MMS_MAX_RAW_TERMINAL_COST_V1,
+        1.0,
+    )
     exact_match = (not final_action_mismatch) and (not subset_mismatch)
 
     return {
         "evaluator_version": "telecom_mms_blocker_level_v2",
+        "cost_scale_version": TELECOM_MMS_COST_SCALE_VERSION,
+        "terminal_cost_upper_bound": TELECOM_MMS_MAX_RAW_TERMINAL_COST_V1,
         "predicted_final_action": predicted_final_action,
         "oracle_final_action": oracle_final_action,
         "final_action_mismatch": final_action_mismatch,
@@ -98,7 +112,9 @@ def evaluate_terminal_prediction(
         "false_deferred_count": len(false_deferred),
         "missed_deferred_count": len(missed_deferred),
         "cost_breakdown": cost_breakdown,
-        "terminal_penalty": terminal_penalty,
+        "raw_terminal_penalty": raw_terminal_penalty,
+        "normalized_terminal_penalty": normalized_terminal_penalty,
+        "terminal_penalty": raw_terminal_penalty,
         "exact_match": exact_match,
         "false_cancelled_ids": false_selected,
         "missed_cancelled_ids": missed_selected,

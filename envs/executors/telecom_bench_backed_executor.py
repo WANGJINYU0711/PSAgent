@@ -23,6 +23,19 @@ from tree_family.specs import AgentSpec, TaskDescriptor
 
 
 PHONE_RE = re.compile(r"(\d{3}-\d{3}-\d{4})")
+MUTATING_REPAIR_TOOL_NAMES = {
+    "toggle_airplane_mode",
+    "toggle_data",
+    "enable_roaming",
+    "toggle_roaming",
+    "refuel_data",
+    "set_network_mode_preference",
+    "toggle_wifi_calling",
+    "reset_apn_settings",
+    "reboot_device",
+    "grant_app_permission",
+    "reseat_sim_card",
+}
 
 
 class TelecomBenchBackedExecutor(BaseExecutor):
@@ -50,12 +63,18 @@ class TelecomBenchBackedExecutor(BaseExecutor):
         stage1_output = self._run_stage1(task, path[0], agent_map, raw_instance)
         stage_outputs["stage1"] = stage1_output
         stage_trace.append(stage1_output["trace"])
+        tool_calls_made += self._total_tool_interactions(stage1_output["trace"])
+        any_tool_error = any_tool_error or bool(stage1_output["trace"].get("tool_errors")) or bool(
+            stage1_output["trace"].get("replay_tool_errors")
+        )
 
         stage2_output = self._run_stage2(task, path[1], agent_map, raw_instance, stage1_output["output"])
         stage_outputs["stage2"] = stage2_output
         stage_trace.append(stage2_output["trace"])
-        tool_calls_made += len(stage2_output["trace"]["executed_tool_calls"])
-        any_tool_error = any_tool_error or bool(stage2_output["trace"]["tool_errors"])
+        tool_calls_made += self._total_tool_interactions(stage2_output["trace"])
+        any_tool_error = any_tool_error or bool(stage2_output["trace"].get("tool_errors")) or bool(
+            stage2_output["trace"].get("replay_tool_errors")
+        )
         db_hash_before = stage2_output["trace"].get("db_hash_before")
         db_hash_after = stage2_output["trace"].get("db_hash_after")
 
@@ -69,8 +88,10 @@ class TelecomBenchBackedExecutor(BaseExecutor):
         )
         stage_outputs["stage3"] = stage3_output
         stage_trace.append(stage3_output["trace"])
-        tool_calls_made += len(stage3_output["trace"]["executed_tool_calls"])
-        any_tool_error = any_tool_error or bool(stage3_output["trace"]["tool_errors"])
+        tool_calls_made += self._total_tool_interactions(stage3_output["trace"])
+        any_tool_error = any_tool_error or bool(stage3_output["trace"].get("tool_errors")) or bool(
+            stage3_output["trace"].get("replay_tool_errors")
+        )
         if db_hash_before is None:
             db_hash_before = stage3_output["trace"].get("db_hash_before")
         db_hash_after = stage3_output["trace"].get("db_hash_after", db_hash_after)
@@ -86,6 +107,10 @@ class TelecomBenchBackedExecutor(BaseExecutor):
         )
         stage_outputs["stage4"] = stage4_output
         stage_trace.append(stage4_output["trace"])
+        tool_calls_made += self._total_tool_interactions(stage4_output["trace"])
+        any_tool_error = any_tool_error or bool(stage4_output["trace"].get("tool_errors")) or bool(
+            stage4_output["trace"].get("replay_tool_errors")
+        )
 
         stage5_output = self._run_stage5(
             task,
@@ -95,21 +120,58 @@ class TelecomBenchBackedExecutor(BaseExecutor):
             stage1_output["output"],
             stage2_output["output"],
             stage3_output["output"],
-            stage4_output["output"],
+            stage4_output,
         )
         stage_outputs["stage5"] = stage5_output
         stage_trace.append(stage5_output["trace"])
+        tool_calls_made += self._total_tool_interactions(stage5_output["trace"])
+        any_tool_error = any_tool_error or bool(stage5_output["trace"].get("tool_errors")) or bool(
+            stage5_output["trace"].get("replay_tool_errors")
+        )
+
+        mutating_tool_calls_made = self._mutating_tool_call_count(stage4_output["trace"])
+        assistant_side_mutating_calls = self._assistant_side_mutating_tool_call_count(stage4_output["trace"])
+        db_hash_before = (
+            stage4_output["output"].get("db_hash_before_execution")
+            or stage4_output["trace"].get("db_hash_before")
+            or db_hash_before
+        )
+        db_hash_after = (
+            stage4_output["output"].get("db_hash_after_execution")
+            or stage4_output["trace"].get("db_hash_after")
+            or db_hash_after
+        )
+        stage5_db_hash_after_replay = stage5_output["trace"].get("db_hash_after_replay")
+        replay_consistent = (
+            stage5_db_hash_after_replay == db_hash_after
+            if stage5_db_hash_after_replay and db_hash_after
+            else "deferred"
+        )
+        if mutating_tool_calls_made > 0:
+            if assistant_side_mutating_calls > 0 and isinstance(replay_consistent, bool) and db_hash_before and db_hash_after:
+                bench_db_check = (db_hash_before != db_hash_after) and replay_consistent
+            elif isinstance(replay_consistent, bool):
+                bench_db_check = replay_consistent
+            elif db_hash_before and db_hash_after:
+                bench_db_check = db_hash_before != db_hash_after if assistant_side_mutating_calls > 0 else True
+            else:
+                bench_db_check = "deferred"
+        else:
+            bench_db_check = db_hash_before == db_hash_after if db_hash_before and db_hash_after else "deferred"
 
         leaf_type = "unshared" if any(agent_map[agent_id].g == 1 for agent_id in path) else "shared"
         path_agent_cost = sum(agent_map[agent_id].base_cost for agent_id in path)
         bench_aux_eval = {
             "db_hash_before": db_hash_before,
             "db_hash_after": db_hash_after,
+            "stage5_db_hash_after_replay": stage5_db_hash_after_replay,
             "tool_calls_made": tool_calls_made,
-            "mutating_tool_calls_made": 0,
+            "mutating_tool_calls_made": mutating_tool_calls_made,
+            "assistant_side_mutating_tool_calls_made": assistant_side_mutating_calls,
             "any_tool_error_occurred": any_tool_error,
             "bench_success": "deferred",
-            "bench_db_check": db_hash_before == db_hash_after if db_hash_before and db_hash_after else "deferred",
+            "bench_db_check": bench_db_check,
+            "replay_consistent": replay_consistent,
             "bench_action_check": "deferred",
             "bench_communicate_check": "deferred",
             "bench_nl_assertions": "deferred",
@@ -365,13 +427,13 @@ class TelecomBenchBackedExecutor(BaseExecutor):
         stage1_output: dict[str, Any],
         stage2_output: dict[str, Any],
         stage3_output: dict[str, Any],
-        stage4_output: dict[str, Any],
+        stage4_result: dict[str, Any],
     ) -> dict[str, Any]:
         del raw_instance, stage1_output, stage3_output
         agent = agent_map[agent_id]
-        output = self._build_stage5_output(stage4_output)
+        output = self._build_stage5_output(stage4_result["output"])
         return {
-            "input": deepcopy(stage4_output),
+            "input": deepcopy(stage4_result["output"]),
             "output": output,
             "trace": {
                 "stage_name": "stage5",
@@ -381,7 +443,7 @@ class TelecomBenchBackedExecutor(BaseExecutor):
                 "executed_tool_calls": [],
                 "tool_results": [],
                 "tool_errors": [],
-                "input": deepcopy(stage4_output),
+                "input": deepcopy(stage4_result["output"]),
                 "output": deepcopy(output),
                 "score": round(self.score_helper._effective_score(task, "stage5", agent), 4),
                 "source": "stage4_derived",
@@ -530,6 +592,24 @@ class TelecomBenchBackedExecutor(BaseExecutor):
     def _extract_phone(self, text: str) -> str | None:
         match = PHONE_RE.search(text)
         return match.group(1) if match else None
+
+    def _total_tool_interactions(self, trace: dict[str, Any]) -> int:
+        return len(trace.get("executed_tool_calls", [])) + len(trace.get("replay_tool_calls", []))
+
+    def _mutating_tool_call_count(self, trace: dict[str, Any]) -> int:
+        return sum(
+            1
+            for call in trace.get("executed_tool_calls", [])
+            if str(call.get("name", "")) in MUTATING_REPAIR_TOOL_NAMES
+        )
+
+    def _assistant_side_mutating_tool_call_count(self, trace: dict[str, Any]) -> int:
+        return sum(
+            1
+            for call in trace.get("executed_tool_calls", [])
+            if str(call.get("name", "")) in MUTATING_REPAIR_TOOL_NAMES
+            and str(call.get("requestor", "")) == "assistant"
+        )
 
     def _normalize_observed_state(
         self,

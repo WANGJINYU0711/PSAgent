@@ -1,0 +1,215 @@
+\documentclass{article}
+
+\usepackage{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+
+\title{PSAgent: A Fixed-Tree Telecom Recovery Benchmark for Partial-Share Learning in Multi-Stage Systems}
+
+\author{Anonymous Authors}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Many practical agent systems operate under structured multi-stage workflows, where the final outcome depends on a sequence of coordinated decisions rather than on a single tool call or local action. However, existing agent benchmarks largely emphasize open-ended interaction and free-form planning, providing limited support for studying online learning under end-to-end feedback in fixed-topology workflows, where reproducibility, comparable path structure, and selective information sharing are central. To address this gap, we present \textbf{PSAgent}, a fixed-tree benchmark and evaluation protocol for partial-share learning in multi-stage agent systems. Our key insight is that a frozen task topology is not merely a simplification, but a necessary control layer for isolating how workflow structure, feedback sparsity, and information-sharing boundaries affect learning dynamics. Concretely, PSAgent instantiates a five-stage telecom MMS recovery workflow with structured oracle stage outputs, a blocker-level evaluator, explicit shared versus unshared path semantics, and a deterministic expansion from 49 to 100 tasks that balances blocker count, persona, terminal action, permission failures, ownership, and blocker layers. Experiments show that the benchmark is non-trivial under the simulated executor, with the best non-oracle algorithm-direct baseline reaching mean regret 0.885 on the frozen 49-task base, while interaction design has an even larger effect: for Risky-PS in the strong family, theta-guided agent selection reduces mean regret from 1.547 to 0.028, supporting PSAgent as a benchmark-and-protocol testbed for structured agent workflows with end-to-end feedback.
+\end{abstract}
+
+\section{Introduction}
+
+Many agentic systems are naturally multi-stage: one component identifies the user and task, another resolves entities, another extracts state, and downstream components decide what to execute and how to verify the result. In such systems, the final outcome depends on the whole path rather than on a single local action. This matches the end-to-end bandit setting studied by \citet{hou2024distributed}, but practical agent systems add two complications: stage outputs are structured, and some path information can be shared while other parts remain path-local.
+
+This paper is an initial draft built directly from the current PSAgent codebase. Our goal is not to claim a finalized empirical story yet. Instead, we freeze a concrete telecom recovery track, document the benchmark construction, and summarize the strongest evidence already supported by the repository.
+
+The draft makes three concrete contributions.
+\begin{enumerate}
+\item We define a fixed-tree telecom MMS recovery benchmark with five frozen stages, three terminal actions, and blocker-level evaluation.
+\item We instantiate partial-share learning in this benchmark through shared/unshared path semantics and a barrier-style Risky-PS baseline.
+\item We report preliminary results showing where current signal is strong enough to support a paper claim, and where the system is still too unstable for a final headline.
+\end{enumerate}
+
+\section{Benchmark Setup}
+
+\subsection{Task family}
+
+The benchmark family is \texttt{telecom\_mms\_recovery}. Each instance is a derived telecom support task whose goal is to restore MMS functionality. Every task is serialized as a fixed five-stage tree:
+\begin{enumerate}
+\item \texttt{stage1}: user grounding
+\item \texttt{stage2}: customer-line resolution
+\item \texttt{stage3}: observed feature extraction
+\item \texttt{stage4}: blocker adjudication and repair planning
+\item \texttt{stage5}: terminal execution decision
+\end{enumerate}
+
+Each task includes structured oracle outputs for all five stages. The benchmark therefore isolates the online decision problem from free-form prompt engineering and makes repeated comparison across algorithms possible.
+
+The terminal action space is fixed to three choices:
+\texttt{repair\_all}, \texttt{repair\_subset}, and \texttt{transfer}.
+These actions are derived from blocker ownership and repairability. In the current freeze, purely safe repairs lead to \texttt{repair\_all}, deferable assistant-side blockers can produce \texttt{repair\_subset}, and hybrid blockers trigger \texttt{transfer}.
+
+\subsection{Shared and unshared leaves}
+
+The codebase assigns each stage agent a binary gate $g(a_h) \in \{0,1\}$. For a complete path $\ell = (a_1,\dots,a_5)$, the leaf type is
+\begin{equation}
+z(\ell) = \max_h g(a_h).
+\end{equation}
+If $z(\ell)=0$, the leaf is \emph{shared}; otherwise it is \emph{unshared}. This semantics is implemented in the environment and is the basis for full-share, full-unshare, and Risky-PS style algorithms.
+
+\subsection{Evaluation}
+
+The evaluator operates at blocker level rather than only checking the final action label. Given the predicted \texttt{stage5} output, it measures final-action mismatch, false selected blockers, missed selected blockers, false deferred blockers, missed deferred blockers, and transfer-specific errors. The raw terminal penalty is combined with a weighted path-agent cost:
+\begin{equation}
+\mathrm{raw\_total\_cost}
+=
+\mathrm{raw\_terminal\_penalty}
+\;+\;
+\lambda \cdot \mathrm{path\_agent\_cost},
+\end{equation}
+where $\lambda=0.1$ in the telecom MMS cost spec. The final score is the normalized total cost used by the environment. Formal regret is computed against the best \emph{stationary} path on the same instance horizon, not against a per-instance oracle.
+
+\subsection{Balanced benchmark expansion}
+
+The repository now contains a new benchmark version,
+\texttt{telecom\_mms\_fixed\_tree\_base\_v2\_100}, which expands the telecom MMS formal set from 49 to 100 tasks. The 100-task set is selected deterministically from 1,984 candidate \texttt{mms\_issue} tasks using a balanced round-robin greedy procedure. The selector explicitly balances blocker count, persona, terminal action, permission failures, ownership, and blocker layers.
+
+\begin{table}[t]
+\caption{Coverage summary of the new 100-task telecom MMS benchmark. The construction is deterministic and does not rely on random sampling.}
+\label{tab:coverage}
+\centering
+\small
+\begin{tabular}{ll}
+\toprule
+Statistic & Value \\
+\midrule
+Candidate pool & 1,984 telecom \texttt{mms\_issue} tasks \\
+Selected tasks & 100 \\
+Blocker-count buckets & 1: 6, 2: 13, 3: 12, 4: 12, 5+: 57 \\
+Persona distribution & Hard: 34, None: 33, Easy: 33 \\
+Terminal action distribution & repair\_all: 33, repair\_subset: 34, transfer: 33 \\
+Permission coverage & SMS: 33, Storage: 32, Both: 32 \\
+Ownership coverage & user: 100, assistant: 41, hybrid: 33 \\
+Blocker layers & service: 83, data: 88, mms\_app: 99 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This balanced version is important because the legacy 49-task benchmark is narrower and action-skewed, especially toward \texttt{repair\_subset}. The new benchmark is therefore the more credible target for the next round of main experiments, even though only smoke-style pilot results are available on it so far.
+
+\section{Methods and Interaction Mechanisms}
+
+\subsection{Algorithms}
+
+The current repository contains the following baselines: Risky-PS, direct multi-stage EXP3, $\epsilon$-EXP3, full-share, full-unshare, naive mixed, random path, and a stationary oracle reference. Risky-PS is the most structurally distinctive method: it implements a barrier-style partial-share update where shared-leaf statistics propagate through safe prefixes and stop at the first risky ancestor.
+
+The direct multi-stage EXP3 baseline ignores risky/safe structure and maintains independent adversarial-bandit weights at each stage. Full-share and full-unshare serve as structural ablations. Together, these baselines let us ask whether the benchmark actually rewards exploiting partial sharing rather than only generic bandit exploration.
+
+\subsection{Interaction mechanisms}
+
+The benchmark also varies \emph{how} algorithmic scores interact with the downstream agent system. The codebase currently supports three mechanisms:
+\begin{enumerate}
+\item \texttt{algorithm\_direct}: the algorithm selects the final path directly;
+\item \texttt{theta\_guided\_agent}: the algorithm exposes preferences, then an agent-side chooser picks among high-scoring candidates;
+\item \texttt{agent\_only}: the runner provides candidate paths, and the agent chooses without algorithmic guidance.
+\end{enumerate}
+
+This split is useful because, in practice, algorithm quality and agent-interface quality can be confounded. Our preliminary results show that this confound is real.
+
+\section{Preliminary Experiments}
+
+\subsection{Main simulated comparison on the frozen 49-task base}
+
+The most complete multi-method results currently available in the repository come from the frozen 49-task benchmark under the \texttt{simulated} executor. Table~\ref{tab:strong_direct} reports the strong-family, algorithm-direct slice. This is not the final experiment matrix we want for the paper, but it is the cleanest comparable run already available.
+
+\begin{table}[t]
+\caption{Strong-family, algorithm-direct results on the frozen 49-task simulated benchmark. Lower cost and regret are better.}
+\label{tab:strong_direct}
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+Method & Exact match & Mean total cost & Mean regret \\
+\midrule
+Stationary oracle & 0.224 & 2.643 & -0.025 \\
+Direct multi-stage EXP3 & 0.082 & 3.554 & 0.885 \\
+Random path & 0.020 & 3.982 & 1.313 \\
+Risky-PS & 0.020 & 4.216 & 1.547 \\
+$\epsilon$-EXP3 & 0.020 & 4.308 & 1.639 \\
+Full-share & 0.020 & 4.308 & 1.639 \\
+Full-unshare & 0.020 & 4.308 & 1.639 \\
+Naive mixed & 0.000 & 4.456 & 1.787 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two observations stand out. First, the benchmark is not saturated under the simulated executor; there is a large gap between all non-oracle methods and the stationary oracle. Second, the best algorithm-direct method in this slice is not Risky-PS but direct multi-stage EXP3. This means the current paper cannot honestly claim that partial sharing already wins the main comparison.
+
+At the same time, this negative result is scientifically useful. It suggests either that the present family generator does not yet expose enough partial-share advantage, or that the Risky-PS implementation needs stronger calibration relative to the generated family costs. Both are benchmark-design questions worth surfacing explicitly.
+
+\subsection{Mechanism effects are large}
+
+Although Risky-PS does not win the strong-family algorithm-direct slice, its behavior changes sharply across interaction mechanisms. On the same 49-task benchmark:
+\begin{itemize}
+\item in the strong family, Risky-PS achieves mean regret 1.547 under \texttt{algorithm\_direct},
+\item rises to 2.101 under \texttt{agent\_only},
+\item but drops to 0.028 under \texttt{theta\_guided\_agent}.
+\end{itemize}
+
+The same pattern appears in the moderate family, where Risky-PS goes from mean regret 1.221 (\texttt{algorithm\_direct}) and 0.709 (\texttt{agent\_only}) down to 0.013 (\texttt{theta\_guided\_agent}). In other words, the interface between bandit scores and agent selection currently matters at least as much as the underlying learning rule. This is an important empirical point for agentic systems: a paper that evaluates only the optimizer but not the optimizer-to-agent interface can be misleading.
+
+\subsection{Balanced 100-task benchmark pilot}
+
+Only a small pilot run is currently available on the new 100-task benchmark. Under the strong-family simulated executor, full-share on \texttt{base\_v2\_100} attains exact match 0.16, mean total cost 0.139, and mean regret 0.035. Even this single pilot is enough to show that the balanced benchmark is not trivial. However, it is not yet enough for a full multi-method table, so the draft treats it as supporting evidence for benchmark quality rather than as a final comparison.
+
+\subsection{LLM-backed executor sanity checks}
+
+The repository also contains a strong-family, algorithm-direct slice under the \texttt{llm\_bench} executor. All five tested methods achieve exact match 1.0, with mean LLM call counts between 4.43 and 4.65. These runs are useful as executor sanity checks, but not as headline algorithmic evidence. In particular, the current stationary-oracle reference is computed on the simulated executor, so cross-executor regret numbers from this slice should not be interpreted as formal comparisons.
+
+Separate smoke debugging logs reinforce this caution. After a Stage-3 fix, a Risky-PS smoke-3 rerun improved from exact match 0.0 to 0.667. However, a later smoke-10 run still reached only exact match 0.4, with post-repair verification tools appearing in just 1 of 10 episodes. This indicates that the residual issue is no longer only parsing or aggregation; tool coverage in Stage 3 and verification behavior in Stage 5 are still bottlenecks.
+
+\section{Discussion and Limitations}
+
+This draft supports a benchmark paper more strongly than it supports a definitive algorithmic win. The evidence already justifies the following claims.
+\begin{enumerate}
+\item The telecom MMS track is a concrete, reproducible multi-stage benchmark with structured stage supervision and blocker-level evaluation.
+\item The new 100-task benchmark is substantially better balanced than the legacy 49-task version.
+\item Interaction mechanisms are a first-class experimental variable in agentic multi-stage systems.
+\end{enumerate}
+
+By contrast, several claims would be premature.
+\begin{enumerate}
+\item We cannot yet claim that Risky-PS is the best overall algorithm on the main simulated benchmark.
+\item We should not use current \texttt{llm\_bench} results as a formal regret scoreboard.
+\item We do not yet have the full multi-method experiment matrix on \texttt{base\_v2\_100}.
+\end{enumerate}
+
+The next concrete milestones are therefore straightforward: run the full method suite on the balanced 100-task benchmark, tighten the family generator so partial sharing can create a more meaningful advantage when appropriate, and improve Stage-3 tool coverage plus Stage-5 verification in the LLM-backed executor.
+
+\section{Conclusion}
+
+PSAgent already contains the skeleton of a publishable benchmark: a frozen five-stage telecom recovery environment, explicit shared versus unshared path semantics, multiple online-learning baselines, and a more balanced 100-task benchmark construction. The current empirical picture is preliminary but informative. Simulated results show meaningful headroom, mechanism effects are large, and LLM-backed runs expose exactly where executor realism still needs work. That is enough for a strong initial draft, and it also defines the shortest path from the current repository to a more complete NeurIPS-ready paper.
+
+\begin{thebibliography}{9}
+
+\bibitem[Auer et~al.(2002)Auer, Cesa-Bianchi, Freund, and Schapire]{auer2002exp3}
+Peter Auer, Nicol\`o Cesa-Bianchi, Yoav Freund, and Robert~E. Schapire.
+\newblock The nonstochastic multiarmed bandit problem.
+\newblock \emph{SIAM Journal on Computing}, 32(1):48--77, 2002.
+
+\bibitem[Hou(2024)]{hou2024distributed}
+I-Hong Hou.
+\newblock Distributed no-regret learning for multi-stage systems with end-to-end bandit feedback.
+\newblock In \emph{Proceedings of the 25th International Symposium on Theory, Algorithmic Foundations, and Protocol Design for Mobile Networks and Mobile Computing (MobiHoc)}, 2024.
+
+\end{thebibliography}
+
+\end{document}

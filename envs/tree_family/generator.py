@@ -9,18 +9,41 @@ from typing import Any
 from .presets import (
     build_moderate_family_spec,
     build_neutral_family_spec,
+    build_shared_basin_strong_family_spec,
     build_strong_family_spec,
 )
-from .specs import AgentSpec, FamilySpec
+from .specs import AgentSpec, CAPABILITY_NAMES, FamilySpec
 
 
-ATTRIBUTE_IDS = list(range(1, 11))
 STAGE_FOCUS = {
-    "stage1": [1, 7, 8, 9],
-    "stage2": [2, 6, 8],
-    "stage3": [3, 4, 9],
-    "stage4": [4, 5, 9],
-    "stage5": [5, 10, 6],
+    "stage1": [
+        "user_grounding",
+        "account_lookup",
+        "line_resolution",
+        "verification",
+    ],
+    "stage2": [
+        "account_lookup",
+        "line_resolution",
+        "roaming_diagnosis",
+    ],
+    "stage3": [
+        "network_diagnosis",
+        "permission_diagnosis",
+        "apn_diagnosis",
+        "roaming_diagnosis",
+    ],
+    "stage4": [
+        "network_diagnosis",
+        "permission_diagnosis",
+        "apn_diagnosis",
+        "repair_execution",
+    ],
+    "stage5": [
+        "repair_execution",
+        "verification",
+        "terminal_decision",
+    ],
 }
 
 
@@ -32,17 +55,31 @@ class TreeFamilyGenerator:
         stages = list(config["stages"])
         stage_agents: dict[str, list[str]] = {}
         agent_map: dict[str, AgentSpec] = {}
+        stage_profile_by_agent: dict[str, dict[str, Any]] = {}
 
         for stage_name in stages:
             specs = self._build_stage_agents(stage_name, config, rng)
             stage_agents[stage_name] = [spec.agent_id for spec in specs]
             for spec in specs:
                 agent_map[spec.agent_id] = spec
+            if config.get("generation_mode") == "capability_shared_basin":
+                profiles = config["stage_profiles"][stage_name]
+                for idx, spec in enumerate(specs):
+                    stage_profile_by_agent[spec.agent_id] = dict(profiles[idx])
+
+        allowed_children = None
+        if config.get("generation_mode") == "capability_shared_basin":
+            allowed_children = self._build_allowed_children(
+                stages=stages,
+                stage_agents=stage_agents,
+                stage_profile_by_agent=stage_profile_by_agent,
+            )
 
         family_spec = FamilySpec(
             family_name=f"{kind}_seed_{seed}",
             stages=stages,
             stage_agents=stage_agents,
+            allowed_children=allowed_children,
         )
         return family_spec, agent_map
 
@@ -64,10 +101,28 @@ class TreeFamilyGenerator:
                 if not spec.attribute_skill:
                     errors.append(f"Agent {agent_id} has empty attribute_skill.")
                 for key, value in spec.attribute_skill.items():
-                    if not isinstance(key, int):
-                        errors.append(f"Agent {agent_id} has non-int attribute key {key!r}.")
+                    if not isinstance(key, str):
+                        errors.append(f"Agent {agent_id} has non-string capability key {key!r}.")
+                    elif key not in CAPABILITY_NAMES:
+                        errors.append(f"Agent {agent_id} has unknown capability key {key!r}.")
                     if not isinstance(value, (int, float)):
                         errors.append(f"Agent {agent_id} has non-numeric skill value {value!r}.")
+        allowed_children = family_spec.allowed_children or {}
+        for prefix, child_ids in allowed_children.items():
+            expected_depth = len(prefix)
+            if expected_depth >= len(family_spec.stages):
+                errors.append(f"Continuation prefix {prefix!r} is deeper than the family stages.")
+                continue
+            expected_stage = family_spec.stages[expected_depth]
+            for agent_id in child_ids:
+                spec = agent_map.get(agent_id)
+                if spec is None:
+                    errors.append(f"Continuation child {agent_id!r} missing from agent_map.")
+                    continue
+                if spec.agent_id not in family_spec.stage_agents.get(expected_stage, []):
+                    errors.append(
+                        f"Continuation child {agent_id!r} is not registered for expected stage {expected_stage}."
+                    )
         return errors
 
     def describe_family(self, family_spec: FamilySpec, agent_map: dict[str, AgentSpec]) -> dict[str, Any]:
@@ -115,6 +170,8 @@ class TreeFamilyGenerator:
             return build_moderate_family_spec()
         if kind == "strong":
             return build_strong_family_spec()
+        if kind == "shared_basin_strong":
+            return build_shared_basin_strong_family_spec()
         raise ValueError(f"Unknown family kind: {kind}")
 
     def _build_stage_agents(
@@ -123,6 +180,9 @@ class TreeFamilyGenerator:
         config: dict[str, Any],
         rng: random.Random,
     ) -> list[AgentSpec]:
+        if config.get("generation_mode") == "capability_shared_basin":
+            return self._build_shared_basin_stage_agents(stage_name, config, rng)
+
         num_agents = config["num_agents_per_stage"]
         g1_count = config["g1_per_stage"][stage_name]
         competence_levels = self._expand_counts(config["competence_per_stage"], num_agents)
@@ -166,9 +226,127 @@ class TreeFamilyGenerator:
                     scope_level=scope,
                     stability_level=stability,
                     attribute_skill=attribute_skill,
+                    deliberation_mode=self._legacy_deliberation_mode(
+                        competence_level=competence,
+                        scope_level=scope,
+                    ),
                 )
             )
         return specs
+
+    def _build_shared_basin_stage_agents(
+        self,
+        stage_name: str,
+        config: dict[str, Any],
+        rng: random.Random,
+    ) -> list[AgentSpec]:
+        profiles = config["stage_profiles"][stage_name]
+        fields = config["profile_fields"]
+        specs: list[AgentSpec] = []
+        for idx, profile in enumerate(profiles):
+            agent_id = f"{stage_name}_{profile['role']}_g{profile['g']}_{idx}"
+            attribute_skill = self._build_shared_basin_attribute_skill(stage_name, profile, config, rng)
+            base_cost = self._build_shared_basin_base_cost(config, rng)
+            specs.append(
+                AgentSpec(
+                    agent_id=agent_id,
+                    g=profile["g"],
+                    base_cost=round(base_cost, 3),
+                    competence_level=fields["competence_level"],
+                    scope_level=fields["scope_level"],
+                    stability_level=fields["stability_level"],
+                    attribute_skill=attribute_skill,
+                    deliberation_mode=self._shared_basin_deliberation_mode(
+                        stage_name=stage_name,
+                        profile=profile,
+                    ),
+                )
+            )
+        return specs
+
+    def _build_allowed_children(
+        self,
+        *,
+        stages: list[str],
+        stage_agents: dict[str, list[str]],
+        stage_profile_by_agent: dict[str, dict[str, Any]],
+    ) -> dict[tuple[str, ...], list[str]]:
+        """Build explicit continuation topology for family variants with routed basins.
+
+        The shared-basin family needs a topology stronger than a plain stagewise
+        cartesian product: some shared prefixes should close into fully shared
+        subtrees, while mixed/specialist branches should continue to expose risky
+        suffixes. We encode this as an explicit prefix-to-children map.
+        """
+
+        allowed_children: dict[tuple[str, ...], list[str]] = {(): list(stage_agents[stages[0]])}
+        frontier: list[tuple[str, ...]] = [()]
+
+        for depth, stage_name in enumerate(stages[:-1]):
+            next_stage = stages[depth + 1]
+            next_candidates = list(stage_agents[next_stage])
+            next_by_label: dict[str, list[str]] = {}
+            for agent_id in next_candidates:
+                label = str(stage_profile_by_agent.get(agent_id, {}).get("route_label", ""))
+                next_by_label.setdefault(label, []).append(agent_id)
+
+            next_frontier: list[tuple[str, ...]] = []
+            for prefix in frontier:
+                current_children = allowed_children.get(prefix, [])
+                for agent_id in current_children:
+                    current_prefix = prefix + (agent_id,)
+                    profile = stage_profile_by_agent.get(agent_id, {})
+                    allowed_labels = profile.get("allowed_next_labels")
+                    if not allowed_labels:
+                        child_ids = list(next_candidates)
+                    else:
+                        child_ids = []
+                        for label in allowed_labels:
+                            child_ids.extend(next_by_label.get(str(label), []))
+                    # Preserve preset ordering and remove duplicates.
+                    deduped_child_ids = [
+                        next_agent_id
+                        for next_agent_id in next_candidates
+                        if next_agent_id in child_ids
+                    ]
+                    allowed_children[current_prefix] = deduped_child_ids
+                    next_frontier.append(current_prefix)
+            frontier = next_frontier
+
+        return allowed_children
+
+    def _legacy_deliberation_mode(
+        self,
+        *,
+        competence_level: str,
+        scope_level: str,
+    ) -> str:
+        if competence_level == "high" or scope_level == "broad":
+            return "deep"
+        return "fast"
+
+    def _shared_basin_deliberation_mode(
+        self,
+        *,
+        stage_name: str,
+        profile: dict[str, Any],
+    ) -> str:
+        explicit = profile.get("deliberation_mode")
+        if explicit in {"fast", "deep"}:
+            return explicit
+
+        role = str(profile.get("role", ""))
+        if stage_name in {"stage3", "stage5"}:
+            return "deep"
+        if profile.get("profile_kind") == "specialist":
+            return "deep"
+        if stage_name == "stage1":
+            return "fast" if "lookup" in role else "deep"
+        if stage_name == "stage2":
+            return "fast" if "line_core" in role else "deep"
+        if stage_name == "stage4":
+            return "fast" if "network" in role else "deep"
+        return "deep"
 
     def _expand_counts(self, count_map: dict[str, int], total: int) -> list[str]:
         items: list[str] = []
@@ -185,31 +363,62 @@ class TreeFamilyGenerator:
         competence_level: str,
         config: dict[str, Any],
         rng: random.Random,
-    ) -> dict[int, float]:
+    ) -> dict[str, float]:
         skill_ranges = config["skill_ranges"]
         focus = set(STAGE_FOCUS[stage_name])
-        values: dict[int, float] = {}
+        values: dict[str, float] = {}
         if scope_level == "broad":
             lo, hi = skill_ranges["broad"]
-            for attr_id in ATTRIBUTE_IDS:
-                values[attr_id] = rng.uniform(lo, hi)
+            for capability_name in CAPABILITY_NAMES:
+                values[capability_name] = rng.uniform(lo, hi)
         else:
             focus_lo, focus_hi = skill_ranges["narrow_focus"]
             other_lo, other_hi = skill_ranges["narrow_other"]
-            extra_focus = set(rng.sample(ATTRIBUTE_IDS, k=2))
+            extra_focus = set(rng.sample(list(CAPABILITY_NAMES), k=2))
             effective_focus = focus | extra_focus
-            for attr_id in ATTRIBUTE_IDS:
-                if attr_id in effective_focus:
-                    values[attr_id] = rng.uniform(focus_lo, focus_hi)
+            for capability_name in CAPABILITY_NAMES:
+                if capability_name in effective_focus:
+                    values[capability_name] = rng.uniform(focus_lo, focus_hi)
                 else:
-                    values[attr_id] = rng.uniform(other_lo, other_hi)
+                    values[capability_name] = rng.uniform(other_lo, other_hi)
 
         if competence_level == "high":
             bonus = skill_ranges["high_bonus"]
-            for attr_id in values:
-                values[attr_id] = min(1.0, values[attr_id] + bonus)
+            for capability_name in values:
+                values[capability_name] = min(1.0, values[capability_name] + bonus)
 
-        return {attr_id: round(score, 3) for attr_id, score in values.items()}
+        return {capability_name: round(score, 3) for capability_name, score in values.items()}
+
+    def _build_shared_basin_attribute_skill(
+        self,
+        stage_name: str,
+        profile: dict[str, Any],
+        config: dict[str, Any],
+        rng: random.Random,
+    ) -> dict[str, float]:
+        focus = set(STAGE_FOCUS[stage_name])
+        anchors = set(profile.get("anchor_caps", []))
+        supports = set(profile.get("support_caps", []))
+        is_shared = profile.get("profile_kind") == "shared_basin"
+        ranges = config["shared_skill_ranges"] if is_shared else config["specialist_skill_ranges"]
+
+        focus_fallback = config.get("shared_focus_fallback_range", ranges["support"])
+
+        values: dict[str, float] = {}
+        for capability_name in CAPABILITY_NAMES:
+            if capability_name in anchors:
+                lo, hi = ranges["anchor"]
+            elif capability_name in supports:
+                lo, hi = ranges["support"]
+            elif is_shared and capability_name in focus:
+                lo, hi = focus_fallback
+            else:
+                lo, hi = ranges["background"]
+            sampled = rng.uniform(lo, hi)
+            if capability_name in anchors:
+                sampled = min(1.0, sampled + float(profile.get("anchor_boost", 0.0)))
+            values[capability_name] = round(sampled, 3)
+        return values
 
     def _build_base_cost(
         self,
@@ -223,4 +432,12 @@ class TreeFamilyGenerator:
             lo, hi = config["cost_ranges"]["safe"]
         else:
             lo, hi = config["cost_ranges"]["special"]
+        return rng.uniform(lo, hi)
+
+    def _build_shared_basin_base_cost(
+        self,
+        config: dict[str, Any],
+        rng: random.Random,
+    ) -> float:
+        lo, hi = config["cost_ranges"]["uniform"]
         return rng.uniform(lo, hi)

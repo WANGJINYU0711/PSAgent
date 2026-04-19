@@ -94,8 +94,12 @@ def make_episode_row(
         "oracle_action": result.oracle_action,
         "final_action": result.final_action,
         "exact_match": bool(result.success),
-        "terminal_penalty": float(result.terminal_cost),
+        "terminal_penalty": float(result.raw_terminal_penalty),
         "total_cost": float(result.total_cost),
+        "raw_total_cost": float(result.raw_total_cost),
+        "raw_terminal_penalty": float(result.raw_terminal_penalty),
+        "normalized_total_cost": float(result.total_cost),
+        "normalized_terminal_penalty": float(result.normalized_terminal_penalty),
         "leaf_type": result.leaf_type,
         "selected_path": list(result.selected_path),
         "num_blockers": metadata.get("num_blockers"),
@@ -106,6 +110,9 @@ def make_episode_row(
         "missed_refuse_count": int(episode_log.get("missed_refuse_count", 0)),
         "selection_signal_summary": selection_meta.get("selection_signal_summary"),
         "agent_llm_raw_output": selection_meta.get("agent_llm_raw_output"),
+        "raw_path_cost_component": float(result.raw_path_cost_component),
+        "total_cost_upper_bound": float(result.total_cost_upper_bound),
+        "cost_scale_version": result.cost_scale_version,
     }
 
 
@@ -126,12 +133,18 @@ def summarize_rows(
 
     for (method, mechanism, family_kind), group_rows in sorted(grouped.items()):
         cumulative_total_cost = sum(r["total_cost"] for r in group_rows)
+        raw_cumulative_total_cost = sum(r["raw_total_cost"] for r in group_rows)
         unique_runs = sorted({(r["family_kind"], r["seed"]) for r in group_rows})
         oracle_cumulative_total_cost = sum(
             stationary_oracle_by_run[(run_family_kind, run_seed)]["cumulative_total_cost"]
             for run_family_kind, run_seed in unique_runs
         )
+        raw_oracle_cumulative_total_cost = sum(
+            stationary_oracle_by_run[(run_family_kind, run_seed)]["raw_cumulative_total_cost"]
+            for run_family_kind, run_seed in unique_runs
+        )
         cumulative_regret = cumulative_total_cost - oracle_cumulative_total_cost
+        raw_cumulative_regret = raw_cumulative_total_cost - raw_oracle_cumulative_total_cost
         mean_regret = cumulative_regret / len(group_rows)
         oracle_stationary_paths = {
             f"seed_{run_seed}": list(stationary_oracle_by_run[(run_family_kind, run_seed)]["path"])
@@ -146,13 +159,23 @@ def summarize_rows(
                 "exact_match_mean": mean([float(r["exact_match"]) for r in group_rows]),
                 "terminal_penalty_mean": mean([r["terminal_penalty"] for r in group_rows]),
                 "total_cost_mean": mean([r["total_cost"] for r in group_rows]),
+                "raw_total_cost_mean": mean([r["raw_total_cost"] for r in group_rows]),
+                "normalized_total_cost_mean": mean([r["normalized_total_cost"] for r in group_rows]),
                 "algorithm_cumulative_total_cost": cumulative_total_cost,
+                "raw_algorithm_cumulative_total_cost": raw_cumulative_total_cost,
+                "normalized_algorithm_cumulative_total_cost": cumulative_total_cost,
                 "oracle_stationary_paths": oracle_stationary_paths,
                 "oracle_stationary_total_cost": oracle_cumulative_total_cost,
+                "raw_oracle_stationary_total_cost": raw_oracle_cumulative_total_cost,
+                "normalized_oracle_stationary_total_cost": oracle_cumulative_total_cost,
                 "cumulative_regret": cumulative_regret,
+                "raw_cumulative_regret": raw_cumulative_regret,
                 "mean_regret": mean_regret,
+                "raw_mean_regret": raw_cumulative_regret / len(group_rows),
+                "normalized_mean_regret": mean_regret,
                 "oracle_action_distribution": dict(Counter(r["oracle_action"] for r in group_rows)),
                 "final_action_distribution": dict(Counter(r["final_action"] for r in group_rows)),
+                "cost_scale_version": group_rows[0]["cost_scale_version"],
             }
         )
 
@@ -161,11 +184,19 @@ def summarize_rows(
             action_groups[row["oracle_action"]].append(row)
         for oracle_action, action_rows in sorted(action_groups.items()):
             action_cumulative_total_cost = sum(r["total_cost"] for r in action_rows)
+            raw_action_cumulative_total_cost = sum(r["raw_total_cost"] for r in action_rows)
             oracle_action_total_cost = sum(
                 stationary_oracle_by_run[(r["family_kind"], r["seed"])]["episode_total_costs_by_instance_id"][r["instance_id"]]
                 for r in action_rows
             )
+            raw_oracle_action_total_cost = sum(
+                stationary_oracle_by_run[(r["family_kind"], r["seed"])]["episode_raw_total_costs_by_instance_id"][r["instance_id"]]
+                for r in action_rows
+            )
             action_cumulative_regret = action_cumulative_total_cost - oracle_action_total_cost
+            raw_action_cumulative_regret = (
+                raw_action_cumulative_total_cost - raw_oracle_action_total_cost
+            )
             by_action_summary.append(
                 {
                     "method": method,
@@ -176,10 +207,21 @@ def summarize_rows(
                     "exact_match_mean": mean([float(r["exact_match"]) for r in action_rows]),
                     "terminal_penalty_mean": mean([r["terminal_penalty"] for r in action_rows]),
                     "total_cost_mean": mean([r["total_cost"] for r in action_rows]),
+                    "raw_total_cost_mean": mean([r["raw_total_cost"] for r in action_rows]),
+                    "normalized_total_cost_mean": mean([r["normalized_total_cost"] for r in action_rows]),
+                    "algorithm_cumulative_total_cost": action_cumulative_total_cost,
+                    "raw_algorithm_cumulative_total_cost": raw_action_cumulative_total_cost,
+                    "normalized_algorithm_cumulative_total_cost": action_cumulative_total_cost,
                     "oracle_stationary_total_cost": oracle_action_total_cost,
+                    "raw_oracle_stationary_total_cost": raw_oracle_action_total_cost,
+                    "normalized_oracle_stationary_total_cost": oracle_action_total_cost,
                     "cumulative_regret": action_cumulative_regret,
+                    "raw_cumulative_regret": raw_action_cumulative_regret,
                     "mean_regret": action_cumulative_regret / len(action_rows),
+                    "raw_mean_regret": raw_action_cumulative_regret / len(action_rows),
+                    "normalized_mean_regret": action_cumulative_regret / len(action_rows),
                     "final_action_distribution": dict(Counter(r["final_action"] for r in action_rows)),
+                    "cost_scale_version": action_rows[0]["cost_scale_version"],
                 }
             )
 
@@ -275,6 +317,14 @@ def compute_stationary_oracle_by_run(
                 instance["instance_id"]: cost
                 for instance, cost in zip(instances, summary["episode_total_costs"])
             }
+            summary["episode_raw_total_costs_by_instance_id"] = {
+                instance["instance_id"]: cost
+                for instance, cost in zip(instances, summary["episode_raw_total_costs"])
+            }
+            summary["episode_normalized_total_costs_by_instance_id"] = {
+                instance["instance_id"]: cost
+                for instance, cost in zip(instances, summary["episode_normalized_total_costs"])
+            }
             summaries[(family_kind, seed)] = summary
     return summaries
 
@@ -324,8 +374,12 @@ def main() -> None:
     for row in rows:
         oracle_run = stationary_oracle_by_run[(row["family_kind"], row["seed"])]
         oracle_episode_cost = oracle_run["episode_total_costs_by_instance_id"][row["instance_id"]]
+        raw_oracle_episode_cost = oracle_run["episode_raw_total_costs_by_instance_id"][row["instance_id"]]
         row["oracle_stationary_episode_cost"] = oracle_episode_cost
+        row["raw_oracle_stationary_episode_cost"] = raw_oracle_episode_cost
+        row["normalized_oracle_stationary_episode_cost"] = oracle_episode_cost
         row["episode_regret"] = row["total_cost"] - oracle_episode_cost
+        row["raw_episode_regret"] = row["raw_total_cost"] - raw_oracle_episode_cost
     overall_summary, by_action_summary = summarize_rows(rows, stationary_oracle_by_run)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -341,7 +395,8 @@ def main() -> None:
         "terminal_action_distribution": dict(
             Counter(instance["stage5"]["oracle_output"]["final_action"] for instance in pilot_instances)
         ),
-        "regret_definition": "algorithm_cumulative_total_cost - stationary_oracle_cumulative_total_cost",
+        "regret_definition": "main regret track uses normalized bandit total cost in [0,1]",
+        "raw_cost_reporting": "raw task cost is reported separately for benchmark interpretation",
         "per_instance_oracle_note": "per-instance oracle is retained for sanity/supporting analysis only",
     }
     write_json(args.output_dir / "pilot_config.json", freeze_config)
@@ -352,6 +407,11 @@ def main() -> None:
             "path": summary["path"],
             "cumulative_total_cost": summary["cumulative_total_cost"],
             "mean_total_cost": summary["mean_total_cost"],
+            "raw_cumulative_total_cost": summary["raw_cumulative_total_cost"],
+            "raw_mean_total_cost": summary["raw_mean_total_cost"],
+            "normalized_cumulative_total_cost": summary["normalized_cumulative_total_cost"],
+            "normalized_mean_total_cost": summary["normalized_mean_total_cost"],
+            "cost_scale_version": summary["cost_scale_version"],
         }
         for (family_kind, seed), summary in stationary_oracle_by_run.items()
     })

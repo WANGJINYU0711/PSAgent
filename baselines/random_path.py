@@ -20,10 +20,14 @@ class RandomPathPolicy(BasePolicy):
         del instance
         if not self.stage_agent_ids:
             self.bind_env(env)
-        return [
-            self.rng.choice(self.stage_agent_ids[stage_name])
-            for stage_name in env.STAGE_NAMES
-        ]
+        path: list[str] = []
+        current_prefix: tuple[str, ...] = ()
+        for stage_name in env.STAGE_NAMES:
+            legal_agent_ids = self._legal_agent_ids_for_prefix(current_prefix, stage_name, env)
+            chosen = self.rng.choice(legal_agent_ids)
+            path.append(chosen)
+            current_prefix = current_prefix + (chosen,)
+        return path
 
     def update(self, episode_result: EpisodeResult) -> None:
         del episode_result

@@ -16,3 +16,8 @@ checkpoints/
 *.ckpt
 *.pt
 *.pth
+
+# Large local reference notes; keep only curated writing docs tracked.
+paper/agent_reference/*.md
+!paper/agent_reference/agent_writing_preference.md
+!paper/agent_reference/neurips2025_agent_papers.md
