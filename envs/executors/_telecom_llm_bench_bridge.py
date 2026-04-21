@@ -7,6 +7,7 @@ import os
 import re
 import sys
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 
@@ -17,8 +18,18 @@ os.chdir(TAU2_ROOT)
 if str(TAU2_SRC) not in sys.path:
     sys.path.insert(0, str(TAU2_SRC))
 
-from tau2.data_model.message import SystemMessage, ToolCall, ToolMessage, UserMessage  # type: ignore  # noqa: E402
+from tau2.data_model.message import (  # type: ignore  # noqa: E402
+    AssistantMessage,
+    SystemMessage,
+    ToolCall,
+    ToolMessage,
+    UserMessage,
+)
 from tau2.domains.telecom.environment import get_environment, get_tasks  # type: ignore  # noqa: E402
+from tau2.environment.toolkit import ToolType  # type: ignore  # noqa: E402
+from tau2.evaluator.evaluator_action import ActionEvaluator  # type: ignore  # noqa: E402
+from tau2.evaluator.evaluator_communicate import CommunicateEvaluator  # type: ignore  # noqa: E402
+from tau2.evaluator.evaluator_nl_assertions import NLAssertionsEvaluator  # type: ignore  # noqa: E402
 from tau2.utils.llm_utils import generate as llm_generate  # type: ignore  # noqa: E402
 
 
@@ -67,32 +78,50 @@ def _extract_braced_json(text: str) -> str | None:
     return text[start : end + 1]
 
 
-def _filter_tools(env: Any, allowed_names: list[str]) -> tuple[list[Any], dict[str, str]]:
-    allowed = set(allowed_names)
-    tools = []
-    requestor_by_tool: dict[str, str] = {}
-    assistant_tools = env.get_tools()
-    assistant_names = {tool.name for tool in assistant_tools}
-    for tool in assistant_tools:
-        if tool.name in allowed:
-            tools.append(tool)
-            requestor_by_tool[tool.name] = "assistant"
-    user_include = [name for name in allowed_names if name not in assistant_names]
-    user_tools = env.get_user_tools(include=user_include) if user_include else []
-    for tool in user_tools:
-        if tool.name in allowed and tool.name not in requestor_by_tool:
-            tools.append(tool)
-            requestor_by_tool[tool.name] = "user"
-    return tools, requestor_by_tool
+def _extract_usage_value(usage: dict[str, Any] | None, *keys: str) -> float:
+    if not isinstance(usage, dict):
+        return 0.0
+    current: Any = usage
+    for key in keys:
+        if not isinstance(current, dict):
+            return 0.0
+        current = current.get(key)
+    if isinstance(current, (int, float)):
+        return float(current)
+    return 0.0
 
 
-def _assistant_step_to_dict(message: Any) -> dict[str, Any]:
+def _normalize_usage(usage: dict[str, Any] | None) -> dict[str, float]:
+    prompt_tokens = _extract_usage_value(usage, "prompt_tokens") or _extract_usage_value(
+        usage, "input_tokens"
+    )
+    completion_tokens = _extract_usage_value(
+        usage, "completion_tokens"
+    ) or _extract_usage_value(usage, "output_tokens")
+    total_tokens = _extract_usage_value(usage, "total_tokens")
+    if total_tokens <= 0.0:
+        total_tokens = prompt_tokens + completion_tokens
+    return {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+    }
+
+
+def _assistant_step_to_dict(
+    message: Any,
+    *,
+    round_trip_seconds: float | None = None,
+) -> dict[str, Any]:
+    usage_breakdown = _normalize_usage(getattr(message, "usage", None))
     return {
         "content": message.content,
         "tool_calls": [tc.model_dump() for tc in (message.tool_calls or [])],
         "cost": message.cost,
         "usage": message.usage,
         "generation_time_seconds": message.generation_time_seconds,
+        "round_trip_seconds": round_trip_seconds,
+        "usage_breakdown": usage_breakdown,
     }
 
 
@@ -110,9 +139,15 @@ def _normalize_tool_arguments(name: str, arguments: dict[str, Any]) -> dict[str,
     return normalized
 
 
-def _execute_tool_call(env: Any, tool_call_data: dict[str, Any], fallback_requestor: str = "assistant") -> tuple[dict[str, Any], Any, bool]:
+def _execute_tool_call(
+    env: Any,
+    tool_call_data: dict[str, Any],
+    fallback_requestor: str = "assistant",
+) -> tuple[dict[str, Any], Any, bool]:
     name = str(tool_call_data.get("name", ""))
-    normalized_arguments = _normalize_tool_arguments(name, dict(tool_call_data.get("arguments", {})))
+    normalized_arguments = _normalize_tool_arguments(
+        name, dict(tool_call_data.get("arguments", {}))
+    )
     explicit_requestor = str(tool_call_data.get("requestor") or "").strip().lower()
     requestor = (
         explicit_requestor
@@ -125,9 +160,209 @@ def _execute_tool_call(env: Any, tool_call_data: dict[str, Any], fallback_reques
         arguments=normalized_arguments,
         requestor=requestor,
     )
+    started_at = perf_counter()
     tool_message = env.get_response(tool_call)
+    wall_clock_seconds = perf_counter() - started_at
     parsed_content = _parse_tool_message_content(tool_message.content)
-    return tool_call.model_dump(), parsed_content, bool(tool_message.error)
+    tool_call_payload = tool_call.model_dump()
+    tool_call_payload["wall_clock_seconds"] = wall_clock_seconds
+    return tool_call_payload, parsed_content, bool(tool_message.error)
+
+
+def _tool_content_to_text(content: Any) -> str | None:
+    if content is None:
+        return None
+    if isinstance(content, str):
+        return content
+    return json.dumps(content, ensure_ascii=False)
+
+
+def _build_policy_trajectory(
+    messages: list[Any],
+    replayed_tool_calls: list[dict[str, Any]],
+    replay_tool_results: list[Any],
+    replay_tool_errors: list[dict[str, Any]],
+) -> list[Any]:
+    trajectory: list[Any] = []
+    error_by_call_id = {
+        str(row.get("tool_call", {}).get("id", "")): bool(row.get("content") is not None)
+        for row in replay_tool_errors
+    }
+    for replay_call, replay_result in zip(replayed_tool_calls, replay_tool_results):
+        requestor = str(replay_call.get("requestor", "assistant"))
+        tool_call = ToolCall(
+            id=str(replay_call.get("id", "")),
+            name=str(replay_call.get("name", "")),
+            arguments=dict(replay_call.get("arguments", {})),
+            requestor=requestor,
+        )
+        if requestor == "user":
+            trajectory.append(
+                UserMessage(
+                    role="user",
+                    content=None,
+                    tool_calls=[tool_call],
+                )
+            )
+        else:
+            trajectory.append(
+                AssistantMessage(
+                    role="assistant",
+                    content=None,
+                    tool_calls=[tool_call],
+                )
+            )
+        trajectory.append(
+            ToolMessage(
+                id=tool_call.id,
+                role="tool",
+                content=_tool_content_to_text(replay_result),
+                requestor=requestor,
+                error=error_by_call_id.get(tool_call.id, False),
+            )
+        )
+
+    for message in messages:
+        if isinstance(message, SystemMessage):
+            continue
+        trajectory.append(message)
+    return trajectory
+
+
+def _tool_types_by_name(env: Any) -> dict[str, ToolType]:
+    mapping: dict[str, ToolType] = {}
+    if getattr(env, "tools", None) is not None:
+        for name in env.tools.tools:
+            mapping[name] = env.tools.tool_type(name)
+    if getattr(env, "user_tools", None) is not None:
+        for name in env.user_tools.tools:
+            mapping[name] = env.user_tools.tool_type(name)
+    return mapping
+
+
+def _reward_info_checks(reward_info: Any, field_name: str) -> list[dict[str, Any]]:
+    if reward_info is None:
+        return []
+    payload = json.loads(reward_info.model_dump_json())
+    return list(payload.get(field_name) or [])
+
+
+def _evaluate_policy_compliance(
+    *,
+    task: Any,
+    trajectory: list[Any],
+    tool_types: dict[str, ToolType],
+) -> dict[str, Any]:
+    if task is None:
+        return {
+            "bench_action_check": None,
+            "bench_communicate_check": None,
+            "bench_nl_assertions": None,
+            "bench_action_check_raw": [],
+            "bench_communicate_check_raw": [],
+            "bench_nl_assertions_raw": [],
+            "policy_action_violation": False,
+            "policy_communication_violation": False,
+            "policy_nl_assertions_total": 0,
+            "policy_nl_assertions_failed": 0,
+            "policy_violation_count": 0,
+            "policy_eval_source": "missing_task",
+        }
+
+    action_info = ActionEvaluator.calculate_reward(task, trajectory, tool_types)
+    communicate_info = CommunicateEvaluator.calculate_reward(task, trajectory)
+    nl_assertions = (
+        getattr(getattr(task, "evaluation_criteria", None), "nl_assertions", None) or []
+    )
+    nl_info = (
+        NLAssertionsEvaluator.calculate_reward(task, trajectory)
+        if nl_assertions
+        else None
+    )
+
+    action_checks = _reward_info_checks(action_info, "action_checks")
+    communicate_checks = _reward_info_checks(communicate_info, "communicate_checks")
+    nl_checks = _reward_info_checks(nl_info, "nl_assertions")
+
+    policy_action_violation = any(
+        not bool(row.get("action_match", False)) for row in action_checks
+    )
+    policy_communication_violation = any(
+        not bool(row.get("met", False)) for row in communicate_checks
+    )
+    policy_nl_assertions_total = len(nl_checks)
+    policy_nl_assertions_failed = sum(
+        1 for row in nl_checks if not bool(row.get("met", False))
+    )
+
+    return {
+        "bench_action_check": not policy_action_violation,
+        "bench_communicate_check": not policy_communication_violation,
+        "bench_nl_assertions": policy_nl_assertions_failed == 0,
+        "bench_action_check_raw": action_checks,
+        "bench_communicate_check_raw": communicate_checks,
+        "bench_nl_assertions_raw": nl_checks,
+        "policy_action_violation": policy_action_violation,
+        "policy_communication_violation": policy_communication_violation,
+        "policy_nl_assertions_total": policy_nl_assertions_total,
+        "policy_nl_assertions_failed": policy_nl_assertions_failed,
+        "policy_violation_count": int(policy_action_violation)
+        + int(policy_communication_violation)
+        + policy_nl_assertions_failed,
+        "policy_eval_source": "tau2_reward_evaluators_stage5_local_debug",
+    }
+
+
+def _aggregate_resource_usage(
+    llm_messages: list[dict[str, Any]],
+    *,
+    executed_tool_calls: list[dict[str, Any]],
+    replayed_tool_calls: list[dict[str, Any]],
+    stage_wall_clock_seconds: float,
+) -> dict[str, Any]:
+    prompt_tokens_total = 0.0
+    completion_tokens_total = 0.0
+    total_tokens_total = 0.0
+    api_cost_total_usd_raw = 0.0
+    generation_time_total_seconds = 0.0
+    llm_round_trip_total_seconds = 0.0
+    llm_call_count = len(llm_messages)
+
+    for message in llm_messages:
+        usage_breakdown = _normalize_usage(message.get("usage"))
+        prompt_tokens_total += usage_breakdown["prompt_tokens"]
+        completion_tokens_total += usage_breakdown["completion_tokens"]
+        total_tokens_total += usage_breakdown["total_tokens"]
+        api_cost_total_usd_raw += float(message.get("cost") or 0.0)
+        generation_time_total_seconds += float(
+            message.get("generation_time_seconds") or 0.0
+        )
+        llm_round_trip_total_seconds += float(message.get("round_trip_seconds") or 0.0)
+
+    tool_wall_clock_total_seconds = sum(
+        float(call.get("wall_clock_seconds") or 0.0)
+        for call in [*replayed_tool_calls, *executed_tool_calls]
+    )
+
+    return {
+        "llm_call_count": llm_call_count,
+        "prompt_tokens_total": prompt_tokens_total,
+        "completion_tokens_total": completion_tokens_total,
+        "total_tokens_total": total_tokens_total,
+        "api_cost_total_usd_raw": api_cost_total_usd_raw,
+        "generation_time_total_seconds": generation_time_total_seconds,
+        "llm_round_trip_total_seconds": llm_round_trip_total_seconds,
+        "tool_wall_clock_total_seconds": tool_wall_clock_total_seconds,
+        "stage_wall_clock_seconds": stage_wall_clock_seconds,
+        "usage_breakdown": {
+            "prompt_tokens_total": prompt_tokens_total,
+            "completion_tokens_total": completion_tokens_total,
+            "total_tokens_total": total_tokens_total,
+        },
+        "cost_breakdown": {
+            "api_cost_total_usd_raw": api_cost_total_usd_raw,
+        },
+    }
 
 
 def main() -> None:
@@ -142,6 +377,7 @@ def main() -> None:
     allowed_tools = list(payload.get("allowed_tools", []))
     replay_tool_calls = list(payload.get("replay_tool_calls", []))
 
+    stage_started_at = perf_counter()
     env = get_environment(policy_type="workflow")
     task_map = _load_task_map()
     task = task_map.get(original_task_id)
@@ -188,8 +424,15 @@ def main() -> None:
         if tools:
             generate_kwargs["tools"] = tools
             generate_kwargs["tool_choice"] = "auto"
+        llm_started_at = perf_counter()
         assistant = llm_generate(**generate_kwargs)
-        llm_messages.append(_assistant_step_to_dict(assistant))
+        llm_round_trip_seconds = perf_counter() - llm_started_at
+        llm_messages.append(
+            _assistant_step_to_dict(
+                assistant,
+                round_trip_seconds=llm_round_trip_seconds,
+            )
+        )
         messages.append(assistant)
 
         if assistant.tool_calls:
@@ -212,7 +455,7 @@ def main() -> None:
                     ToolMessage(
                         id=replayed_call["id"],
                         role="tool",
-                        content=json.dumps(parsed_content, ensure_ascii=False) if not isinstance(parsed_content, str) else parsed_content,
+                        content=_tool_content_to_text(parsed_content),
                         requestor=replayed_call.get("requestor", "assistant"),
                         error=tool_error,
                     )
@@ -233,6 +476,27 @@ def main() -> None:
                 )
             )
 
+    stage_wall_clock_seconds = perf_counter() - stage_started_at
+    resource_usage = _aggregate_resource_usage(
+        llm_messages,
+        executed_tool_calls=executed_tool_calls,
+        replayed_tool_calls=replayed_tool_calls,
+        stage_wall_clock_seconds=stage_wall_clock_seconds,
+    )
+    policy_eval_debug = None
+    if stage_name == "stage5":
+        trajectory = _build_policy_trajectory(
+            messages,
+            replayed_tool_calls,
+            replay_tool_results,
+            replay_tool_errors,
+        )
+        policy_eval_debug = _evaluate_policy_compliance(
+            task=task,
+            trajectory=trajectory,
+            tool_types=_tool_types_by_name(env),
+        )
+
     result = {
         "stage_name": stage_name,
         "original_task_id": original_task_id,
@@ -248,8 +512,29 @@ def main() -> None:
         "tool_results": tool_results,
         "tool_errors": tool_errors,
         "final_output": final_output,
+        "resource_usage": resource_usage,
+        "policy_eval_debug": policy_eval_debug,
     }
     json.dump(result, sys.stdout, ensure_ascii=False)
+
+
+def _filter_tools(env: Any, allowed_names: list[str]) -> tuple[list[Any], dict[str, str]]:
+    allowed = set(allowed_names)
+    tools = []
+    requestor_by_tool: dict[str, str] = {}
+    assistant_tools = env.get_tools()
+    assistant_names = {tool.name for tool in assistant_tools}
+    for tool in assistant_tools:
+        if tool.name in allowed:
+            tools.append(tool)
+            requestor_by_tool[tool.name] = "assistant"
+    user_include = [name for name in allowed_names if name not in assistant_names]
+    user_tools = env.get_user_tools(include=user_include) if user_include else []
+    for tool in user_tools:
+        if tool.name in allowed and tool.name not in requestor_by_tool:
+            tools.append(tool)
+            requestor_by_tool[tool.name] = "user"
+    return tools, requestor_by_tool
 
 
 if __name__ == "__main__":

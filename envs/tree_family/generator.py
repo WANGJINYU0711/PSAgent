@@ -9,6 +9,9 @@ from typing import Any
 from .presets import (
     build_moderate_family_spec,
     build_neutral_family_spec,
+    build_shared_basin_strong_2of5_gonly_family_spec,
+    build_shared_basin_strong_all_share_gonly_family_spec,
+    build_shared_basin_strong_all_unshare_gonly_family_spec,
     build_shared_basin_strong_family_spec,
     build_strong_family_spec,
 )
@@ -172,6 +175,12 @@ class TreeFamilyGenerator:
             return build_strong_family_spec()
         if kind == "shared_basin_strong":
             return build_shared_basin_strong_family_spec()
+        if kind == "shared_basin_strong_2of5_gonly":
+            return build_shared_basin_strong_2of5_gonly_family_spec()
+        if kind == "shared_basin_strong_all_share_gonly":
+            return build_shared_basin_strong_all_share_gonly_family_spec()
+        if kind == "shared_basin_strong_all_unshare_gonly":
+            return build_shared_basin_strong_all_unshare_gonly_family_spec()
         raise ValueError(f"Unknown family kind: {kind}")
 
     def _build_stage_agents(

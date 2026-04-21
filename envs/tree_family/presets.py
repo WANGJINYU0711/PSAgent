@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 
 def build_neutral_family_spec() -> dict:
     return {
@@ -445,3 +447,43 @@ def build_shared_basin_strong_family_spec() -> dict:
             ],
         },
     }
+
+
+def _build_shared_basin_strong_gonly_variant(
+    *,
+    family_name: str,
+    g_for_index: dict[int, int] | None = None,
+    default_g: int | None = None,
+) -> dict:
+    config = deepcopy(build_shared_basin_strong_family_spec())
+    config["family_name"] = family_name
+    for stage_name in config["stages"]:
+        for idx, profile in enumerate(config["stage_profiles"][stage_name]):
+            if g_for_index is not None:
+                profile["g"] = int(g_for_index[idx])
+            elif default_g is not None:
+                profile["g"] = int(default_g)
+            else:
+                raise ValueError("Either g_for_index or default_g must be provided.")
+    return config
+
+
+def build_shared_basin_strong_2of5_gonly_family_spec() -> dict:
+    return _build_shared_basin_strong_gonly_variant(
+        family_name="shared_basin_strong_2of5_gonly",
+        g_for_index={0: 0, 1: 0, 2: 1, 3: 1, 4: 1},
+    )
+
+
+def build_shared_basin_strong_all_share_gonly_family_spec() -> dict:
+    return _build_shared_basin_strong_gonly_variant(
+        family_name="shared_basin_strong_all_share_gonly",
+        default_g=0,
+    )
+
+
+def build_shared_basin_strong_all_unshare_gonly_family_spec() -> dict:
+    return _build_shared_basin_strong_gonly_variant(
+        family_name="shared_basin_strong_all_unshare_gonly",
+        default_g=1,
+    )

@@ -246,6 +246,54 @@ def compute_stationary_oracle(selected: list[dict[str, Any]]) -> dict[str, Any]:
     return oracle_summary
 
 
+def percentile(values: list[float], q: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    position = (len(ordered) - 1) * q
+    lower = int(position)
+    upper = min(lower + 1, len(ordered) - 1)
+    fraction = position - lower
+    return ordered[lower] * (1.0 - fraction) + ordered[upper] * fraction
+
+
+def mean_present(values: list[Any]) -> float:
+    numeric = [float(value) for value in values if value is not None]
+    return mean(numeric)
+
+
+def distribution_with_fraction(labels: list[Any]) -> dict[str, dict[str, Any]]:
+    if not labels:
+        return {}
+    counter = Counter("none" if label in {None, ""} else str(label) for label in labels)
+    total = sum(counter.values())
+    return {
+        key: {
+            "count": count,
+            "fraction": (count / total) if total else 0.0,
+        }
+        for key, count in sorted(counter.items())
+    }
+
+
+def mean_vector(vectors: list[list[float]]) -> list[float]:
+    if not vectors:
+        return []
+    width = max(len(vector) for vector in vectors)
+    result: list[float] = []
+    for idx in range(width):
+        result.append(
+            mean([
+                float(vector[idx])
+                for vector in vectors
+                if idx < len(vector)
+            ])
+        )
+    return result
+
+
 def flatten_episode(
     *,
     episode_index: int,
@@ -259,11 +307,30 @@ def flatten_episode(
 ) -> dict[str, Any]:
     instance = row["instance"]
     log = result.episode_log or {}
-    stage_trace = {stage_row["stage_name"]: stage_row for stage_row in log.get("stage_trace", [])}
+    stage_trace = {
+        stage_row["stage_name"]: stage_row for stage_row in log.get("stage_trace", [])
+    }
     stage_sources = {name: stage_row.get("source") for name, stage_row in stage_trace.items()}
     llm_stage_names = [name for name, source in stage_sources.items() if source == "llm_bench"]
-    llm_call_count = sum(len(stage_trace[name].get("llm_raw_output", [])) for name in llm_stage_names)
-    tool_calls_made = sum(len(stage_row.get("executed_tool_calls", [])) for stage_row in stage_trace.values())
+    llm_call_count = int(
+        log.get(
+            "llm_call_count",
+            sum(
+                int(
+                    stage_trace[name].get(
+                        "llm_call_count_stage",
+                        len(stage_trace[name].get("llm_raw_output", [])),
+                    )
+                    or 0
+                )
+                for name in llm_stage_names
+            ),
+        )
+        or 0
+    )
+    tool_calls_made = sum(
+        len(stage_row.get("executed_tool_calls", [])) for stage_row in stage_trace.values()
+    )
     mutating_tool_calls_made = len(stage_trace.get("stage4", {}).get("executed_tool_calls", []))
     assistant_side_mutating_tool_calls_made = sum(
         1
@@ -271,13 +338,54 @@ def flatten_episode(
         if call.get("requestor") == "assistant"
     )
     stage5_trace = stage_trace.get("stage5", {})
-    oracle_episode_cost = oracle_summary["episode_total_costs"][episode_index]
-    raw_oracle_episode_cost = oracle_summary["episode_raw_total_costs"][episode_index]
     leaf_type = result.leaf_type
     shared_path = leaf_type == "shared"
     specialist_task = instance["original_task_id"] in specialist_task_ids
     shared_updates = update_info.get("shared_safe_suffix_edges_updated", []) or []
     risky_updates = update_info.get("risky_edges_updated", []) or []
+    stage_prompt_tokens = [
+        float(stage_trace.get(stage_name, {}).get("prompt_tokens_total_stage", 0.0) or 0.0)
+        for stage_name in FixedTreeEnvironment.STAGE_NAMES
+    ]
+    stage_completion_tokens = [
+        float(
+            stage_trace.get(stage_name, {}).get("completion_tokens_total_stage", 0.0) or 0.0
+        )
+        for stage_name in FixedTreeEnvironment.STAGE_NAMES
+    ]
+    stage_total_tokens = [
+        float(stage_trace.get(stage_name, {}).get("total_tokens_total_stage", 0.0) or 0.0)
+        for stage_name in FixedTreeEnvironment.STAGE_NAMES
+    ]
+    stage_api_cost_usd = [
+        float(stage_trace.get(stage_name, {}).get("api_cost_total_usd_stage", 0.0) or 0.0)
+        for stage_name in FixedTreeEnvironment.STAGE_NAMES
+    ]
+    stage_generation_time_seconds = [
+        float(
+            stage_trace.get(stage_name, {}).get("generation_time_total_seconds_stage", 0.0)
+            or 0.0
+        )
+        for stage_name in FixedTreeEnvironment.STAGE_NAMES
+    ]
+    stage_llm_round_trip_seconds = [
+        float(
+            stage_trace.get(stage_name, {}).get("llm_round_trip_total_seconds_stage", 0.0)
+            or 0.0
+        )
+        for stage_name in FixedTreeEnvironment.STAGE_NAMES
+    ]
+    stage_wall_clock_seconds = [
+        float(stage_trace.get(stage_name, {}).get("stage_wall_clock_seconds", 0.0) or 0.0)
+        for stage_name in FixedTreeEnvironment.STAGE_NAMES
+    ]
+    stage_tool_wall_clock_seconds = [
+        float(
+            stage_trace.get(stage_name, {}).get("tool_wall_clock_total_seconds_stage", 0.0)
+            or 0.0
+        )
+        for stage_name in FixedTreeEnvironment.STAGE_NAMES
+    ]
     return {
         "method": method,
         "episode_index": episode_index,
@@ -296,23 +404,89 @@ def flatten_episode(
         "exact_match": bool(result.success),
         "subset_mismatch": bool(log.get("subset_mismatch", False)),
         "terminal_penalty": float(result.terminal_cost),
+        "raw_outcome_penalty": float(log.get("raw_outcome_penalty", 0.0) or 0.0),
+        "raw_policy_penalty": float(log.get("raw_policy_penalty", 0.0) or 0.0),
         "raw_terminal_penalty": float(result.raw_terminal_penalty),
         "total_cost": float(result.total_cost),
         "raw_total_cost": float(result.raw_total_cost),
+        "raw_total_cost_api": (
+            float(log.get("raw_total_cost_api"))
+            if log.get("raw_total_cost_api") is not None
+            else None
+        ),
+        "raw_total_cost_token": (
+            float(log.get("raw_total_cost_token"))
+            if log.get("raw_total_cost_token") is not None
+            else None
+        ),
         "raw_path_cost_component": float(result.raw_path_cost_component),
         "raw_reasoning_cost_component": float(result.raw_reasoning_cost_component),
+        "raw_reasoning_cost_component_api": (
+            float(log.get("raw_reasoning_cost_component_api"))
+            if log.get("raw_reasoning_cost_component_api") is not None
+            else None
+        ),
+        "raw_reasoning_cost_component_token": (
+            float(log.get("raw_reasoning_cost_component_token"))
+            if log.get("raw_reasoning_cost_component_token") is not None
+            else None
+        ),
         "reasoning_cost": float(result.reasoning_cost),
-        "episode_regret": float(result.total_cost - oracle_episode_cost),
-        "raw_episode_regret": float(result.raw_total_cost - raw_oracle_episode_cost),
+        "reasoning_cost_mode_default": log.get("reasoning_cost_mode_default"),
+        "policy_eval_source": log.get("policy_eval_source"),
+        "policy_eval_scope": log.get("policy_eval_scope"),
+        "terminal_cost_upper_bound": log.get("terminal_cost_upper_bound"),
+        "path_cost_upper_bound": log.get("path_cost_upper_bound"),
+        "reasoning_cost_upper_bound": log.get("reasoning_cost_upper_bound"),
+        "total_cost_upper_bound": log.get("total_cost_upper_bound"),
         "cost_scale_version": str(result.cost_scale_version),
         "stage_sources": stage_sources,
         "llm_stage_names": llm_stage_names,
         "llm_call_count": llm_call_count,
+        "prompt_tokens_total": float(log.get("prompt_tokens_total", 0.0) or 0.0),
+        "completion_tokens_total": float(log.get("completion_tokens_total", 0.0) or 0.0),
+        "total_tokens_total": float(log.get("total_tokens_total", 0.0) or 0.0),
+        "api_cost_total_usd_raw": float(log.get("api_cost_total_usd_raw", 0.0) or 0.0),
+        "generation_time_total_seconds": float(
+            log.get("generation_time_total_seconds", 0.0) or 0.0
+        ),
+        "llm_round_trip_total_seconds": float(
+            log.get("llm_round_trip_total_seconds", 0.0) or 0.0
+        ),
+        "tool_wall_clock_total_seconds": float(
+            log.get("tool_wall_clock_total_seconds", 0.0) or 0.0
+        ),
+        "episode_wall_clock_seconds": float(
+            log.get("episode_wall_clock_seconds", 0.0) or 0.0
+        ),
+        "stage_prompt_tokens": stage_prompt_tokens,
+        "stage_completion_tokens": stage_completion_tokens,
+        "stage_total_tokens": stage_total_tokens,
+        "stage_api_cost_usd": stage_api_cost_usd,
+        "stage_generation_time_seconds": stage_generation_time_seconds,
+        "stage_llm_round_trip_seconds": stage_llm_round_trip_seconds,
+        "stage_tool_wall_clock_seconds": stage_tool_wall_clock_seconds,
+        "stage_wall_clock_seconds": stage_wall_clock_seconds,
         "tool_calls_made": tool_calls_made,
         "mutating_tool_calls_made": mutating_tool_calls_made,
         "assistant_side_mutating_tool_calls_made": assistant_side_mutating_tool_calls_made,
         "stage5_replay_tool_names": [c.get("name") for c in stage5_trace.get("replay_tool_calls", [])],
         "stage5_executed_tool_names": [c.get("name") for c in stage5_trace.get("executed_tool_calls", [])],
+        "policy_action_violation": bool(log.get("policy_action_violation", False)),
+        "policy_communication_violation": bool(
+            log.get("policy_communication_violation", False)
+        ),
+        "policy_nl_assertions_total": int(log.get("policy_nl_assertions_total", 0) or 0),
+        "policy_nl_assertions_failed": int(
+            log.get("policy_nl_assertions_failed", 0) or 0
+        ),
+        "policy_violation_count": int(log.get("policy_violation_count", 0) or 0),
+        "first_private_barrier_stage": log.get("first_private_barrier_stage"),
+        "barrier_stop_depth": log.get("barrier_stop_depth"),
+        "candidate_count_per_stage": list(log.get("candidate_count_per_stage", []) or []),
+        "legal_child_count_per_stage": list(
+            log.get("legal_child_count_per_stage", []) or []
+        ),
         "selection_path_prob": selection_info.get("path_prob"),
         "shared_branch_triggered": bool(update_info.get("shared_leaf_updated", False)),
         "unshared_branch_triggered": str(update_info.get("leaf_type")) == "unshared",
@@ -366,6 +540,8 @@ def build_summary(
     for episode in episodes:
         for stage_name, source in episode["stage_sources"].items():
             stage_source_summary[stage_name][str(source)] += 1
+    policy_nl_total = sum(ep["policy_nl_assertions_total"] for ep in episodes)
+    policy_nl_failed = sum(ep["policy_nl_assertions_failed"] for ep in episodes)
     return {
         "test_name": f"{method}_smoke10x{repeats}_{FAMILY_KIND}_full_llm",
         "dataset": dataset,
@@ -381,33 +557,109 @@ def build_summary(
         "stationary_oracle_path": oracle_summary["path"],
         "exact_match_mean": mean([float(ep["exact_match"]) for ep in episodes]),
         "terminal_penalty_mean": mean([ep["terminal_penalty"] for ep in episodes]),
+        "raw_outcome_penalty_mean": mean([ep["raw_outcome_penalty"] for ep in episodes]),
+        "raw_policy_penalty_mean": mean([ep["raw_policy_penalty"] for ep in episodes]),
         "raw_terminal_penalty_mean": mean([ep["raw_terminal_penalty"] for ep in episodes]),
         "total_cost_mean": mean([ep["total_cost"] for ep in episodes]),
         "raw_total_cost_mean": mean([ep["raw_total_cost"] for ep in episodes]),
+        "raw_total_cost_api_mean": mean_present([ep["raw_total_cost_api"] for ep in episodes]),
+        "raw_total_cost_token_mean": mean_present(
+            [ep["raw_total_cost_token"] for ep in episodes]
+        ),
         "reasoning_cost_mean": mean([ep["reasoning_cost"] for ep in episodes]),
         "raw_reasoning_cost_component_mean": mean([ep["raw_reasoning_cost_component"] for ep in episodes]),
+        "raw_reasoning_cost_component_api_mean": mean_present(
+            [ep["raw_reasoning_cost_component_api"] for ep in episodes]
+        ),
+        "raw_reasoning_cost_component_token_mean": mean_present(
+            [ep["raw_reasoning_cost_component_token"] for ep in episodes]
+        ),
         "raw_path_cost_component_mean": mean([ep["raw_path_cost_component"] for ep in episodes]),
-        "mean_regret": mean([ep["episode_regret"] for ep in episodes]),
-        "raw_mean_regret": mean([ep["raw_episode_regret"] for ep in episodes]),
         "algorithm_cumulative_total_cost": sum(ep["total_cost"] for ep in episodes),
         "raw_algorithm_cumulative_total_cost": sum(ep["raw_total_cost"] for ep in episodes),
         "oracle_stationary_total_cost": oracle_summary["cumulative_total_cost"],
         "raw_oracle_stationary_total_cost": oracle_summary["raw_cumulative_total_cost"],
-        "cumulative_regret": sum(ep["episode_regret"] for ep in episodes),
-        "raw_cumulative_regret": sum(ep["raw_episode_regret"] for ep in episodes),
+        "raw_outcome_penalty_cumulative": sum(ep["raw_outcome_penalty"] for ep in episodes),
+        "raw_policy_penalty_cumulative": sum(ep["raw_policy_penalty"] for ep in episodes),
         "raw_terminal_penalty_cumulative": sum(ep["raw_terminal_penalty"] for ep in episodes),
         "raw_path_cost_component_cumulative": sum(ep["raw_path_cost_component"] for ep in episodes),
         "raw_reasoning_cost_component_cumulative": sum(ep["raw_reasoning_cost_component"] for ep in episodes),
         "mean_llm_call_count": mean([ep["llm_call_count"] for ep in episodes]),
+        "mean_prompt_tokens": mean([ep["prompt_tokens_total"] for ep in episodes]),
+        "mean_completion_tokens": mean(
+            [ep["completion_tokens_total"] for ep in episodes]
+        ),
+        "mean_total_tokens": mean([ep["total_tokens_total"] for ep in episodes]),
+        "cumulative_total_tokens": sum(ep["total_tokens_total"] for ep in episodes),
+        "mean_api_cost_usd_raw": mean([ep["api_cost_total_usd_raw"] for ep in episodes]),
+        "cumulative_api_cost_usd_raw": sum(
+            ep["api_cost_total_usd_raw"] for ep in episodes
+        ),
+        "mean_generation_time_seconds": mean(
+            [ep["generation_time_total_seconds"] for ep in episodes]
+        ),
+        "p50_generation_time_seconds": percentile(
+            [ep["generation_time_total_seconds"] for ep in episodes],
+            0.5,
+        ),
+        "p90_generation_time_seconds": percentile(
+            [ep["generation_time_total_seconds"] for ep in episodes],
+            0.9,
+        ),
+        "mean_llm_round_trip_seconds": mean(
+            [ep["llm_round_trip_total_seconds"] for ep in episodes]
+        ),
+        "mean_episode_wall_clock_seconds": mean(
+            [ep["episode_wall_clock_seconds"] for ep in episodes]
+        ),
+        "p50_episode_wall_clock_seconds": percentile(
+            [ep["episode_wall_clock_seconds"] for ep in episodes],
+            0.5,
+        ),
+        "p90_episode_wall_clock_seconds": percentile(
+            [ep["episode_wall_clock_seconds"] for ep in episodes],
+            0.9,
+        ),
+        "mean_tool_wall_clock_seconds": mean(
+            [ep["tool_wall_clock_total_seconds"] for ep in episodes]
+        ),
+        "policy_action_violation_rate": mean(
+            [float(ep["policy_action_violation"]) for ep in episodes]
+        ),
+        "policy_communication_violation_rate": mean(
+            [float(ep["policy_communication_violation"]) for ep in episodes]
+        ),
+        "policy_nl_assertion_failure_rate": (
+            policy_nl_failed / policy_nl_total if policy_nl_total else 0.0
+        ),
+        "mean_policy_violation_count": mean(
+            [ep["policy_violation_count"] for ep in episodes]
+        ),
         "subset_mismatch_count": sum(1 for ep in episodes if ep["subset_mismatch"]),
         "episodes_with_stage5_verification_tools": sum(1 for ep in episodes if ep["stage5_executed_tool_names"]),
         "shared_path_fraction": mean([float(ep["selected_shared_path"]) for ep in episodes]),
         "unshared_path_fraction": mean([float(ep["selected_unshared_path"]) for ep in episodes]),
+        "mean_barrier_stop_depth": mean_present(
+            [ep["barrier_stop_depth"] for ep in episodes]
+        ),
+        "first_private_barrier_stage_distribution": distribution_with_fraction(
+            [ep["first_private_barrier_stage"] for ep in episodes]
+        ),
+        "mean_candidate_count_per_stage": mean_vector(
+            [ep["candidate_count_per_stage"] for ep in episodes]
+        ),
+        "mean_legal_child_count_per_stage": mean_vector(
+            [ep["legal_child_count_per_stage"] for ep in episodes]
+        ),
         "specialist_task_count": sum(1 for ep in episodes if ep["is_specialist_task"]),
         "specialist_task_unshared_fraction": mean(
             [float(ep["selected_unshared_path"]) for ep in episodes if ep["is_specialist_task"]]
         ),
         "stage_source_summary": {k: dict(v) for k, v in stage_source_summary.items()},
+        "reasoning_cost_mode_default": next(
+            (ep["reasoning_cost_mode_default"] for ep in episodes if ep.get("reasoning_cost_mode_default")),
+            None,
+        ),
     }
 
 
@@ -419,9 +671,21 @@ def build_specialist_summary(episodes: list[dict[str, Any]]) -> dict[str, Any]:
         "specialist_unshared_path_fraction": mean([float(ep["selected_unshared_path"]) for ep in specialist]),
         "specialist_exact_match_mean": mean([float(ep["exact_match"]) for ep in specialist]),
         "specialist_total_cost_mean": mean([ep["total_cost"] for ep in specialist]),
+        "specialist_raw_outcome_penalty_mean": mean(
+            [ep["raw_outcome_penalty"] for ep in specialist]
+        ),
+        "specialist_raw_policy_penalty_mean": mean(
+            [ep["raw_policy_penalty"] for ep in specialist]
+        ),
         "specialist_raw_terminal_penalty_mean": mean([ep["raw_terminal_penalty"] for ep in specialist]),
         "specialist_raw_path_cost_component_mean": mean([ep["raw_path_cost_component"] for ep in specialist]),
         "specialist_raw_reasoning_cost_component_mean": mean([ep["raw_reasoning_cost_component"] for ep in specialist]),
+        "specialist_raw_reasoning_cost_component_api_mean": mean_present(
+            [ep["raw_reasoning_cost_component_api"] for ep in specialist]
+        ),
+        "specialist_raw_reasoning_cost_component_token_mean": mean_present(
+            [ep["raw_reasoning_cost_component_token"] for ep in specialist]
+        ),
         "specialist_task_ids": sorted({ep["original_task_id"] for ep in specialist}),
     }
 
@@ -451,8 +715,12 @@ def build_partial_summary(
             "completed_episodes": len(episodes),
             "status": status,
             "completed_cumulative_total_cost": sum(ep["total_cost"] for ep in episodes),
-            "completed_cumulative_regret": sum(ep["episode_regret"] for ep in episodes),
             "completed_raw_terminal_penalty": sum(ep["raw_terminal_penalty"] for ep in episodes),
+            "completed_raw_policy_penalty": sum(ep["raw_policy_penalty"] for ep in episodes),
+            "completed_total_tokens": sum(ep["total_tokens_total"] for ep in episodes),
+            "completed_api_cost_usd_raw": sum(
+                ep["api_cost_total_usd_raw"] for ep in episodes
+            ),
         }
     )
     return summary
@@ -519,11 +787,27 @@ def build_compare_rows(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "method": summary["method"],
             "total_cost_mean": summary["total_cost_mean"],
             "raw_total_cost_mean": summary["raw_total_cost_mean"],
+            "raw_total_cost_api_mean": summary["raw_total_cost_api_mean"],
+            "raw_total_cost_token_mean": summary["raw_total_cost_token_mean"],
+            "raw_outcome_penalty_mean": summary["raw_outcome_penalty_mean"],
+            "raw_policy_penalty_mean": summary["raw_policy_penalty_mean"],
             "raw_terminal_penalty_mean": summary["raw_terminal_penalty_mean"],
             "raw_path_cost_component_mean": summary["raw_path_cost_component_mean"],
             "raw_reasoning_cost_component_mean": summary["raw_reasoning_cost_component_mean"],
+            "raw_reasoning_cost_component_api_mean": summary[
+                "raw_reasoning_cost_component_api_mean"
+            ],
+            "raw_reasoning_cost_component_token_mean": summary[
+                "raw_reasoning_cost_component_token_mean"
+            ],
             "exact_match_mean": summary["exact_match_mean"],
             "mean_llm_call_count": summary["mean_llm_call_count"],
+            "mean_total_tokens": summary["mean_total_tokens"],
+            "mean_api_cost_usd_raw": summary["mean_api_cost_usd_raw"],
+            "mean_generation_time_seconds": summary["mean_generation_time_seconds"],
+            "mean_episode_wall_clock_seconds": summary[
+                "mean_episode_wall_clock_seconds"
+            ],
         }
         for summary in summaries
     ]

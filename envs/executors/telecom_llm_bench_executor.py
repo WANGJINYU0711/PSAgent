@@ -75,6 +75,34 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         self.llm_bridge_script = Path(__file__).with_name("_telecom_llm_bench_bridge.py")
         self.tau2_root = self.root / "tau2-bench"
 
+    def _llm_stage_resource_trace_fields(self, result: dict[str, Any]) -> dict[str, Any]:
+        usage = dict(result.get("resource_usage", {}) or {})
+        return {
+            "llm_call_count_stage": int(usage.get("llm_call_count", 0) or 0),
+            "prompt_tokens_total_stage": float(usage.get("prompt_tokens_total", 0.0) or 0.0),
+            "completion_tokens_total_stage": float(
+                usage.get("completion_tokens_total", 0.0) or 0.0
+            ),
+            "total_tokens_total_stage": float(usage.get("total_tokens_total", 0.0) or 0.0),
+            "api_cost_total_usd_stage": float(
+                usage.get("api_cost_total_usd_raw", 0.0) or 0.0
+            ),
+            "generation_time_total_seconds_stage": float(
+                usage.get("generation_time_total_seconds", 0.0) or 0.0
+            ),
+            "llm_round_trip_total_seconds_stage": float(
+                usage.get("llm_round_trip_total_seconds", 0.0) or 0.0
+            ),
+            "tool_wall_clock_total_seconds_stage": float(
+                usage.get("tool_wall_clock_total_seconds", 0.0) or 0.0
+            ),
+            "stage_wall_clock_seconds": float(
+                usage.get("stage_wall_clock_seconds", 0.0) or 0.0
+            ),
+            "usage_breakdown_stage": deepcopy(usage.get("usage_breakdown", {})),
+            "cost_breakdown_stage": deepcopy(usage.get("cost_breakdown", {})),
+        }
+
     def _run_stage1(
         self,
         task: TaskDescriptor,
@@ -118,6 +146,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "output": deepcopy(output),
             "score": None,
             "source": "llm_bench",
+            **self._llm_stage_resource_trace_fields(result),
         }
         return {
             "input": {
@@ -169,6 +198,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "output": deepcopy(output),
             "score": None,
             "source": "llm_bench",
+            **self._llm_stage_resource_trace_fields(result),
         }
         return {"input": deepcopy(stage1_output), "output": output, "trace": trace}
 
@@ -249,6 +279,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "diagnostic_fallback_calls": deepcopy(diagnostic_fallback["calls"]),
             "account_side_fallback_used": fallback_debug["used"],
             "account_side_fallback_calls": deepcopy(fallback_debug["calls"]),
+            **self._llm_stage_resource_trace_fields(result),
         }
         return {
             "input": {
@@ -323,6 +354,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "source": "llm_bench",
             "policy_mode": "repair_execution_with_env_mutation",
             "llm_execution_attempts": deepcopy(result.get("executed_tool_calls", [])),
+            **self._llm_stage_resource_trace_fields(result),
         }
         return {
             "input": {
@@ -407,6 +439,10 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "policy_mode": "verification_then_terminal_decision",
             "verification_fallback_used": verification_fallback["used"],
             "verification_fallback_calls": deepcopy(verification_fallback["calls"]),
+            "stage5_local_policy_eval_debug": deepcopy(
+                result.get("policy_eval_debug")
+            ),
+            **self._llm_stage_resource_trace_fields(result),
         }
         return {
             "input": {

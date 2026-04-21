@@ -28,7 +28,8 @@ from executors.telecom_llm_bench_executor import TelecomLLMBenchExecutor
 from telecom_mms_evaluator import (
     DEFAULT_COST_SPEC as TELECOM_DEFAULT_COST_SPEC,
     TELECOM_MMS_COST_SCALE_VERSION,
-    TELECOM_MMS_MAX_RAW_TOTAL_COST_V1,
+    TELECOM_MMS_PATH_UPPER_BOUND_V2,
+    TELECOM_MMS_TERMINAL_UPPER_BOUND_V2,
     evaluate_terminal_prediction as evaluate_telecom_terminal_prediction,
 )
 from tree_family.generator import TreeFamilyGenerator
@@ -38,6 +39,32 @@ JsonDict = dict[str, Any]
 StageExecutor = Callable[["FixedTreeEnvironment", "AgentSpec", JsonDict], JsonDict]
 PrefixKey = tuple[str, ...]
 EdgeKey = tuple[PrefixKey, PrefixKey]
+
+LLM_BENCH_REASONING_ALPHA_API = 100.0
+LLM_BENCH_REASONING_ALPHA_IN = 0.0001
+LLM_BENCH_REASONING_ALPHA_OUT = 0.0004
+LLM_BENCH_REASONING_DEFAULT_MODE = "token"
+TELECOM_MMS_REASONING_INPUT_TOKEN_BUDGET_V2 = 20_000.0
+TELECOM_MMS_REASONING_OUTPUT_TOKEN_BUDGET_V2 = 7_500.0
+TELECOM_MMS_REASONING_API_COST_BUDGET_USD_V2 = 0.05
+TELECOM_MMS_REASONING_UPPER_BOUND_TOKEN_V2 = (
+    (LLM_BENCH_REASONING_ALPHA_IN * TELECOM_MMS_REASONING_INPUT_TOKEN_BUDGET_V2)
+    + (LLM_BENCH_REASONING_ALPHA_OUT * TELECOM_MMS_REASONING_OUTPUT_TOKEN_BUDGET_V2)
+)
+TELECOM_MMS_REASONING_UPPER_BOUND_API_V2 = (
+    LLM_BENCH_REASONING_ALPHA_API * TELECOM_MMS_REASONING_API_COST_BUDGET_USD_V2
+)
+if LLM_BENCH_REASONING_DEFAULT_MODE == "api":
+    TELECOM_MMS_REASONING_UPPER_BOUND_DEFAULT_V2 = TELECOM_MMS_REASONING_UPPER_BOUND_API_V2
+else:
+    TELECOM_MMS_REASONING_UPPER_BOUND_DEFAULT_V2 = (
+        TELECOM_MMS_REASONING_UPPER_BOUND_TOKEN_V2
+    )
+TELECOM_MMS_TOTAL_UPPER_BOUND_V2_DEFAULT = (
+    TELECOM_MMS_TERMINAL_UPPER_BOUND_V2
+    + TELECOM_MMS_PATH_UPPER_BOUND_V2
+    + TELECOM_MMS_REASONING_UPPER_BOUND_DEFAULT_V2
+)
 
 
 def leaf_starts_shared_upload(
@@ -108,6 +135,58 @@ def compute_first_private_barrier_depth(
     return None
 
 
+def _normalize_usage_breakdown(row: Mapping[str, Any] | None) -> JsonDict:
+    if not isinstance(row, Mapping):
+        return {
+            "prompt_tokens_total": 0.0,
+            "completion_tokens_total": 0.0,
+            "total_tokens_total": 0.0,
+        }
+    prompt_tokens_total = float(
+        row.get("prompt_tokens_total", row.get("prompt_tokens", 0.0)) or 0.0
+    )
+    completion_tokens_total = float(
+        row.get("completion_tokens_total", row.get("completion_tokens", 0.0)) or 0.0
+    )
+    total_tokens_total = float(row.get("total_tokens_total", row.get("total_tokens", 0.0)) or 0.0)
+    if total_tokens_total <= 0.0:
+        total_tokens_total = prompt_tokens_total + completion_tokens_total
+    return {
+        "prompt_tokens_total": prompt_tokens_total,
+        "completion_tokens_total": completion_tokens_total,
+        "total_tokens_total": total_tokens_total,
+    }
+
+
+def compute_llm_bench_reasoning_components(
+    *,
+    prompt_tokens_total: float,
+    completion_tokens_total: float,
+    api_cost_total_usd_raw: float,
+    default_mode: str = LLM_BENCH_REASONING_DEFAULT_MODE,
+) -> JsonDict:
+    raw_reasoning_cost_component_api = LLM_BENCH_REASONING_ALPHA_API * float(
+        api_cost_total_usd_raw
+    )
+    raw_reasoning_cost_component_token = (
+        (LLM_BENCH_REASONING_ALPHA_IN * float(prompt_tokens_total))
+        + (LLM_BENCH_REASONING_ALPHA_OUT * float(completion_tokens_total))
+    )
+    if default_mode == "api":
+        raw_reasoning_cost_component = raw_reasoning_cost_component_api
+    else:
+        raw_reasoning_cost_component = raw_reasoning_cost_component_token
+    return {
+        "alpha_api": LLM_BENCH_REASONING_ALPHA_API,
+        "alpha_in": LLM_BENCH_REASONING_ALPHA_IN,
+        "alpha_out": LLM_BENCH_REASONING_ALPHA_OUT,
+        "reasoning_cost_mode_default": default_mode,
+        "raw_reasoning_cost_component": raw_reasoning_cost_component,
+        "raw_reasoning_cost_component_api": raw_reasoning_cost_component_api,
+        "raw_reasoning_cost_component_token": raw_reasoning_cost_component_token,
+    }
+
+
 @dataclass(frozen=True)
 class AgentSpec:
     """Lightweight candidate-agent description for one stage."""
@@ -141,6 +220,20 @@ class EpisodeResult:
     total_cost: float
     total_cost_upper_bound: float
     cost_scale_version: str
+    raw_outcome_penalty: float = 0.0
+    raw_policy_penalty: float = 0.0
+    raw_reasoning_cost_component_api: float | None = None
+    raw_reasoning_cost_component_token: float | None = None
+    raw_total_cost_api: float | None = None
+    raw_total_cost_token: float | None = None
+    prompt_tokens_total: float = 0.0
+    completion_tokens_total: float = 0.0
+    total_tokens_total: float = 0.0
+    api_cost_total_usd_raw: float = 0.0
+    generation_time_total_seconds: float = 0.0
+    llm_round_trip_total_seconds: float = 0.0
+    tool_wall_clock_total_seconds: float = 0.0
+    episode_wall_clock_seconds: float = 0.0
     episode_log: JsonDict = field(default_factory=dict)
 
     def to_dict(self) -> JsonDict:
@@ -350,10 +443,45 @@ class FixedTreeEnvironment:
         leaf_type = self.compute_leaf_type(path)
         evaluator_result = self.evaluate_terminal_outcome(stage_outputs, path)
         path_agent_cost = sum(self.agent_catalog[agent_id].cost for agent_id in path)
+        reasoning_metrics = {
+            "raw_reasoning_cost_component": 0.0,
+            "raw_reasoning_cost_component_api": None,
+            "raw_reasoning_cost_component_token": None,
+            "reasoning_cost_mode_default": None,
+            "prompt_tokens_total": 0.0,
+            "completion_tokens_total": 0.0,
+            "total_tokens_total": 0.0,
+            "api_cost_total_usd_raw": 0.0,
+            "generation_time_total_seconds": 0.0,
+            "llm_round_trip_total_seconds": 0.0,
+            "tool_wall_clock_total_seconds": 0.0,
+            "episode_wall_clock_seconds": 0.0,
+            "stage_prompt_tokens": [0.0] * len(self.STAGE_NAMES),
+            "stage_completion_tokens": [0.0] * len(self.STAGE_NAMES),
+            "stage_total_tokens": [0.0] * len(self.STAGE_NAMES),
+            "stage_api_cost_usd": [0.0] * len(self.STAGE_NAMES),
+            "stage_generation_time_seconds": [0.0] * len(self.STAGE_NAMES),
+            "stage_llm_round_trip_seconds": [0.0] * len(self.STAGE_NAMES),
+            "stage_tool_wall_clock_seconds": [0.0] * len(self.STAGE_NAMES),
+            "stage_wall_clock_seconds": [0.0] * len(self.STAGE_NAMES),
+            "reasoning_resource_breakdown": {
+                "prompt_tokens_total": 0.0,
+                "completion_tokens_total": 0.0,
+                "total_tokens_total": 0.0,
+                "api_cost_total_usd_raw": 0.0,
+            },
+            "latency_breakdown": {
+                "generation_time_total_seconds": 0.0,
+                "llm_round_trip_total_seconds": 0.0,
+                "tool_wall_clock_total_seconds": 0.0,
+                "episode_wall_clock_seconds": 0.0,
+            },
+            "trace": [],
+        }
         cost_metrics = self._build_cost_metrics(
             evaluator_result=evaluator_result,
             path_agent_cost=path_agent_cost,
-            reasoning_cost=0.0,
+            reasoning_metrics=reasoning_metrics,
         )
 
         final_action = (
@@ -366,11 +494,18 @@ class FixedTreeEnvironment:
         )
         success = bool(evaluator_result["exact_match"])
 
+        first_private_barrier_stage = self._first_private_barrier_stage_label(path)
+        barrier_stop_prefix = self.compute_shared_upload_stop_prefix(path)
+        legal_child_count_per_stage = self._legal_child_count_per_stage(path)
+        annotated_stage_trace = self._annotate_stage_trace_with_terminal_details(
+            stage_trace,
+            evaluator_result,
+        )
         episode_log = {
             "instance_id": self.current_instance_id,
             "selected_path": list(path),
             "leaf_type": leaf_type,
-            "stage_trace": stage_trace,
+            "stage_trace": annotated_stage_trace,
             "final_action": final_action,
             "oracle_action": oracle_action,
             "terminal_cost": cost_metrics["raw_terminal_penalty"],
@@ -384,15 +519,82 @@ class FixedTreeEnvironment:
             "missed_refuse_count": evaluator_result["missed_refuse_count"],
             "subset_mismatch": evaluator_result["subset_mismatch"],
             "cost_breakdown": deepcopy(evaluator_result["cost_breakdown"]),
+            "outcome_cost_breakdown": deepcopy(
+                evaluator_result.get("outcome_cost_breakdown", {})
+            ),
+            "policy_cost_breakdown": deepcopy(
+                evaluator_result.get("policy_cost_breakdown", {})
+            ),
+            "terminal_cost_breakdown": deepcopy(
+                evaluator_result.get("terminal_cost_breakdown", {})
+            ),
+            "raw_outcome_penalty": cost_metrics["raw_outcome_penalty"],
+            "raw_policy_penalty": cost_metrics["raw_policy_penalty"],
             "raw_terminal_penalty": cost_metrics["raw_terminal_penalty"],
             "raw_path_cost_component": cost_metrics["raw_path_cost_component"],
+            "raw_reasoning_cost_component_api": cost_metrics[
+                "raw_reasoning_cost_component_api"
+            ],
+            "raw_reasoning_cost_component_token": cost_metrics[
+                "raw_reasoning_cost_component_token"
+            ],
             "raw_total_cost": cost_metrics["raw_total_cost"],
+            "raw_total_cost_api": cost_metrics["raw_total_cost_api"],
+            "raw_total_cost_token": cost_metrics["raw_total_cost_token"],
             "raw_reasoning_cost_component": cost_metrics["raw_reasoning_cost_component"],
+            "terminal_cost_upper_bound": cost_metrics["terminal_cost_upper_bound"],
+            "path_cost_upper_bound": cost_metrics["path_cost_upper_bound"],
+            "reasoning_cost_upper_bound": cost_metrics["reasoning_cost_upper_bound"],
             "normalized_terminal_penalty": cost_metrics["normalized_terminal_penalty"],
             "normalized_total_cost": cost_metrics["normalized_total_cost"],
             "total_cost_upper_bound": cost_metrics["total_cost_upper_bound"],
             "cost_scale_version": cost_metrics["cost_scale_version"],
             "reasoning_cost": cost_metrics["raw_reasoning_cost_component"],
+            "reasoning_cost_mode_default": cost_metrics["reasoning_cost_mode_default"],
+            "prompt_tokens_total": reasoning_metrics["prompt_tokens_total"],
+            "completion_tokens_total": reasoning_metrics["completion_tokens_total"],
+            "total_tokens_total": reasoning_metrics["total_tokens_total"],
+            "api_cost_total_usd_raw": reasoning_metrics["api_cost_total_usd_raw"],
+            "reasoning_resource_breakdown": deepcopy(
+                reasoning_metrics["reasoning_resource_breakdown"]
+            ),
+            "generation_time_total_seconds": reasoning_metrics[
+                "generation_time_total_seconds"
+            ],
+            "llm_round_trip_total_seconds": reasoning_metrics[
+                "llm_round_trip_total_seconds"
+            ],
+            "tool_wall_clock_total_seconds": reasoning_metrics[
+                "tool_wall_clock_total_seconds"
+            ],
+            "episode_wall_clock_seconds": reasoning_metrics["episode_wall_clock_seconds"],
+            "latency_breakdown": deepcopy(reasoning_metrics["latency_breakdown"]),
+            "policy_action_violation": bool(
+                evaluator_result.get("policy_action_violation", False)
+            ),
+            "policy_communication_violation": bool(
+                evaluator_result.get("policy_communication_violation", False)
+            ),
+            "policy_nl_assertions_total": int(
+                evaluator_result.get("policy_nl_assertions_total", 0) or 0
+            ),
+            "policy_nl_assertions_failed": int(
+                evaluator_result.get("policy_nl_assertions_failed", 0) or 0
+            ),
+            "policy_violation_count": int(
+                evaluator_result.get("policy_violation_count", 0) or 0
+            ),
+            "policy_violation_breakdown": deepcopy(
+                evaluator_result.get("policy_violation_breakdown", {})
+            ),
+            "policy_eval_source": evaluator_result.get("policy_eval_source"),
+            "policy_eval_scope": evaluator_result.get("policy_eval_scope"),
+            "selected_shared_path": leaf_type == "shared",
+            "selected_unshared_path": leaf_type != "shared",
+            "first_private_barrier_stage": first_private_barrier_stage,
+            "barrier_stop_depth": len(barrier_stop_prefix) if barrier_stop_prefix else None,
+            "legal_child_count_per_stage": legal_child_count_per_stage,
+            "candidate_count_per_stage": list(legal_child_count_per_stage),
         }
         self._last_episode_log = deepcopy(episode_log)
 
@@ -415,6 +617,30 @@ class FixedTreeEnvironment:
             total_cost=cost_metrics["normalized_total_cost"],
             total_cost_upper_bound=cost_metrics["total_cost_upper_bound"],
             cost_scale_version=cost_metrics["cost_scale_version"],
+            raw_outcome_penalty=cost_metrics["raw_outcome_penalty"],
+            raw_policy_penalty=cost_metrics["raw_policy_penalty"],
+            raw_reasoning_cost_component_api=cost_metrics[
+                "raw_reasoning_cost_component_api"
+            ],
+            raw_reasoning_cost_component_token=cost_metrics[
+                "raw_reasoning_cost_component_token"
+            ],
+            raw_total_cost_api=cost_metrics["raw_total_cost_api"],
+            raw_total_cost_token=cost_metrics["raw_total_cost_token"],
+            prompt_tokens_total=reasoning_metrics["prompt_tokens_total"],
+            completion_tokens_total=reasoning_metrics["completion_tokens_total"],
+            total_tokens_total=reasoning_metrics["total_tokens_total"],
+            api_cost_total_usd_raw=reasoning_metrics["api_cost_total_usd_raw"],
+            generation_time_total_seconds=reasoning_metrics[
+                "generation_time_total_seconds"
+            ],
+            llm_round_trip_total_seconds=reasoning_metrics[
+                "llm_round_trip_total_seconds"
+            ],
+            tool_wall_clock_total_seconds=reasoning_metrics[
+                "tool_wall_clock_total_seconds"
+            ],
+            episode_wall_clock_seconds=reasoning_metrics["episode_wall_clock_seconds"],
             episode_log=episode_log,
         )
 
@@ -431,13 +657,20 @@ class FixedTreeEnvironment:
             raw_instance=self.current_instance,
         )
         stage_outputs = self._family_stage_outputs_from_execution(execution)
-        evaluator_result = self.evaluate_terminal_outcome(stage_outputs, path)
+        evaluator_result = self.evaluate_terminal_outcome(
+            stage_outputs,
+            path,
+            execution=execution,
+        )
         path_agent_cost = float(execution["path_agent_cost"])
-        reasoning_metrics = self._compute_family_reasoning_cost(path)
+        reasoning_metrics = self._compute_family_reasoning_cost(
+            path,
+            stage_trace=execution.get("stage_trace", []),
+        )
         cost_metrics = self._build_cost_metrics(
             evaluator_result=evaluator_result,
             path_agent_cost=path_agent_cost,
-            reasoning_cost=reasoning_metrics["reasoning_cost"],
+            reasoning_metrics=reasoning_metrics,
         )
         final_action = execution.get("final_action")
         oracle_action = (
@@ -448,11 +681,18 @@ class FixedTreeEnvironment:
         success = bool(evaluator_result["exact_match"])
         leaf_type = self.compute_leaf_type(path)
 
+        first_private_barrier_stage = self._first_private_barrier_stage_label(path)
+        barrier_stop_prefix = self.compute_shared_upload_stop_prefix(path)
+        legal_child_count_per_stage = self._legal_child_count_per_stage(path)
+        annotated_stage_trace = self._annotate_stage_trace_with_terminal_details(
+            execution.get("stage_trace", []),
+            evaluator_result,
+        )
         episode_log = {
             "instance_id": self.current_instance_id,
             "selected_path": list(path),
             "leaf_type": leaf_type,
-            "stage_trace": deepcopy(execution.get("stage_trace", [])),
+            "stage_trace": annotated_stage_trace,
             "final_action": final_action,
             "oracle_action": oracle_action,
             "terminal_cost": cost_metrics["raw_terminal_penalty"],
@@ -466,17 +706,84 @@ class FixedTreeEnvironment:
             "missed_refuse_count": evaluator_result["missed_refuse_count"],
             "subset_mismatch": evaluator_result["subset_mismatch"],
             "cost_breakdown": deepcopy(evaluator_result["cost_breakdown"]),
+            "outcome_cost_breakdown": deepcopy(
+                evaluator_result.get("outcome_cost_breakdown", {})
+            ),
+            "policy_cost_breakdown": deepcopy(
+                evaluator_result.get("policy_cost_breakdown", {})
+            ),
+            "terminal_cost_breakdown": deepcopy(
+                evaluator_result.get("terminal_cost_breakdown", {})
+            ),
             "family_kind": self.family_kind,
+            "raw_outcome_penalty": cost_metrics["raw_outcome_penalty"],
+            "raw_policy_penalty": cost_metrics["raw_policy_penalty"],
             "raw_terminal_penalty": cost_metrics["raw_terminal_penalty"],
             "raw_path_cost_component": cost_metrics["raw_path_cost_component"],
+            "raw_reasoning_cost_component_api": cost_metrics[
+                "raw_reasoning_cost_component_api"
+            ],
+            "raw_reasoning_cost_component_token": cost_metrics[
+                "raw_reasoning_cost_component_token"
+            ],
             "raw_total_cost": cost_metrics["raw_total_cost"],
+            "raw_total_cost_api": cost_metrics["raw_total_cost_api"],
+            "raw_total_cost_token": cost_metrics["raw_total_cost_token"],
             "raw_reasoning_cost_component": cost_metrics["raw_reasoning_cost_component"],
+            "terminal_cost_upper_bound": cost_metrics["terminal_cost_upper_bound"],
+            "path_cost_upper_bound": cost_metrics["path_cost_upper_bound"],
+            "reasoning_cost_upper_bound": cost_metrics["reasoning_cost_upper_bound"],
             "normalized_terminal_penalty": cost_metrics["normalized_terminal_penalty"],
             "normalized_total_cost": cost_metrics["normalized_total_cost"],
             "total_cost_upper_bound": cost_metrics["total_cost_upper_bound"],
             "cost_scale_version": cost_metrics["cost_scale_version"],
             "reasoning_cost": cost_metrics["raw_reasoning_cost_component"],
             "reasoning_trace": deepcopy(reasoning_metrics["trace"]),
+            "reasoning_cost_mode_default": cost_metrics["reasoning_cost_mode_default"],
+            "prompt_tokens_total": reasoning_metrics["prompt_tokens_total"],
+            "completion_tokens_total": reasoning_metrics["completion_tokens_total"],
+            "total_tokens_total": reasoning_metrics["total_tokens_total"],
+            "api_cost_total_usd_raw": reasoning_metrics["api_cost_total_usd_raw"],
+            "reasoning_resource_breakdown": deepcopy(
+                reasoning_metrics["reasoning_resource_breakdown"]
+            ),
+            "generation_time_total_seconds": reasoning_metrics[
+                "generation_time_total_seconds"
+            ],
+            "llm_round_trip_total_seconds": reasoning_metrics[
+                "llm_round_trip_total_seconds"
+            ],
+            "tool_wall_clock_total_seconds": reasoning_metrics[
+                "tool_wall_clock_total_seconds"
+            ],
+            "episode_wall_clock_seconds": reasoning_metrics["episode_wall_clock_seconds"],
+            "latency_breakdown": deepcopy(reasoning_metrics["latency_breakdown"]),
+            "policy_action_violation": bool(
+                evaluator_result.get("policy_action_violation", False)
+            ),
+            "policy_communication_violation": bool(
+                evaluator_result.get("policy_communication_violation", False)
+            ),
+            "policy_nl_assertions_total": int(
+                evaluator_result.get("policy_nl_assertions_total", 0) or 0
+            ),
+            "policy_nl_assertions_failed": int(
+                evaluator_result.get("policy_nl_assertions_failed", 0) or 0
+            ),
+            "policy_violation_count": int(
+                evaluator_result.get("policy_violation_count", 0) or 0
+            ),
+            "policy_violation_breakdown": deepcopy(
+                evaluator_result.get("policy_violation_breakdown", {})
+            ),
+            "policy_eval_source": evaluator_result.get("policy_eval_source"),
+            "policy_eval_scope": evaluator_result.get("policy_eval_scope"),
+            "selected_shared_path": leaf_type == "shared",
+            "selected_unshared_path": leaf_type != "shared",
+            "first_private_barrier_stage": first_private_barrier_stage,
+            "barrier_stop_depth": len(barrier_stop_prefix) if barrier_stop_prefix else None,
+            "legal_child_count_per_stage": legal_child_count_per_stage,
+            "candidate_count_per_stage": list(legal_child_count_per_stage),
         }
         if isinstance(execution.get("bench_aux_eval"), dict):
             episode_log["bench_aux_eval"] = deepcopy(execution["bench_aux_eval"])
@@ -501,6 +808,30 @@ class FixedTreeEnvironment:
             total_cost=cost_metrics["normalized_total_cost"],
             total_cost_upper_bound=cost_metrics["total_cost_upper_bound"],
             cost_scale_version=cost_metrics["cost_scale_version"],
+            raw_outcome_penalty=cost_metrics["raw_outcome_penalty"],
+            raw_policy_penalty=cost_metrics["raw_policy_penalty"],
+            raw_reasoning_cost_component_api=cost_metrics[
+                "raw_reasoning_cost_component_api"
+            ],
+            raw_reasoning_cost_component_token=cost_metrics[
+                "raw_reasoning_cost_component_token"
+            ],
+            raw_total_cost_api=cost_metrics["raw_total_cost_api"],
+            raw_total_cost_token=cost_metrics["raw_total_cost_token"],
+            prompt_tokens_total=reasoning_metrics["prompt_tokens_total"],
+            completion_tokens_total=reasoning_metrics["completion_tokens_total"],
+            total_tokens_total=reasoning_metrics["total_tokens_total"],
+            api_cost_total_usd_raw=reasoning_metrics["api_cost_total_usd_raw"],
+            generation_time_total_seconds=reasoning_metrics[
+                "generation_time_total_seconds"
+            ],
+            llm_round_trip_total_seconds=reasoning_metrics[
+                "llm_round_trip_total_seconds"
+            ],
+            tool_wall_clock_total_seconds=reasoning_metrics[
+                "tool_wall_clock_total_seconds"
+            ],
+            episode_wall_clock_seconds=reasoning_metrics["episode_wall_clock_seconds"],
             episode_log=episode_log,
         )
 
@@ -572,6 +903,7 @@ class FixedTreeEnvironment:
         self,
         stage_outputs: dict[str, JsonDict],
         path: list[str],
+        execution: JsonDict | None = None,
     ) -> JsonDict:
         """Run evaluator v2 on the terminal stage output."""
 
@@ -581,9 +913,13 @@ class FixedTreeEnvironment:
         predicted_stage5_output = stage_outputs.get("stage5", {}).get("output", {})
         family = self.current_instance.get("family")
         if family == "telecom_mms_recovery":
+            policy_eval = None
+            if isinstance((execution or {}).get("bench_aux_eval"), dict):
+                policy_eval = (execution or {}).get("bench_aux_eval")
             return evaluate_telecom_terminal_prediction(
                 instance=self.current_instance,
                 predicted_stage5_output=predicted_stage5_output,
+                policy_eval_result=policy_eval,
             )
         return evaluate_terminal_prediction(
             instance=self.current_instance,
@@ -601,27 +937,306 @@ class FixedTreeEnvironment:
             return TELECOM_DEFAULT_COST_SPEC.path_agent_cost_weight
         return DEFAULT_COST_SPEC.path_agent_cost_weight
 
+    def _first_private_barrier_stage_label(self, path: list[str]) -> str | None:
+        depth = compute_first_private_barrier_depth(path, self.agent_catalog)
+        if depth is None:
+            return None
+        return self.STAGE_NAMES[depth - 1]
+
+    def _legal_child_count_per_stage(self, path: list[str]) -> list[int]:
+        counts: list[int] = []
+        prefix: tuple[str, ...] = ()
+        allowed_children = getattr(self.family_spec, "allowed_children", None)
+        for stage_name, agent_id in zip(self.STAGE_NAMES, path):
+            if allowed_children:
+                legal_children = allowed_children.get(prefix)
+                if legal_children is None:
+                    legal_children = [agent.agent_id for agent in self.agents_by_stage[stage_name]]
+            else:
+                legal_children = [agent.agent_id for agent in self.agents_by_stage[stage_name]]
+            counts.append(len(legal_children))
+            prefix = prefix + (agent_id,)
+        return counts
+
+    def _stage_resource_snapshot(self, stage_row: Mapping[str, Any]) -> JsonDict:
+        llm_raw_output = list(stage_row.get("llm_raw_output", []) or [])
+        usage_totals = _normalize_usage_breakdown(stage_row.get("usage_breakdown_stage"))
+        if usage_totals["total_tokens_total"] <= 0.0 and llm_raw_output:
+            for message in llm_raw_output:
+                usage_breakdown = _normalize_usage_breakdown(
+                    message.get("usage_breakdown") or message.get("usage")
+                )
+                usage_totals["prompt_tokens_total"] += usage_breakdown["prompt_tokens_total"]
+                usage_totals["completion_tokens_total"] += usage_breakdown[
+                    "completion_tokens_total"
+                ]
+                usage_totals["total_tokens_total"] += usage_breakdown["total_tokens_total"]
+
+        llm_call_count = int(
+            stage_row.get("llm_call_count_stage", len(llm_raw_output)) or 0
+        )
+        api_cost_total_usd_stage = float(
+            stage_row.get(
+                "api_cost_total_usd_stage",
+                sum(float(message.get("cost") or 0.0) for message in llm_raw_output),
+            )
+            or 0.0
+        )
+        generation_time_total_seconds_stage = float(
+            stage_row.get(
+                "generation_time_total_seconds_stage",
+                sum(
+                    float(message.get("generation_time_seconds") or 0.0)
+                    for message in llm_raw_output
+                ),
+            )
+            or 0.0
+        )
+        llm_round_trip_total_seconds_stage = float(
+            stage_row.get(
+                "llm_round_trip_total_seconds_stage",
+                sum(float(message.get("round_trip_seconds") or 0.0) for message in llm_raw_output),
+            )
+            or 0.0
+        )
+        tool_wall_clock_total_seconds_stage = float(
+            stage_row.get(
+                "tool_wall_clock_total_seconds_stage",
+                sum(
+                    float(call.get("wall_clock_seconds") or 0.0)
+                    for call in [
+                        *(stage_row.get("executed_tool_calls", []) or []),
+                        *(stage_row.get("replay_tool_calls", []) or []),
+                    ]
+                ),
+            )
+            or 0.0
+        )
+        stage_wall_clock_seconds = float(
+            stage_row.get(
+                "stage_wall_clock_seconds",
+                llm_round_trip_total_seconds_stage + tool_wall_clock_total_seconds_stage,
+            )
+            or 0.0
+        )
+        return {
+            "llm_call_count_stage": llm_call_count,
+            "prompt_tokens_total_stage": usage_totals["prompt_tokens_total"],
+            "completion_tokens_total_stage": usage_totals["completion_tokens_total"],
+            "total_tokens_total_stage": usage_totals["total_tokens_total"],
+            "api_cost_total_usd_stage": api_cost_total_usd_stage,
+            "generation_time_total_seconds_stage": generation_time_total_seconds_stage,
+            "llm_round_trip_total_seconds_stage": llm_round_trip_total_seconds_stage,
+            "tool_wall_clock_total_seconds_stage": tool_wall_clock_total_seconds_stage,
+            "stage_wall_clock_seconds": stage_wall_clock_seconds,
+            "usage_breakdown_stage": {
+                "prompt_tokens_total": usage_totals["prompt_tokens_total"],
+                "completion_tokens_total": usage_totals["completion_tokens_total"],
+                "total_tokens_total": usage_totals["total_tokens_total"],
+            },
+            "cost_breakdown_stage": {
+                "api_cost_total_usd_raw": api_cost_total_usd_stage,
+            },
+        }
+
+    def _aggregate_stage_resource_metrics(self, stage_trace: Sequence[Mapping[str, Any]]) -> JsonDict:
+        stage_trace_map = {row["stage_name"]: row for row in stage_trace if "stage_name" in row}
+        stage_prompt_tokens: list[float] = []
+        stage_completion_tokens: list[float] = []
+        stage_total_tokens: list[float] = []
+        stage_api_cost_usd: list[float] = []
+        stage_generation_time_seconds: list[float] = []
+        stage_llm_round_trip_seconds: list[float] = []
+        stage_tool_wall_clock_seconds: list[float] = []
+        stage_wall_clock_seconds: list[float] = []
+        reasoning_trace: list[JsonDict] = []
+        totals = {
+            "llm_call_count": 0,
+            "prompt_tokens_total": 0.0,
+            "completion_tokens_total": 0.0,
+            "total_tokens_total": 0.0,
+            "api_cost_total_usd_raw": 0.0,
+            "generation_time_total_seconds": 0.0,
+            "llm_round_trip_total_seconds": 0.0,
+            "tool_wall_clock_total_seconds": 0.0,
+            "episode_wall_clock_seconds": 0.0,
+        }
+        for stage_name in self.STAGE_NAMES:
+            snapshot = self._stage_resource_snapshot(stage_trace_map.get(stage_name, {}))
+            stage_prompt_tokens.append(snapshot["prompt_tokens_total_stage"])
+            stage_completion_tokens.append(snapshot["completion_tokens_total_stage"])
+            stage_total_tokens.append(snapshot["total_tokens_total_stage"])
+            stage_api_cost_usd.append(snapshot["api_cost_total_usd_stage"])
+            stage_generation_time_seconds.append(snapshot["generation_time_total_seconds_stage"])
+            stage_llm_round_trip_seconds.append(
+                snapshot["llm_round_trip_total_seconds_stage"]
+            )
+            stage_tool_wall_clock_seconds.append(
+                snapshot["tool_wall_clock_total_seconds_stage"]
+            )
+            stage_wall_clock_seconds.append(snapshot["stage_wall_clock_seconds"])
+            totals["llm_call_count"] += int(snapshot["llm_call_count_stage"])
+            totals["prompt_tokens_total"] += snapshot["prompt_tokens_total_stage"]
+            totals["completion_tokens_total"] += snapshot["completion_tokens_total_stage"]
+            totals["total_tokens_total"] += snapshot["total_tokens_total_stage"]
+            totals["api_cost_total_usd_raw"] += snapshot["api_cost_total_usd_stage"]
+            totals["generation_time_total_seconds"] += snapshot[
+                "generation_time_total_seconds_stage"
+            ]
+            totals["llm_round_trip_total_seconds"] += snapshot[
+                "llm_round_trip_total_seconds_stage"
+            ]
+            totals["tool_wall_clock_total_seconds"] += snapshot[
+                "tool_wall_clock_total_seconds_stage"
+            ]
+            totals["episode_wall_clock_seconds"] += snapshot["stage_wall_clock_seconds"]
+            reasoning_trace.append(
+                {
+                    "stage_name": stage_name,
+                    **snapshot,
+                }
+            )
+        return {
+            **totals,
+            "stage_prompt_tokens": stage_prompt_tokens,
+            "stage_completion_tokens": stage_completion_tokens,
+            "stage_total_tokens": stage_total_tokens,
+            "stage_api_cost_usd": stage_api_cost_usd,
+            "stage_generation_time_seconds": stage_generation_time_seconds,
+            "stage_llm_round_trip_seconds": stage_llm_round_trip_seconds,
+            "stage_tool_wall_clock_seconds": stage_tool_wall_clock_seconds,
+            "stage_wall_clock_seconds": stage_wall_clock_seconds,
+            "reasoning_trace": reasoning_trace,
+            "reasoning_resource_breakdown": {
+                "prompt_tokens_total": totals["prompt_tokens_total"],
+                "completion_tokens_total": totals["completion_tokens_total"],
+                "total_tokens_total": totals["total_tokens_total"],
+                "api_cost_total_usd_raw": totals["api_cost_total_usd_raw"],
+            },
+            "latency_breakdown": {
+                "generation_time_total_seconds": totals["generation_time_total_seconds"],
+                "llm_round_trip_total_seconds": totals["llm_round_trip_total_seconds"],
+                "tool_wall_clock_total_seconds": totals["tool_wall_clock_total_seconds"],
+                "episode_wall_clock_seconds": totals["episode_wall_clock_seconds"],
+            },
+        }
+
+    def _annotate_stage_trace_with_terminal_details(
+        self,
+        stage_trace: Sequence[Mapping[str, Any]],
+        evaluator_result: Mapping[str, Any],
+    ) -> list[JsonDict]:
+        annotated = [deepcopy(dict(row)) for row in stage_trace]
+        for row in annotated:
+            row.update(self._stage_resource_snapshot(row))
+            if row.get("stage_name") == "stage5":
+                row["bench_action_check_raw"] = deepcopy(
+                    evaluator_result.get("bench_action_check_raw", row.get("bench_action_check_raw", []))
+                )
+                row["bench_communicate_check_raw"] = deepcopy(
+                    evaluator_result.get(
+                        "bench_communicate_check_raw",
+                        row.get("bench_communicate_check_raw", []),
+                    )
+                )
+                row["bench_nl_assertions_raw"] = deepcopy(
+                    evaluator_result.get(
+                        "bench_nl_assertions_raw",
+                        row.get("bench_nl_assertions_raw", []),
+                    )
+                )
+                row["policy_action_violation_stage5"] = bool(
+                    evaluator_result.get("policy_action_violation", False)
+                )
+                row["policy_communication_violation_stage5"] = bool(
+                    evaluator_result.get("policy_communication_violation", False)
+                )
+                row["policy_nl_assertions_total_stage5"] = int(
+                    evaluator_result.get("policy_nl_assertions_total", 0) or 0
+                )
+                row["policy_nl_assertions_failed_stage5"] = int(
+                    evaluator_result.get("policy_nl_assertions_failed", 0) or 0
+                )
+                row["raw_policy_penalty_stage5"] = float(
+                    evaluator_result.get("raw_policy_penalty", 0.0) or 0.0
+                )
+                row["raw_outcome_penalty_stage5"] = float(
+                    evaluator_result.get("raw_outcome_penalty", 0.0) or 0.0
+                )
+                row["policy_eval_source_stage5"] = evaluator_result.get(
+                    "policy_eval_source"
+                )
+        return annotated
+
     def _build_cost_metrics(
         self,
         *,
         evaluator_result: JsonDict,
         path_agent_cost: float,
-        reasoning_cost: float,
+        reasoning_metrics: JsonDict,
     ) -> JsonDict:
+        raw_outcome_penalty = float(evaluator_result.get("raw_outcome_penalty", 0.0) or 0.0)
+        raw_policy_penalty = float(evaluator_result.get("raw_policy_penalty", 0.0) or 0.0)
         raw_terminal_penalty = float(
-            evaluator_result.get("raw_terminal_penalty", evaluator_result.get("terminal_penalty", 0.0))
+            evaluator_result.get(
+                "raw_terminal_penalty",
+                evaluator_result.get("terminal_penalty", raw_outcome_penalty + raw_policy_penalty),
+            )
         )
         raw_path_cost_component = self._path_agent_cost_weight() * float(path_agent_cost)
-        raw_reasoning_cost_component = float(reasoning_cost)
+        raw_reasoning_cost_component = float(
+            reasoning_metrics.get("raw_reasoning_cost_component", 0.0) or 0.0
+        )
+        raw_reasoning_cost_component_api = reasoning_metrics.get(
+            "raw_reasoning_cost_component_api"
+        )
+        raw_reasoning_cost_component_token = reasoning_metrics.get(
+            "raw_reasoning_cost_component_token"
+        )
+        raw_total_cost_api = (
+            raw_terminal_penalty
+            + raw_path_cost_component
+            + float(raw_reasoning_cost_component_api)
+            if raw_reasoning_cost_component_api is not None
+            else None
+        )
+        raw_total_cost_token = (
+            raw_terminal_penalty
+            + raw_path_cost_component
+            + float(raw_reasoning_cost_component_token)
+            if raw_reasoning_cost_component_token is not None
+            else None
+        )
         raw_total_cost = raw_terminal_penalty + raw_path_cost_component + raw_reasoning_cost_component
+        terminal_cost_upper_bound = None
+        path_cost_upper_bound = None
+        reasoning_cost_upper_bound = None
 
         if self.current_instance and self.current_instance.get("family") == "telecom_mms_recovery":
-            normalized_terminal_penalty = float(
-                evaluator_result.get("normalized_terminal_penalty", 0.0)
+            terminal_cost_upper_bound = float(
+                evaluator_result.get(
+                    "terminal_cost_upper_bound",
+                    TELECOM_MMS_TERMINAL_UPPER_BOUND_V2,
+                )
             )
-            normalized_total_cost = min(raw_total_cost / TELECOM_MMS_MAX_RAW_TOTAL_COST_V1, 1.0)
-            total_cost_upper_bound = TELECOM_MMS_MAX_RAW_TOTAL_COST_V1
-            cost_scale_version = TELECOM_MMS_COST_SCALE_VERSION
+            path_cost_upper_bound = TELECOM_MMS_PATH_UPPER_BOUND_V2
+            if reasoning_metrics.get("reasoning_cost_mode_default") == "api":
+                reasoning_cost_upper_bound = TELECOM_MMS_REASONING_UPPER_BOUND_API_V2
+            else:
+                reasoning_cost_upper_bound = TELECOM_MMS_REASONING_UPPER_BOUND_TOKEN_V2
+            normalized_terminal_penalty = min(
+                raw_terminal_penalty / terminal_cost_upper_bound,
+                1.0,
+            )
+            total_cost_upper_bound = (
+                terminal_cost_upper_bound
+                + path_cost_upper_bound
+                + reasoning_cost_upper_bound
+            )
+            normalized_total_cost = min(raw_total_cost / total_cost_upper_bound, 1.0)
+            cost_scale_version = (
+                f"{TELECOM_MMS_COST_SCALE_VERSION}_{reasoning_metrics.get('reasoning_cost_mode_default', 'default')}"
+            )
         else:
             normalized_terminal_penalty = raw_terminal_penalty
             normalized_total_cost = raw_total_cost
@@ -629,22 +1244,99 @@ class FixedTreeEnvironment:
             cost_scale_version = "raw_cost_unscaled"
 
         return {
+            "raw_outcome_penalty": raw_outcome_penalty,
+            "raw_policy_penalty": raw_policy_penalty,
             "raw_terminal_penalty": raw_terminal_penalty,
             "raw_path_cost_component": raw_path_cost_component,
             "raw_reasoning_cost_component": raw_reasoning_cost_component,
+            "raw_reasoning_cost_component_api": raw_reasoning_cost_component_api,
+            "raw_reasoning_cost_component_token": raw_reasoning_cost_component_token,
             "raw_total_cost": raw_total_cost,
+            "raw_total_cost_api": raw_total_cost_api,
+            "raw_total_cost_token": raw_total_cost_token,
             "normalized_terminal_penalty": normalized_terminal_penalty,
             "normalized_total_cost": normalized_total_cost,
+            "terminal_cost_upper_bound": terminal_cost_upper_bound,
+            "path_cost_upper_bound": path_cost_upper_bound,
+            "reasoning_cost_upper_bound": reasoning_cost_upper_bound,
             "total_cost_upper_bound": total_cost_upper_bound,
             "cost_scale_version": cost_scale_version,
+            "reasoning_cost_mode_default": reasoning_metrics.get("reasoning_cost_mode_default"),
         }
 
-    def _compute_family_reasoning_cost(self, path: list[str]) -> JsonDict:
+    def _compute_family_reasoning_cost(
+        self,
+        path: list[str],
+        *,
+        stage_trace: Sequence[Mapping[str, Any]] | None = None,
+    ) -> JsonDict:
         if self.family_agent_map is None or self.current_task_descriptor is None:
-            return {"reasoning_cost": 0.0, "trace": []}
+            return {
+                "raw_reasoning_cost_component": 0.0,
+                "raw_reasoning_cost_component_api": None,
+                "raw_reasoning_cost_component_token": None,
+                "reasoning_cost_mode_default": None,
+                "trace": [],
+            }
 
         if self._family_stages is None:
-            return {"reasoning_cost": 0.0, "trace": []}
+            return {
+                "raw_reasoning_cost_component": 0.0,
+                "raw_reasoning_cost_component_api": None,
+                "raw_reasoning_cost_component_token": None,
+                "reasoning_cost_mode_default": None,
+                "trace": [],
+            }
+
+        if self.executor_name == "llm_bench":
+            resource_metrics = self._aggregate_stage_resource_metrics(stage_trace or [])
+            reasoning_components = compute_llm_bench_reasoning_components(
+                prompt_tokens_total=resource_metrics["prompt_tokens_total"],
+                completion_tokens_total=resource_metrics["completion_tokens_total"],
+                api_cost_total_usd_raw=resource_metrics["api_cost_total_usd_raw"],
+            )
+            return {
+                **resource_metrics,
+                **reasoning_components,
+                "trace": deepcopy(resource_metrics["reasoning_trace"]),
+            }
+
+        if self.executor_name != "simulated":
+            return {
+                "raw_reasoning_cost_component": 0.0,
+                "raw_reasoning_cost_component_api": None,
+                "raw_reasoning_cost_component_token": None,
+                "reasoning_cost_mode_default": None,
+                "trace": [],
+                "prompt_tokens_total": 0.0,
+                "completion_tokens_total": 0.0,
+                "total_tokens_total": 0.0,
+                "api_cost_total_usd_raw": 0.0,
+                "generation_time_total_seconds": 0.0,
+                "llm_round_trip_total_seconds": 0.0,
+                "tool_wall_clock_total_seconds": 0.0,
+                "episode_wall_clock_seconds": 0.0,
+                "stage_prompt_tokens": [0.0] * len(self.STAGE_NAMES),
+                "stage_completion_tokens": [0.0] * len(self.STAGE_NAMES),
+                "stage_total_tokens": [0.0] * len(self.STAGE_NAMES),
+                "stage_api_cost_usd": [0.0] * len(self.STAGE_NAMES),
+                "stage_generation_time_seconds": [0.0] * len(self.STAGE_NAMES),
+                "stage_llm_round_trip_seconds": [0.0] * len(self.STAGE_NAMES),
+                "stage_tool_wall_clock_seconds": [0.0] * len(self.STAGE_NAMES),
+                "stage_wall_clock_seconds": [0.0] * len(self.STAGE_NAMES),
+                "reasoning_resource_breakdown": {
+                    "prompt_tokens_total": 0.0,
+                    "completion_tokens_total": 0.0,
+                    "total_tokens_total": 0.0,
+                    "api_cost_total_usd_raw": 0.0,
+                },
+                "latency_breakdown": {
+                    "generation_time_total_seconds": 0.0,
+                    "llm_round_trip_total_seconds": 0.0,
+                    "tool_wall_clock_total_seconds": 0.0,
+                    "episode_wall_clock_seconds": 0.0,
+                },
+            }
 
         trace: list[JsonDict] = []
         total = 0.0
@@ -671,7 +1363,41 @@ class FixedTreeEnvironment:
                 }
             )
 
-        return {"reasoning_cost": round(total, 6), "trace": trace}
+        return {
+            "raw_reasoning_cost_component": round(total, 6),
+            "raw_reasoning_cost_component_api": None,
+            "raw_reasoning_cost_component_token": None,
+            "reasoning_cost_mode_default": "simulated_proxy",
+            "trace": trace,
+            "prompt_tokens_total": 0.0,
+            "completion_tokens_total": 0.0,
+            "total_tokens_total": 0.0,
+            "api_cost_total_usd_raw": 0.0,
+            "generation_time_total_seconds": 0.0,
+            "llm_round_trip_total_seconds": 0.0,
+            "tool_wall_clock_total_seconds": 0.0,
+            "episode_wall_clock_seconds": 0.0,
+            "stage_prompt_tokens": [0.0] * len(self._family_stages),
+            "stage_completion_tokens": [0.0] * len(self._family_stages),
+            "stage_total_tokens": [0.0] * len(self._family_stages),
+            "stage_api_cost_usd": [0.0] * len(self._family_stages),
+            "stage_generation_time_seconds": [0.0] * len(self._family_stages),
+            "stage_llm_round_trip_seconds": [0.0] * len(self._family_stages),
+            "stage_tool_wall_clock_seconds": [0.0] * len(self._family_stages),
+            "stage_wall_clock_seconds": [0.0] * len(self._family_stages),
+            "reasoning_resource_breakdown": {
+                "prompt_tokens_total": 0.0,
+                "completion_tokens_total": 0.0,
+                "total_tokens_total": 0.0,
+                "api_cost_total_usd_raw": 0.0,
+            },
+            "latency_breakdown": {
+                "generation_time_total_seconds": 0.0,
+                "llm_round_trip_total_seconds": 0.0,
+                "tool_wall_clock_total_seconds": 0.0,
+                "episode_wall_clock_seconds": 0.0,
+            },
+        }
 
     def _stage_deliberation_requirement(self, task: Any, stage_name: str) -> str:
         stage_requirements = getattr(task, "stage_deliberation_requirements", None)

@@ -45,6 +45,33 @@ class TelecomBenchBackedExecutor(BaseExecutor):
         self.root = Path(__file__).resolve().parents[2]
         self.venv_python = self.root / "tau2-bench" / ".venv" / "bin" / "python"
         self.bridge_script = Path(__file__).with_name("_telecom_bench_tool_bridge.py")
+        self.policy_eval_bridge_script = Path(__file__).with_name(
+            "_telecom_policy_eval_bridge.py"
+        )
+
+    def _evaluate_policy_compliance(
+        self,
+        raw_instance: dict[str, Any],
+        stage_trace: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        payload = {
+            "raw_instance": raw_instance,
+            "stage_trace": stage_trace,
+        }
+        proc = subprocess.run(
+            [str(self.venv_python), str(self.policy_eval_bridge_script)],
+            input=json.dumps(payload, ensure_ascii=False),
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=str(self.root / "tau2-bench"),
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(
+                "Telecom policy eval bridge failed: "
+                + (proc.stderr.strip() or proc.stdout.strip() or f"exit={proc.returncode}")
+            )
+        return json.loads(proc.stdout)
 
     def run_path(
         self,
@@ -172,10 +199,41 @@ class TelecomBenchBackedExecutor(BaseExecutor):
             "bench_success": "deferred",
             "bench_db_check": bench_db_check,
             "replay_consistent": replay_consistent,
-            "bench_action_check": "deferred",
-            "bench_communicate_check": "deferred",
-            "bench_nl_assertions": "deferred",
+            "policy_eval_scope": "full_episode_trajectory",
         }
+        policy_eval = self._evaluate_policy_compliance(raw_instance, stage_trace)
+        bench_aux_eval.update(policy_eval)
+        stage5_trace = stage_trace[-1] if stage_trace else None
+        if isinstance(stage5_trace, dict):
+            if isinstance(stage5_trace.get("stage5_local_policy_eval_debug"), dict):
+                bench_aux_eval["stage5_local_policy_eval_debug"] = deepcopy(
+                    stage5_trace["stage5_local_policy_eval_debug"]
+                )
+            stage5_trace["bench_action_check_raw"] = deepcopy(
+                policy_eval.get("bench_action_check_raw", [])
+            )
+            stage5_trace["bench_communicate_check_raw"] = deepcopy(
+                policy_eval.get("bench_communicate_check_raw", [])
+            )
+            stage5_trace["bench_nl_assertions_raw"] = deepcopy(
+                policy_eval.get("bench_nl_assertions_raw", [])
+            )
+            stage5_trace["policy_action_violation_stage5"] = bool(
+                policy_eval.get("policy_action_violation", False)
+            )
+            stage5_trace["policy_communication_violation_stage5"] = bool(
+                policy_eval.get("policy_communication_violation", False)
+            )
+            stage5_trace["policy_nl_assertions_total_stage5"] = int(
+                policy_eval.get("policy_nl_assertions_total", 0) or 0
+            )
+            stage5_trace["policy_nl_assertions_failed_stage5"] = int(
+                policy_eval.get("policy_nl_assertions_failed", 0) or 0
+            )
+            stage5_trace["policy_eval"] = deepcopy(policy_eval)
+            stage5_trace["policy_eval_scope"] = "full_episode_trajectory"
+            if isinstance(stage5_trace.get("stage5_local_policy_eval_debug"), dict):
+                stage5_trace["stage5_local_policy_eval_scope"] = "stage5_local_debug"
 
         final_output = stage5_output["output"]
         return {

@@ -1,10 +1,11 @@
-"""Render the current shared_basin_strong workflow tree as an SVG diagram.
+"""Render all-share and all-unshare g-only variants of shared_basin_strong.
 
-This script reads the current family definition from ``TreeFamilyGenerator``
-and emits:
+Both diagrams reuse the current 4/5 ``shared_basin_strong`` node roles, route
+labels, legal continuation topology, costs/capability profiles, and
+deliberation-mode semantics. The only intervention is the displayed ``g``:
 
-- an SVG diagram with root + stage nodes + legal continuation edges
-- a Markdown legend mapping aliases (A1, B3, ...) to full agent ids/lanes
+- all_share: every node is g=0
+- all_unshare: every node is g=1
 """
 
 from __future__ import annotations
@@ -13,24 +14,19 @@ from dataclasses import dataclass
 from html import escape
 from pathlib import Path
 import sys
-from typing import Iterable
+from typing import Callable, Iterable
+
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 if str(ROOT / "envs") not in sys.path:
     sys.path.insert(0, str(ROOT / "envs"))
-if str(ROOT / "baselines") not in sys.path:
-    sys.path.insert(0, str(ROOT / "baselines"))
 
 from tree_family.generator import TreeFamilyGenerator
-from fixed_tree_env import FixedTreeEnvironment
-from risky_ps import RiskyPSPolicy
 
 
 OUTPUT_DIR = Path("analysis")
-SVG_PATH = OUTPUT_DIR / "shared_basin_strong_tree.svg"
-LEGEND_PATH = OUTPUT_DIR / "shared_basin_strong_tree_legend.md"
 
 STAGE_LETTERS = {
     "stage1": "A",
@@ -61,18 +57,44 @@ EDGE_PALETTE = [
 ]
 
 
-@dataclass
+@dataclass(frozen=True)
+class Variant:
+    key: str
+    title: str
+    description: str
+    g_for_alias: Callable[[str], int]
+
+
+@dataclass(frozen=True)
 class NodeView:
     alias: str
     agent_id: str
+    base_agent_id_4of5: str
     role: str
     stage_name: str
     route_label: str
-    g: int
+    g_variant: int
+    g_4of5: int
+    deliberation_mode: str
+    base_cost: float
     x: float
     y: float
-    safe_prefix_count: int = 0
-    mixed_prefix_count: int = 0
+
+
+VARIANTS = [
+    Variant(
+        key="all_share",
+        title="All-Share Tree: g-only Variant",
+        description="All nodes are set to g=0; all legal decisions are share-compatible.",
+        g_for_alias=lambda _alias: 0,
+    ),
+    Variant(
+        key="all_unshare",
+        title="All-Unshare Tree: g-only Variant",
+        description="All nodes are set to g=1; no full-share selection point exists.",
+        g_for_alias=lambda _alias: 1,
+    ),
+]
 
 
 def lane_kind(route_label: str) -> str:
@@ -87,15 +109,18 @@ def lane_kind(route_label: str) -> str:
     return "mixed"
 
 
-def shorten_role(agent_id: str) -> str:
-    role = agent_id
-    if role.startswith("stage"):
-        role = role.split("_", 1)[1]
+def role_from_agent_id(agent_id: str) -> str:
+    role = agent_id.split("_", 1)[1]
     if "_g0_" in role:
-        role = role.split("_g0_", 1)[0]
-    elif "_g1_" in role:
-        role = role.split("_g1_", 1)[0]
+        return role.split("_g0_", 1)[0]
+    if "_g1_" in role:
+        return role.split("_g1_", 1)[0]
     return role
+
+
+def display_agent_id(stage_name: str, role: str, g: int, alias: str) -> str:
+    idx = int(alias[1:]) - 1
+    return f"{stage_name}_{role}_g{g}_{idx}"
 
 
 def edge_color(parent_alias: str) -> str:
@@ -111,70 +136,47 @@ def edge_color(parent_alias: str) -> str:
     return EDGE_PALETTE[(stage_offset + local_idx) % len(EDGE_PALETTE)]
 
 
-def build_safe_prefix_counts() -> tuple[dict[str, int], dict[str, int]]:
-    env = FixedTreeEnvironment(
-        agent_catalog=[],
-        family_kind="shared_basin_strong",
-        family_seed=0,
-        executor_name="simulated",
-    )
-    policy = RiskyPSPolicy(seed=0)
-    policy.bind_env(env)
-
-    safe_counts: dict[str, int] = {}
-    mixed_counts: dict[str, int] = {}
-    for prefix, is_safe in policy.safe_prefixes.items():
-        if not prefix:
-            continue
-        agent_id = prefix[-1]
-        if is_safe:
-            safe_counts[agent_id] = safe_counts.get(agent_id, 0) + 1
-    for prefix, is_mixed in policy.mixed_prefixes.items():
-        if not prefix:
-            continue
-        agent_id = prefix[-1]
-        if is_mixed:
-            mixed_counts[agent_id] = mixed_counts.get(agent_id, 0) + 1
-    return safe_counts, mixed_counts
-
-
-def build_views() -> tuple[list[NodeView], dict[str, list[str]], list[str]]:
+def build_views_and_adjacency(
+    variant: Variant,
+) -> tuple[list[NodeView], dict[str, list[str]], list[str]]:
     family_spec, agent_map = TreeFamilyGenerator().build_family("shared_basin_strong", seed=0)
     stages = family_spec.stages
-    safe_counts, mixed_counts = build_safe_prefix_counts()
 
     x_origin = 220.0
     x_gap = 260.0
     y_origin = 100.0
     y_gap = 120.0
 
-    views: list[NodeView] = []
     alias_by_id: dict[str, str] = {}
+    views: list[NodeView] = []
     for stage_idx, stage_name in enumerate(stages):
         letter = STAGE_LETTERS[stage_name]
-        agent_ids = family_spec.stage_agents[stage_name]
-        for idx, agent_id in enumerate(agent_ids, start=1):
-            spec = agent_map[agent_id]
+        for idx, base_agent_id in enumerate(family_spec.stage_agents[stage_name], start=1):
+            base_spec = agent_map[base_agent_id]
             alias = f"{letter}{idx}"
-            alias_by_id[agent_id] = alias
+            role = role_from_agent_id(base_agent_id)
+            g_variant = variant.g_for_alias(alias)
+            alias_by_id[base_agent_id] = alias
             views.append(
                 NodeView(
                     alias=alias,
-                    agent_id=agent_id,
-                    role=shorten_role(agent_id),
+                    agent_id=display_agent_id(stage_name, role, g_variant, alias),
+                    base_agent_id_4of5=base_agent_id,
+                    role=role,
                     stage_name=stage_name,
-                    route_label=spec.route_label,
-                    g=spec.g,
+                    route_label=str(base_spec.route_label),
+                    g_variant=g_variant,
+                    g_4of5=int(base_spec.g),
+                    deliberation_mode=str(base_spec.deliberation_mode),
+                    base_cost=float(base_spec.base_cost),
                     x=x_origin + stage_idx * x_gap,
                     y=y_origin + (idx - 1) * y_gap,
-                    safe_prefix_count=safe_counts.get(agent_id, 0),
-                    mixed_prefix_count=mixed_counts.get(agent_id, 0),
                 )
             )
 
     adjacency: dict[str, list[str]] = {"R": []}
-    for agent_id in family_spec.stage_agents["stage1"]:
-        adjacency["R"].append(alias_by_id[agent_id])
+    for base_agent_id in family_spec.stage_agents["stage1"]:
+        adjacency["R"].append(alias_by_id[base_agent_id])
 
     allowed_children = family_spec.allowed_children or {}
     for prefix, child_ids in allowed_children.items():
@@ -221,18 +223,25 @@ def svg_header(width: float, height: float) -> list[str]:
         f'viewBox="0 0 {width} {height}">',
         "<style>",
         "text { font-family: Arial, sans-serif; fill: #1f2937; }",
+        ".title { font-size: 22px; font-weight: 800; }",
+        ".subtitle { font-size: 12px; fill: #475569; }",
         ".stage-title { font-size: 18px; font-weight: 700; }",
         ".node-alias { font-size: 18px; font-weight: 700; }",
         ".node-role { font-size: 11px; }",
         ".node-meta { font-size: 10px; fill: #4b5563; }",
-        ".node-badge { font-size: 10px; font-weight: 700; fill: #7c2d12; }",
-        ".edge { stroke-width: 2.1; fill: none; opacity: 0.9; }",
+        ".node-note { font-size: 10px; font-weight: 700; fill: #7c2d12; }",
+        ".edge { stroke-width: 2.1; fill: none; opacity: 0.88; }",
         ".root-box { fill: #f9fafb; stroke: #111827; stroke-width: 1.8; rx: 12; }",
         "</style>",
     ]
 
 
-def render_svg(views: list[NodeView], adjacency: dict[str, list[str]], stages: list[str]) -> str:
+def render_svg(
+    variant: Variant,
+    views: list[NodeView],
+    adjacency: dict[str, list[str]],
+    stages: list[str],
+) -> str:
     node_width = 188.0
     node_height = 64.0
     width = 1840.0
@@ -243,15 +252,22 @@ def render_svg(views: list[NodeView], adjacency: dict[str, list[str]], stages: l
     root_h = 56.0
 
     view_by_alias = {view.alias: view for view in views}
-    g_by_alias = {view.alias: view.g for view in views}
+    g_by_alias = {view.alias: view.g_variant for view in views}
     stage_x = {STAGE_LETTERS[s]: 220.0 + i * 260.0 for i, s in enumerate(stages)}
 
     lines = svg_header(width, height)
+    lines.append(f'<text class="title" x="45" y="34">{escape(variant.title)}</text>')
+    lines.append(
+        '<text class="subtitle" x="45" y="54">'
+        "Same nodes, routes, continuations, base costs, capability profiles, and "
+        f"deliberation modes as shared_basin_strong. {escape(variant.description)}"
+        "</text>"
+    )
 
     for stage_name in stages:
         letter = STAGE_LETTERS[stage_name]
         lines.append(
-            f'<text class="stage-title" x="{stage_x[letter] + 10:.1f}" y="42">'
+            f'<text class="stage-title" x="{stage_x[letter] + 10:.1f}" y="82">'
             f'{escape(letter)} / {escape(stage_name)}</text>'
         )
 
@@ -261,21 +277,21 @@ def render_svg(views: list[NodeView], adjacency: dict[str, list[str]], stages: l
     lines.append(f'<text class="node-alias" x="{root_x + 38}" y="{root_y + 24}">R</text>')
     lines.append(f'<text class="node-role" x="{root_x + 23}" y="{root_y + 44}">human / root</text>')
 
-    def node_anchor(alias: str) -> tuple[float, float]:
+    def anchor(alias: str) -> tuple[float, float]:
         view = view_by_alias[alias]
         return view.x, view.y
 
     for child_alias in adjacency.get("R", []):
-        cx, cy = node_anchor(child_alias)
+        cx, cy = anchor(child_alias)
         sx = root_x + root_w
         sy = root_y + root_h / 2
         tx = cx
         ty = cy + node_height / 2
         c1x = sx + 36
         c2x = tx - 36
-        stroke = edge_color("R")
         lines.append(
-            f'<path class="edge" stroke="{stroke}" d="M {sx:.1f},{sy:.1f} C {c1x:.1f},{sy:.1f} '
+            f'<path class="edge" stroke="{edge_color("R")}" '
+            f'd="M {sx:.1f},{sy:.1f} C {c1x:.1f},{sy:.1f} '
             f'{c2x:.1f},{ty:.1f} {tx:.1f},{ty:.1f}" />'
         )
 
@@ -293,15 +309,16 @@ def render_svg(views: list[NodeView], adjacency: dict[str, list[str]], stages: l
             c1x = sx + 34
             c2x = tx - 34
             lines.append(
-                f'<path class="edge" stroke="{stroke}" d="M {sx:.1f},{sy:.1f} C {c1x:.1f},{sy:.1f} '
+                f'<path class="edge" stroke="{stroke}" '
+                f'd="M {sx:.1f},{sy:.1f} C {c1x:.1f},{sy:.1f} '
                 f'{c2x:.1f},{ty:.1f} {tx:.1f},{ty:.1f}" />'
             )
 
     for view in views:
         fill, stroke = LANE_COLORS[lane_kind(view.route_label)]
         gold_border = has_gold_border(view.alias, adjacency, g_by_alias)
-        stroke_width = 3.6 if gold_border else 1.8
         border = "#d4a017" if gold_border else stroke
+        stroke_width = 3.0 if gold_border else 1.8
         lines.append(
             f'<rect x="{view.x}" y="{view.y}" width="{node_width}" height="{node_height}" '
             f'rx="12" fill="{fill}" stroke="{border}" stroke-width="{stroke_width}" />'
@@ -312,7 +329,7 @@ def render_svg(views: list[NodeView], adjacency: dict[str, list[str]], stages: l
         )
         lines.append(
             f'<text class="node-meta" x="{view.x + 50}" y="{view.y + 21}">'
-            f'g={view.g} | {escape(view.route_label)}</text>'
+            f'g={view.g_variant} | {escape(view.route_label)}</text>'
         )
         lines.append(
             f'<text class="node-role" x="{view.x + 10}" y="{view.y + 40}">'
@@ -320,7 +337,7 @@ def render_svg(views: list[NodeView], adjacency: dict[str, list[str]], stages: l
         )
         lines.append(
             f'<text class="node-meta" x="{view.x + 10}" y="{view.y + 56}">'
-            f'{escape(view.agent_id)}</text>'
+            f'delib={view.deliberation_mode} | base_cost={view.base_cost:.3f}</text>'
         )
         if gold_border:
             badge_x = view.x + node_width - 54
@@ -335,20 +352,20 @@ def render_svg(views: list[NodeView], adjacency: dict[str, list[str]], stages: l
                 'fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />'
             )
             lines.append(
-                f'<text class="node-badge" x="{badge_x + 8}" y="{badge_y + 13}">'
-                f'{badge_text}</text>'
+                f'<text class="node-note" x="{badge_x + 13}" y="{badge_y + 13}">'
+                f"{badge_text}</text>"
             )
 
     legend_x = 1505.0
     legend_y = 48.0
     legend = [
-        ("public", "pure / public lane"),
-        ("mixed", "mixed or handoff lane"),
-        ("private", "private edge lane"),
-        ("barrier", "g=1 barrier lane"),
+        ("public", "inherited public route lane"),
+        ("mixed", "inherited mixed route lane"),
+        ("private", "inherited private route lane"),
+        ("barrier", "inherited barrier route lane"),
     ]
     lines.append(
-        f'<rect x="{legend_x}" y="{legend_y}" width="300" height="168" rx="12" '
+        f'<rect x="{legend_x}" y="{legend_y}" width="300" height="194" rx="12" '
         'fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2" />'
     )
     lines.append(
@@ -356,7 +373,7 @@ def render_svg(views: list[NodeView], adjacency: dict[str, list[str]], stages: l
     )
     for idx, (kind, label) in enumerate(legend):
         fill, stroke = LANE_COLORS[kind]
-        y = legend_y + 42 + idx * 28
+        y = legend_y + 42 + idx * 27
         lines.append(
             f'<rect x="{legend_x + 12}" y="{y}" width="18" height="18" rx="4" '
             f'fill="{fill}" stroke="{stroke}" stroke-width="1.5" />'
@@ -365,11 +382,11 @@ def render_svg(views: list[NodeView], adjacency: dict[str, list[str]], stages: l
             f'<text class="node-role" x="{legend_x + 40}" y="{y + 13}">{escape(label)}</text>'
         )
     lines.append(
-        f'<text class="node-meta" x="{legend_x + 12}" y="{legend_y + 154}">'
-        "Edges = legal continuations; color = parent node</text>"
+        f'<text class="node-meta" x="{legend_x + 12}" y="{legend_y + 158}">'
+        "Edges = inherited legal continuations from 4/5 tree</text>"
     )
     lines.append(
-        f'<text class="node-meta" x="{legend_x + 12}" y="{legend_y + 170}">'
+        f'<text class="node-meta" x="{legend_x + 12}" y="{legend_y + 175}">'
         "Gold: FS = descendant child-subtree all g=0; SL = g=0 share leaf</text>"
     )
 
@@ -377,21 +394,30 @@ def render_svg(views: list[NodeView], adjacency: dict[str, list[str]], stages: l
     return "\n".join(lines)
 
 
-def write_legend(views: Iterable[NodeView], adjacency: dict[str, list[str]]) -> str:
+def write_legend(
+    variant: Variant,
+    views: Iterable[NodeView],
+    adjacency: dict[str, list[str]],
+) -> str:
     views_list = list(views)
-    g_by_alias = {view.alias: view.g for view in views_list}
+    g_by_alias = {view.alias: view.g_variant for view in views_list}
     lines = [
-        "# shared_basin_strong tree legend",
+        f"# shared_basin_{variant.key} tree legend",
+        "",
+        f"This is the `{variant.key}` g-only variant of the current "
+        "`shared_basin_strong` 4/5 tree. It reuses the same node roles, route "
+        "labels, legal continuations, base costs, capability-profile semantics, "
+        "and deliberation modes.",
+        "",
+        f"Intervention: {variant.description}",
         "",
         "Gold border marks full-share selection points (`FS`: the whole descendant "
         "child-subtree is `g=0`) and share leaves (`SL`: `g=0` leaf).",
         "",
-        "| Alias | Stage | g | FS subtree | Share leaf | Gold | Route lane | Role | Safe count | Mixed count | Next |",
-        "|---|---|---:|---|---|---|---|---|---:|---:|---|",
+        "| Alias | Stage | g_variant | g_4of5 | FS subtree | Share leaf | Gold | Route lane | Role | Delib | Base cost | Next | 4/5 base agent id |",
+        "|---|---|---:|---:|---|---|---|---|---|---|---:|---|---|",
     ]
-    alias_order = {"R": -1}
     for view in views_list:
-        alias_order[view.alias] = len(alias_order)
         next_aliases = ",".join(adjacency.get(view.alias, []))
         full_share_selection = (
             "yes" if is_full_share_selection_node(view.alias, adjacency, g_by_alias) else "no"
@@ -399,21 +425,29 @@ def write_legend(views: Iterable[NodeView], adjacency: dict[str, list[str]]) -> 
         share_leaf = "yes" if is_share_leaf(view.alias, adjacency, g_by_alias) else "no"
         gold_border = "yes" if has_gold_border(view.alias, adjacency, g_by_alias) else "no"
         lines.append(
-            f"| {view.alias} | {view.stage_name} | {view.g} | "
+            f"| {view.alias} | {view.stage_name} | {view.g_variant} | {view.g_4of5} | "
             f"{full_share_selection} | {share_leaf} | {gold_border} | "
-            f"{view.route_label} | {view.role} | {view.safe_prefix_count} | "
-            f"{view.mixed_prefix_count} | {next_aliases or '-'} |"
+            f"{view.route_label} | {view.role} | {view.deliberation_mode} | "
+            f"{view.base_cost:.3f} | {next_aliases or '-'} | {view.base_agent_id_4of5} |"
         )
     return "\n".join(lines) + "\n"
 
 
+def render_variant(variant: Variant) -> tuple[Path, Path]:
+    views, adjacency, stages = build_views_and_adjacency(variant)
+    svg_path = OUTPUT_DIR / f"shared_basin_{variant.key}_tree.svg"
+    legend_path = OUTPUT_DIR / f"shared_basin_{variant.key}_tree_legend.md"
+    svg_path.write_text(render_svg(variant, views, adjacency, stages), encoding="utf-8")
+    legend_path.write_text(write_legend(variant, views, adjacency), encoding="utf-8")
+    return svg_path, legend_path
+
+
 def main() -> None:
-    views, adjacency, stages = build_views()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    SVG_PATH.write_text(render_svg(views, adjacency, stages))
-    LEGEND_PATH.write_text(write_legend(views, adjacency))
-    print(f"wrote {SVG_PATH}")
-    print(f"wrote {LEGEND_PATH}")
+    for variant in VARIANTS:
+        svg_path, legend_path = render_variant(variant)
+        print(f"wrote {svg_path}")
+        print(f"wrote {legend_path}")
 
 
 if __name__ == "__main__":
