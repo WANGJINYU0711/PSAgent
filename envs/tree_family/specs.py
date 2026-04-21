@@ -55,6 +55,8 @@ class AgentSpec:
     # keys are now semantic capability names rather than anonymous integer ids.
     attribute_skill: dict[str, float]
     deliberation_mode: str = "deep"
+    node_semantic: str = "mixed_shared"
+    route_label: str = ""
 
 
 @dataclass

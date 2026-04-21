@@ -1,10 +1,11 @@
-"""Run repeated smoke on shared_basin_strong with full llm_bench.
+"""Run repeated smoke on shared_basin_strong with method-level incremental persistence.
 
 Scope:
 - family_kind = shared_basin_strong
 - executor_name = llm_bench
 - model = gpt-4o-mini
 - smoke10 repeated for a fixed horizon
+- repeated-smoke baselines, each run as one stateful T=100 sequence
 """
 
 from __future__ import annotations
@@ -13,7 +14,9 @@ import argparse
 import csv
 import json
 import os
+import pickle
 import statistics
+import subprocess
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime
@@ -60,21 +63,92 @@ POLICY_REGISTRY = {
     "random_path": RandomPathPolicy,
 }
 
+DEFAULT_METHODS = [
+    "risky_ps",
+    "naive_mixed",
+    "direct_multistage_exp3",
+    "epsilon_exp3",
+    "random_path",
+]
+
+
+def validate_methods(methods: list[str]) -> None:
+    invalid = [method for method in methods if method not in POLICY_REGISTRY]
+    if invalid:
+        raise SystemExit(
+            f"Repeated smoke only supports these baselines: {sorted(POLICY_REGISTRY)}. "
+            f"Unsupported methods: {invalid}"
+        )
+
 
 def mean(values: list[float]) -> float:
     return statistics.fmean(values) if values else 0.0
 
 
-def load_instances(path: Path) -> list[dict[str, Any]]:
+def load_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
+        return json.load(handle)
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    with tmp_path.open("w", encoding="utf-8") as handle:
+        handle.write(text)
+    os.replace(tmp_path, path)
+
+
+def write_bytes_atomic(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    with tmp_path.open("wb") as handle:
+        handle.write(payload)
+    os.replace(tmp_path, path)
+
+
+def write_json(path: Path, data: Any) -> None:
+    write_text_atomic(path, json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    payload = "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows)
+    write_text_atomic(path, payload)
+
+
+def load_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    return rows
+
+
+def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        return
+    fieldnames = list(rows[0].keys())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    with tmp_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    os.replace(tmp_path, path)
+
+
+def load_instances(path: Path) -> list[dict[str, Any]]:
+    data = load_json(path)
     if not isinstance(data, list):
         raise ValueError("Dataset must be a JSON list.")
     return data
 
 
 def load_specialist_task_ids() -> set[str]:
-    data = json.loads(SPECIALIST_ANALYSIS_PATH.read_text(encoding="utf-8"))
+    data = load_json(SPECIALIST_ANALYSIS_PATH)
     return set(data.get("unshared_win_task_ids", []))
 
 
@@ -107,14 +181,68 @@ def build_repeated_selection(
     return repeated
 
 
+def serialize_schedule(selected: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for episode_index, row in enumerate(selected):
+        instance = row["instance"]
+        rows.append(
+            {
+                "episode_index": episode_index,
+                "repeat_index": row["repeat_index"],
+                "position_in_cycle": row["position_in_cycle"],
+                "dataset_index": row["dataset_index"],
+                "instance_id": instance["instance_id"],
+                "original_task_id": instance["original_task_id"],
+            }
+        )
+    return rows
+
+
+def materialize_schedule(
+    instances: list[dict[str, Any]],
+    schedule_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    selected: list[dict[str, Any]] = []
+    for row in schedule_rows:
+        dataset_index = int(row["dataset_index"])
+        instance = instances[dataset_index]
+        if instance["instance_id"] != row["instance_id"]:
+            raise ValueError(
+                f"Schedule/dataset mismatch at episode {row['episode_index']}: "
+                f"expected instance_id={row['instance_id']}, got {instance['instance_id']}"
+            )
+        selected.append(
+            {
+                "episode_index": int(row["episode_index"]),
+                "repeat_index": int(row["repeat_index"]),
+                "position_in_cycle": int(row["position_in_cycle"]),
+                "dataset_index": dataset_index,
+                "instance": instance,
+            }
+        )
+    return selected
+
+
 def compute_stationary_oracle(selected: list[dict[str, Any]]) -> dict[str, Any]:
     oracle_env = build_env(executor_name="simulated")
     oracle_path, oracle_summary_raw = find_best_stationary_path(
         [row["instance"] for row in selected],
         oracle_env,
     )
-    oracle_summary = dict(oracle_summary_raw)
-    oracle_summary["path"] = list(oracle_path)
+    oracle_summary = {
+        "path": list(oracle_path),
+        "episode_total_costs": list(oracle_summary_raw["episode_total_costs"]),
+        "episode_terminal_costs": list(oracle_summary_raw["episode_terminal_costs"]),
+        "episode_raw_total_costs": list(oracle_summary_raw["episode_raw_total_costs"]),
+        "episode_normalized_total_costs": list(oracle_summary_raw["episode_normalized_total_costs"]),
+        "raw_cumulative_total_cost": float(oracle_summary_raw["raw_cumulative_total_cost"]),
+        "raw_mean_total_cost": float(oracle_summary_raw["raw_mean_total_cost"]),
+        "normalized_cumulative_total_cost": float(oracle_summary_raw["normalized_cumulative_total_cost"]),
+        "normalized_mean_total_cost": float(oracle_summary_raw["normalized_mean_total_cost"]),
+        "cost_scale_version": str(oracle_summary_raw["cost_scale_version"]),
+        "cumulative_total_cost": float(oracle_summary_raw["cumulative_total_cost"]),
+        "mean_total_cost": float(oracle_summary_raw["mean_total_cost"]),
+    }
     return oracle_summary
 
 
@@ -298,43 +426,363 @@ def build_specialist_summary(episodes: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def write_json(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        json.dump(data, handle, ensure_ascii=False, indent=2)
+def build_partial_summary(
+    *,
+    method: str,
+    dataset: str,
+    repeats: int,
+    model: str,
+    oracle_summary: dict[str, Any],
+    episodes: list[dict[str, Any]],
+    total_episodes: int,
+    status: str = "running",
+) -> dict[str, Any]:
+    summary = build_summary(
+        method=method,
+        dataset=dataset,
+        repeats=repeats,
+        model=model,
+        oracle_summary=oracle_summary,
+        episodes=episodes,
+    )
+    summary.update(
+        {
+            "scheduled_episodes": total_episodes,
+            "completed_episodes": len(episodes),
+            "status": status,
+            "completed_cumulative_total_cost": sum(ep["total_cost"] for ep in episodes),
+            "completed_cumulative_regret": sum(ep["episode_regret"] for ep in episodes),
+            "completed_raw_terminal_penalty": sum(ep["raw_terminal_penalty"] for ep in episodes),
+        }
+    )
+    return summary
 
 
-def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+def build_risky_dynamics_rows(episodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "episode_index": ep["episode_index"],
+            "repeat_index": ep["repeat_index"],
+            "position_in_cycle": ep["position_in_cycle"],
+            "dataset_index": ep["dataset_index"],
+            "original_task_id": ep["original_task_id"],
+            "is_specialist_task": ep["is_specialist_task"],
+            "selected_shared_path": ep["selected_shared_path"],
+            "selected_unshared_path": ep["selected_unshared_path"],
+            "cumulative_shared_path_ratio": ep["cumulative_shared_path_ratio"],
+            "rolling_shared_path_ratio_last10": ep["rolling_shared_path_ratio_last10"],
+            "shared_branch_triggered": ep["shared_branch_triggered"],
+            "unshared_branch_triggered": ep["unshared_branch_triggered"],
+            "shared_update_count": ep["shared_update_count"],
+            "cumulative_shared_update_count": ep["cumulative_shared_update_count"],
+            "unshared_edge_update_count": ep["unshared_edge_update_count"],
+            "cumulative_unshared_edge_update_count": ep["cumulative_unshared_edge_update_count"],
+            "selected_path": ep["selected_path"],
+            "selected_shared_path_nodes": ep["selected_path"] if ep["selected_shared_path"] else [],
+            "selected_unshared_path_nodes": ep["selected_path"] if ep["selected_unshared_path"] else [],
+            "raw_terminal_penalty": ep["raw_terminal_penalty"],
+            "total_cost": ep["total_cost"],
+        }
+        for ep in episodes
+    ]
+
+
+def summarize_window(episodes: list[dict[str, Any]], *, label: str, start: int, end: int) -> dict[str, Any]:
+    window = episodes[start:end]
+    return {
+        "label": label,
+        "start_episode_index": start,
+        "end_episode_index_exclusive": end,
+        "episode_count": len(window),
+        "shared_path_fraction": mean([float(ep["selected_shared_path"]) for ep in window]),
+        "unshared_path_fraction": mean([float(ep["selected_unshared_path"]) for ep in window]),
+        "mean_shared_update_count_per_episode": mean([ep["shared_update_count"] for ep in window]),
+        "mean_raw_terminal_penalty": mean([ep["raw_terminal_penalty"] for ep in window]),
+        "mean_total_cost": mean([ep["total_cost"] for ep in window]),
+    }
+
+
+def build_risky_dynamics_payload(episodes: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "episodes": build_risky_dynamics_rows(episodes),
+        "window_summaries": {
+            "first20": summarize_window(episodes, label="first20", start=0, end=20),
+            "middle20": summarize_window(episodes, label="middle20", start=40, end=60),
+            "last20": summarize_window(episodes, label="last20", start=80, end=100),
+        },
+    }
+
+
+def build_compare_rows(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows = [
+        {
+            "method": summary["method"],
+            "total_cost_mean": summary["total_cost_mean"],
+            "raw_total_cost_mean": summary["raw_total_cost_mean"],
+            "raw_terminal_penalty_mean": summary["raw_terminal_penalty_mean"],
+            "raw_path_cost_component_mean": summary["raw_path_cost_component_mean"],
+            "raw_reasoning_cost_component_mean": summary["raw_reasoning_cost_component_mean"],
+            "exact_match_mean": summary["exact_match_mean"],
+            "mean_llm_call_count": summary["mean_llm_call_count"],
+        }
+        for summary in summaries
+    ]
+    return sorted(rows, key=lambda row: (row["total_cost_mean"], row["method"]))
+
+
+def compare_rows_to_markdown(rows: list[dict[str, Any]]) -> str:
     if not rows:
-        return
+        return ""
     fieldnames = list(rows[0].keys())
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    header = "| " + " | ".join(fieldnames) + " |"
+    divider = "| " + " | ".join("---" for _ in fieldnames) + " |"
+    body = [
+        "| " + " | ".join(f"{row[field]}" for field in fieldnames) + " |"
+        for row in rows
+    ]
+    return "\n".join([header, divider, *body]) + "\n"
+
+
+def build_specialist_hit_analysis(
+    *,
+    merged_episodes_by_method: dict[str, list[dict[str, Any]]],
+    specialist_task_ids: set[str],
+    schedule_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    specialist_schedule_rows = [
+        row for row in schedule_rows if row["original_task_id"] in specialist_task_ids
+    ]
+    specialist_episode_count = len(specialist_schedule_rows)
+    specialist_task_hit_ids = sorted({row["original_task_id"] for row in specialist_schedule_rows})
+    payload: dict[str, Any] = {
+        "specialist_episode_count": specialist_episode_count,
+        "specialist_task_hit_ids": specialist_task_hit_ids,
+        "schedule_episode_indices": [row["episode_index"] for row in specialist_schedule_rows],
+    }
+    if specialist_episode_count == 0:
+        payload["methods"] = {}
+        return payload
+
+    method_payload: dict[str, Any] = {}
+    for method, episodes in merged_episodes_by_method.items():
+        specialist_eps = [ep for ep in episodes if ep["is_specialist_task"]]
+        method_payload[method] = {
+            "specialist_episode_count": len(specialist_eps),
+            "specialist_unshared_path_fraction": mean(
+                [float(ep["selected_unshared_path"]) for ep in specialist_eps]
+            ),
+            "specialist_shared_path_fraction": mean(
+                [float(ep["selected_shared_path"]) for ep in specialist_eps]
+            ),
+            "specialist_total_cost_mean": mean([ep["total_cost"] for ep in specialist_eps]),
+            "specialist_raw_terminal_penalty_mean": mean(
+                [ep["raw_terminal_penalty"] for ep in specialist_eps]
+            ),
+        }
+    payload["methods"] = method_payload
+    return payload
+
+
+def ensure_model_env(required: bool = True) -> str:
+    model_name = os.environ.get("PSAGENT_LLM_BENCH_MODEL", "")
+    if required and model_name != MODEL_REQUIRED:
+        raise SystemExit(f"PSAGENT_LLM_BENCH_MODEL must be {MODEL_REQUIRED!r}; got {model_name!r}")
+    return model_name
+
+
+def load_run_context(run_dir: Path) -> dict[str, Any]:
+    run_config = load_json(run_dir / "run_config.json")
+    schedule_rows = load_json(run_dir / "schedule.json")
+    oracle_summary = load_json(run_dir / "stationary_oracle_summary.json")
+    instances = load_instances(Path(run_config["dataset"]))
+    selected = materialize_schedule(instances, schedule_rows)
+    specialist_task_ids = load_specialist_task_ids()
+    return {
+        "run_config": run_config,
+        "schedule_rows": schedule_rows,
+        "oracle_summary": oracle_summary,
+        "selected": selected,
+        "specialist_task_ids": specialist_task_ids,
+    }
+
+
+def initialize_run(
+    *,
+    data_path: Path,
+    output_dir: Path,
+    repeats: int,
+    methods: list[str],
+    model_name: str,
+) -> Path:
+    validate_methods(methods)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    run_config_path = output_dir / "run_config.json"
+    schedule_path = output_dir / "schedule.json"
+    oracle_path = output_dir / "stationary_oracle_summary.json"
+    specialist_path = output_dir / "specialist_task_ids.json"
+
+    if run_config_path.exists() and schedule_path.exists() and oracle_path.exists():
+        return output_dir
+
+    instances = load_instances(data_path)
+    selected = build_repeated_selection(instances, indices=SMOKE10_INDICES, repeats=repeats)
+    oracle_summary = compute_stationary_oracle(selected)
+    schedule_rows = serialize_schedule(selected)
+    specialist_task_ids = sorted(load_specialist_task_ids())
+
+    write_json(
+        run_config_path,
+        {
+            "created_at": datetime.now().isoformat(),
+            "dataset": str(data_path),
+            "dataset_indices": SMOKE10_INDICES,
+            "repeats": repeats,
+            "horizon": len(selected),
+            "family_kind": FAMILY_KIND,
+            "executor_name": EXECUTOR_NAME,
+            "model": model_name,
+            "seed": SEED,
+            "methods": methods,
+            "parallelism": "method_only",
+        },
+    )
+    write_json(schedule_path, schedule_rows)
+    write_json(oracle_path, oracle_summary)
+    write_json(specialist_path, specialist_task_ids)
+    return output_dir
+
+
+def build_progress_payload(
+    *,
+    method: str,
+    completed_count: int,
+    total_episodes: int,
+    model: str,
+    status: str,
+) -> dict[str, Any]:
+    last_completed = completed_count - 1 if completed_count else None
+    return {
+        "method": method,
+        "scheduled_episodes": total_episodes,
+        "completed_episodes": completed_count,
+        "last_completed_episode_index": last_completed,
+        "status": status,
+        "model": model,
+        "updated_at": datetime.now().isoformat(),
+    }
+
+
+def persist_method_state(
+    *,
+    method_dir: Path,
+    method: str,
+    episodes: list[dict[str, Any]],
+    policy: Any | None,
+    total_episodes: int,
+    model: str,
+    dataset: str,
+    repeats: int,
+    oracle_summary: dict[str, Any],
+) -> None:
+    add_cumulative_fields(episodes)
+    checkpoint_payload = {
+        "method": method,
+        "completed_count": len(episodes),
+        "episodes": episodes,
+        "model": model,
+        "policy": policy,
+    }
+    write_bytes_atomic(method_dir / "checkpoint.pkl", pickle.dumps(checkpoint_payload))
+    write_jsonl(method_dir / "episodes.partial.jsonl", episodes)
+    write_json(
+        method_dir / "progress.json",
+        build_progress_payload(
+            method=method,
+            completed_count=len(episodes),
+            total_episodes=total_episodes,
+            model=model,
+            status="complete" if len(episodes) == total_episodes else "running",
+        ),
+    )
+    partial_summary = build_partial_summary(
+        method=method,
+        dataset=dataset,
+        repeats=repeats,
+        model=model,
+        oracle_summary=oracle_summary,
+        episodes=episodes,
+        total_episodes=total_episodes,
+        status="complete" if len(episodes) == total_episodes else "running",
+    )
+    write_json(method_dir / "summary_partial.json", partial_summary)
+    if len(episodes) == total_episodes:
+        write_json(method_dir / "episodes.json", episodes)
+        write_json(method_dir / "summary.json", partial_summary)
+        write_json(method_dir / "summary_with_oracle.json", partial_summary)
+
+
+def load_method_checkpoint(method_dir: Path) -> dict[str, Any] | None:
+    checkpoint_path = method_dir / "checkpoint.pkl"
+    if not checkpoint_path.exists():
+        return None
+    with checkpoint_path.open("rb") as handle:
+        return pickle.load(handle)
 
 
 def run_policy_method(
+    *,
+    run_dir: Path,
     method: str,
-    selected: list[dict[str, Any]],
-    oracle_summary: dict[str, Any],
-    specialist_task_ids: set[str],
-) -> tuple[list[dict[str, Any]], str]:
+) -> None:
+    ensure_model_env(required=True)
+    context = load_run_context(run_dir)
+    run_config = context["run_config"]
+    selected = context["selected"]
+    oracle_summary = context["oracle_summary"]
+    specialist_task_ids = context["specialist_task_ids"]
+    total_episodes = len(selected)
+    method_dir = run_dir / method
+    method_dir.mkdir(parents=True, exist_ok=True)
+
     env = build_env(executor_name=EXECUTOR_NAME)
-    policy = POLICY_REGISTRY[method](seed=SEED)
-    policy.bind_env(env)
-    policy.reset()
-    episodes: list[dict[str, Any]] = []
-    for episode_index, row in enumerate(selected):
-        instance = row["instance"]
+    checkpoint = load_method_checkpoint(method_dir)
+    if checkpoint is not None:
+        policy = checkpoint["policy"]
+        episodes = list(checkpoint["episodes"])
+        model = checkpoint.get("model", getattr(env.family_executor, "model", MODEL_REQUIRED))
+    else:
+        episodes = []
+        model = getattr(env.family_executor, "model", MODEL_REQUIRED)
+        policy = POLICY_REGISTRY[method](seed=SEED)
+        policy.bind_env(env)
+        policy.reset()
+
+    completed_count = len(episodes)
+    if completed_count >= total_episodes:
+        persist_method_state(
+            method_dir=method_dir,
+            method=method,
+            episodes=episodes,
+            policy=policy,
+            total_episodes=total_episodes,
+            model=model,
+            dataset=run_config["dataset"],
+            repeats=int(run_config["repeats"]),
+            oracle_summary=oracle_summary,
+        )
+        return
+
+    for local_offset in range(completed_count, total_episodes):
+        row = selected[local_offset]
+        episode_index = int(row["episode_index"])
         print(
             f"[run] method={method} episode={episode_index + 1}/{len(selected)} "
             f"repeat={row['repeat_index'] + 1} pos={row['position_in_cycle']} dataset_index={row['dataset_index']}",
             flush=True,
         )
-        path = policy.select_path(instance, env)
+        path = policy.select_path(row["instance"], env)
         selection_info = policy.get_last_selection_info() if hasattr(policy, "get_last_selection_info") else {}
-        env.reset(instance)
+        env.reset(row["instance"])
         result = env.run_path(path)
         policy.update(result)
         state = policy.get_state() if hasattr(policy, "get_state") else {}
@@ -351,169 +799,266 @@ def run_policy_method(
                 specialist_task_ids=specialist_task_ids,
             )
         )
-    add_cumulative_fields(episodes)
-    model = getattr(env.family_executor, "model", "unknown")
-    return episodes, model
+        persist_method_state(
+            method_dir=method_dir,
+            method=method,
+            episodes=episodes,
+            policy=policy,
+            total_episodes=total_episodes,
+            model=model,
+            dataset=run_config["dataset"],
+            repeats=int(run_config["repeats"]),
+            oracle_summary=oracle_summary,
+        )
 
 
-def run_stationary_oracle_method(
-    selected: list[dict[str, Any]],
-    oracle_summary: dict[str, Any],
-    specialist_task_ids: set[str],
-) -> tuple[list[dict[str, Any]], str]:
-    env = build_env(executor_name=EXECUTOR_NAME)
-    path = list(oracle_summary["path"])
-    episodes: list[dict[str, Any]] = []
-    for episode_index, row in enumerate(selected):
-        instance = row["instance"]
-        print(
-            f"[run] method=oracle_best_fixed_path episode={episode_index + 1}/{len(selected)} "
-            f"repeat={row['repeat_index'] + 1} pos={row['position_in_cycle']} dataset_index={row['dataset_index']}",
-            flush=True,
+def merge_method_results(run_dir: Path, method: str) -> dict[str, Any]:
+    context = load_run_context(run_dir)
+    run_config = context["run_config"]
+    oracle_summary = context["oracle_summary"]
+    specialist_task_ids = context["specialist_task_ids"]
+    total_episodes = int(run_config["horizon"])
+    method_dir = run_dir / method
+    model = run_config["model"]
+    progress = load_json(method_dir / "progress.json")
+    if progress["completed_episodes"] != total_episodes:
+        raise RuntimeError(f"Method {method} is incomplete: {progress}")
+    merged_episodes = load_json(method_dir / "episodes.json")
+    model = progress.get("model", model)
+
+    expected_indices = list(range(total_episodes))
+    actual_indices = [int(row["episode_index"]) for row in merged_episodes]
+    if actual_indices != expected_indices:
+        raise RuntimeError(
+            f"Merged episode indices mismatch for {method}. "
+            f"expected={expected_indices[:3]}...{expected_indices[-3:]}, "
+            f"actual={actual_indices[:3]}...{actual_indices[-3:]}"
         )
-        env.reset(instance)
-        result = env.run_path(path)
-        episodes.append(
-            flatten_episode(
-                episode_index=episode_index,
-                row=row,
-                result=result,
-                method="oracle_best_fixed_path",
-                oracle_summary=oracle_summary,
-                selection_info={},
-                update_info={},
-                specialist_task_ids=specialist_task_ids,
-            )
+    add_cumulative_fields(merged_episodes)
+    summary = build_summary(
+        method=method,
+        dataset=run_config["dataset"],
+        repeats=int(run_config["repeats"]),
+        model=model,
+        oracle_summary=oracle_summary,
+        episodes=merged_episodes,
+    )
+    specialist_summary = build_specialist_summary(merged_episodes)
+
+    merged_dir = method_dir / "merged"
+    merged_dir.mkdir(parents=True, exist_ok=True)
+
+    write_json(method_dir / "episodes.json", merged_episodes)
+    write_json(method_dir / "summary.json", summary)
+    write_json(method_dir / "summary_with_oracle.json", summary)
+    write_json(method_dir / "specialist_summary.json", specialist_summary)
+    write_json(merged_dir / "episodes.json", merged_episodes)
+    write_json(merged_dir / "summary.json", summary)
+    write_json(merged_dir / "summary_with_oracle.json", summary)
+    write_json(merged_dir / "specialist_summary.json", specialist_summary)
+    write_text_atomic(
+        method_dir / "smoke_summary.md",
+        json.dumps({"summary": summary, "specialist_summary": specialist_summary}, ensure_ascii=False, indent=2),
+    )
+
+    if method == "risky_ps":
+        dynamics_payload = build_risky_dynamics_payload(merged_episodes)
+        write_json(run_dir / "risky_ps_shared_unshared_dynamics.json", dynamics_payload)
+        write_csv(run_dir / "risky_ps_shared_unshared_dynamics.csv", dynamics_payload["episodes"])
+
+    return {
+        "summary": summary,
+        "specialist_summary": specialist_summary,
+        "episodes": merged_episodes,
+        "specialist_task_ids": specialist_task_ids,
+    }
+
+
+def merge_all_results(run_dir: Path) -> dict[str, Any]:
+    context = load_run_context(run_dir)
+    run_config = context["run_config"]
+    specialist_task_ids = context["specialist_task_ids"]
+    summaries: list[dict[str, Any]] = []
+    merged_episodes_by_method: dict[str, list[dict[str, Any]]] = {}
+
+    for method in run_config["methods"]:
+        method_summary = load_json(run_dir / method / "summary_with_oracle.json")
+        summaries.append(method_summary)
+        merged_episodes_by_method[method] = load_json(run_dir / method / "episodes.json")
+
+    compare_rows = build_compare_rows(summaries)
+    write_json(run_dir / "repeated_smoke_compare.json", compare_rows)
+    write_csv(run_dir / "repeated_smoke_compare.csv", compare_rows)
+    write_text_atomic(run_dir / "repeated_smoke_compare.md", compare_rows_to_markdown(compare_rows))
+
+    specialist_payload = build_specialist_hit_analysis(
+        merged_episodes_by_method=merged_episodes_by_method,
+        specialist_task_ids=specialist_task_ids,
+        schedule_rows=context["schedule_rows"],
+    )
+    write_json(run_dir / "specialist_unshared_hit_analysis.json", specialist_payload)
+    return {
+        "compare_rows": compare_rows,
+        "specialist_analysis": specialist_payload,
+        "merged_episodes_by_method": merged_episodes_by_method,
+    }
+
+
+def orchestrate_run(
+    *,
+    data_path: Path,
+    output_dir: Path,
+    repeats: int,
+    methods: list[str],
+) -> Path:
+    model_name = ensure_model_env(required=True)
+    validate_methods(methods)
+    run_dir = initialize_run(
+        data_path=data_path,
+        output_dir=output_dir,
+        repeats=repeats,
+        methods=methods,
+        model_name=model_name,
+    )
+    script_path = Path(__file__).resolve()
+    launched: list[tuple[str, subprocess.Popen[Any], Any]] = []
+
+    for method in methods:
+        method_dir = run_dir / method
+        method_dir.mkdir(parents=True, exist_ok=True)
+        log_path = method_dir / "runner.log"
+        log_handle = log_path.open("a", encoding="utf-8")
+        log_handle.write(f"[launch] {datetime.now().isoformat()} method={method}\n")
+        log_handle.flush()
+        cmd = [
+            sys.executable,
+            str(script_path),
+            "run-method",
+            "--run-dir",
+            str(run_dir),
+            "--method",
+            method,
+        ]
+        process = subprocess.Popen(
+            cmd,
+            cwd=str(ROOT),
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            env=os.environ.copy(),
         )
-    add_cumulative_fields(episodes)
-    model = getattr(env.family_executor, "model", "unknown")
-    return episodes, model
+        launched.append((method, process, log_handle))
+
+    failures: list[dict[str, Any]] = []
+    for method, process, log_handle in launched:
+        return_code = process.wait()
+        log_handle.write(
+            f"[exit] {datetime.now().isoformat()} method={method} return_code={return_code}\n"
+        )
+        log_handle.close()
+        if return_code != 0:
+            failures.append({"method": method, "return_code": return_code})
+
+    if failures:
+        write_json(run_dir / "orchestrator_failures.json", failures)
+        raise SystemExit(f"One or more method runs failed: {failures}")
+
+    for method in methods:
+        merge_method_results(run_dir, method)
+    merge_all_results(run_dir)
+    return run_dir
+
+
+def build_cli() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run repeated shared-basin smoke with method-level persistence.")
+    subparsers = parser.add_subparsers(dest="command")
+
+    common_run = argparse.ArgumentParser(add_help=False)
+    common_run.add_argument("--data", type=Path, default=DATASET_DEFAULT)
+    common_run.add_argument("--output-dir", type=Path, required=True)
+    common_run.add_argument("--repeats", type=int, default=10)
+    common_run.add_argument("--methods", nargs="+", default=list(DEFAULT_METHODS))
+
+    setup_parser = subparsers.add_parser("setup", parents=[common_run])
+    setup_parser.set_defaults(command="setup")
+
+    orchestrate_parser = subparsers.add_parser("orchestrate", parents=[common_run])
+    orchestrate_parser.set_defaults(command="orchestrate")
+
+    method_parser = subparsers.add_parser("run-method")
+    method_parser.add_argument("--run-dir", type=Path, required=True)
+    method_parser.add_argument("--method", type=str, required=True)
+    method_parser.set_defaults(command="run-method")
+
+    merge_method_parser = subparsers.add_parser("merge-method")
+    merge_method_parser.add_argument("--run-dir", type=Path, required=True)
+    merge_method_parser.add_argument("--method", type=str, required=True)
+    merge_method_parser.set_defaults(command="merge-method")
+
+    merge_all_parser = subparsers.add_parser("merge-all")
+    merge_all_parser.add_argument("--run-dir", type=Path, required=True)
+    merge_all_parser.set_defaults(command="merge-all")
+    return parser
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run repeated shared-basin smoke.")
-    parser.add_argument("--data", type=Path, default=DATASET_DEFAULT)
-    parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--repeats", type=int, default=10)
-    parser.add_argument(
-        "--methods",
-        nargs="+",
-        default=[
-            "risky_ps",
-            "epsilon_exp3",
-            "direct_multistage_exp3",
-            "naive_mixed",
-            "random_path",
-            "oracle_best_fixed_path",
-        ],
-    )
-    args = parser.parse_args()
+    parser = build_cli()
+    argv = sys.argv[1:]
+    known_commands = {"setup", "orchestrate", "run-method", "merge-method", "merge-all"}
+    if not argv or argv[0] not in known_commands:
+        argv = ["orchestrate", *argv]
+    args = parser.parse_args(argv)
 
-    model_name = os.environ.get("PSAGENT_LLM_BENCH_MODEL", "")
-    if model_name != MODEL_REQUIRED:
-        raise SystemExit(
-            f"PSAGENT_LLM_BENCH_MODEL must be {MODEL_REQUIRED!r}; got {model_name!r}"
-        )
-
-    instances = load_instances(args.data)
-    specialist_task_ids = load_specialist_task_ids()
-    selected = build_repeated_selection(instances, indices=SMOKE10_INDICES, repeats=args.repeats)
-    oracle_summary = compute_stationary_oracle(selected)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    root_out = args.output_dir / f"{timestamp}_shared_basin_repeated_smoke"
-    root_out.mkdir(parents=True, exist_ok=True)
-    write_json(
-        root_out / "run_config.json",
-        {
-            "dataset": str(args.data),
-            "dataset_indices": SMOKE10_INDICES,
-            "repeats": args.repeats,
-            "horizon": len(selected),
-            "family_kind": FAMILY_KIND,
-            "executor_name": EXECUTOR_NAME,
-            "model": model_name,
-            "seed": SEED,
-            "methods": args.methods,
-        },
-    )
-    write_json(
-        root_out / "stationary_oracle_summary.json",
-        {
-            "path": oracle_summary["path"],
-            "cumulative_total_cost": oracle_summary["cumulative_total_cost"],
-            "mean_total_cost": oracle_summary["mean_total_cost"],
-            "raw_cumulative_total_cost": oracle_summary["raw_cumulative_total_cost"],
-            "raw_mean_total_cost": oracle_summary["raw_mean_total_cost"],
-            "cost_scale_version": oracle_summary["cost_scale_version"],
-            "family_kind": FAMILY_KIND,
-            "executor_for_comparator": "simulated",
-        },
-    )
-
-    for method in args.methods:
-        print(f"[method] method={method} start", flush=True)
-        method_dir = root_out / method
-        method_dir.mkdir(parents=True, exist_ok=True)
-        if method == "oracle_best_fixed_path":
-            episodes, model = run_stationary_oracle_method(selected, oracle_summary, specialist_task_ids)
-        else:
-            episodes, model = run_policy_method(method, selected, oracle_summary, specialist_task_ids)
-        summary = build_summary(
-            method=method,
-            dataset=str(args.data),
+    if args.command == "setup":
+        model_name = ensure_model_env(required=True)
+        validate_methods(args.methods)
+        run_dir = initialize_run(
+            data_path=args.data,
+            output_dir=args.output_dir,
             repeats=args.repeats,
-            model=model,
-            oracle_summary=oracle_summary,
-            episodes=episodes,
+            methods=args.methods,
+            model_name=model_name,
         )
-        specialist_summary = build_specialist_summary(episodes)
-        write_json(method_dir / "episodes.json", episodes)
-        write_json(method_dir / "summary.json", summary)
-        write_json(method_dir / "summary_with_oracle.json", summary)
-        write_json(method_dir / "specialist_summary.json", specialist_summary)
-        (method_dir / "smoke_summary.md").write_text(
-            json.dumps({"summary": summary, "specialist_summary": specialist_summary}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        if method == "risky_ps":
-            dynamics_rows = [
-                {
-                    "episode_index": ep["episode_index"],
-                    "repeat_index": ep["repeat_index"],
-                    "position_in_cycle": ep["position_in_cycle"],
-                    "dataset_index": ep["dataset_index"],
-                    "original_task_id": ep["original_task_id"],
-                    "is_specialist_task": ep["is_specialist_task"],
-                    "selected_shared_path": ep["selected_shared_path"],
-                    "selected_unshared_path": ep["selected_unshared_path"],
-                    "cumulative_shared_path_ratio": ep["cumulative_shared_path_ratio"],
-                    "cumulative_unshared_path_ratio": ep["cumulative_unshared_path_ratio"],
-                    "rolling_shared_path_ratio_last10": ep["rolling_shared_path_ratio_last10"],
-                    "rolling_unshared_path_ratio_last10": ep["rolling_unshared_path_ratio_last10"],
-                    "shared_branch_triggered": ep["shared_branch_triggered"],
-                    "unshared_branch_triggered": ep["unshared_branch_triggered"],
-                    "shared_update_count": ep["shared_update_count"],
-                    "unshared_edge_update_count": ep["unshared_edge_update_count"],
-                    "cumulative_shared_branch_count": ep["cumulative_shared_branch_count"],
-                    "cumulative_unshared_branch_count": ep["cumulative_unshared_branch_count"],
-                    "cumulative_shared_update_count": ep["cumulative_shared_update_count"],
-                    "cumulative_unshared_edge_update_count": ep["cumulative_unshared_edge_update_count"],
-                    "raw_terminal_penalty": ep["raw_terminal_penalty"],
-                    "raw_path_cost_component": ep["raw_path_cost_component"],
-                    "raw_reasoning_cost_component": ep["raw_reasoning_cost_component"],
-                }
-                for ep in episodes
-            ]
-            write_json(root_out / "risky_ps_shared_unshared_dynamics.json", dynamics_rows)
-            write_csv(root_out / "risky_ps_shared_unshared_dynamics.csv", dynamics_rows)
-        print(
-            f"[method] method={method} done mean_regret={summary['mean_regret']:.6f} "
-            f"shared_frac={summary['shared_path_fraction']:.3f}",
-            flush=True,
-        )
+        print(str(run_dir))
+        return
 
-    print(str(root_out))
+    if args.command == "orchestrate":
+        validate_methods(args.methods)
+        run_dir = orchestrate_run(
+            data_path=args.data,
+            output_dir=args.output_dir,
+            repeats=args.repeats,
+            methods=args.methods,
+        )
+        print(str(run_dir))
+        return
+
+    if args.command == "run-method":
+        if args.method not in POLICY_REGISTRY:
+            raise SystemExit(f"Unknown method for run-method: {args.method}")
+        run_policy_method(run_dir=args.run_dir, method=args.method)
+        print(str(args.run_dir / args.method))
+        return
+
+    if args.command == "merge-method":
+        payload = merge_method_results(args.run_dir, args.method)
+        print(
+            json.dumps(
+                {
+                    "method": args.method,
+                    "total_cost_mean": payload["summary"]["total_cost_mean"],
+                    "shared_path_fraction": payload["summary"]["shared_path_fraction"],
+                },
+                ensure_ascii=False,
+            )
+        )
+        return
+
+    if args.command == "merge-all":
+        payload = merge_all_results(args.run_dir)
+        print(json.dumps(payload["compare_rows"], ensure_ascii=False))
+        return
+
+    raise SystemExit(f"Unsupported command: {args.command}")
 
 
 if __name__ == "__main__":

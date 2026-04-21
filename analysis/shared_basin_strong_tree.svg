@@ -1,0 +1,235 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1840.0" height="760.0" viewBox="0 0 1840.0 760.0">
+<style>
+text { font-family: Arial, sans-serif; fill: #1f2937; }
+.stage-title { font-size: 18px; font-weight: 700; }
+.node-alias { font-size: 18px; font-weight: 700; }
+.node-role { font-size: 11px; }
+.node-meta { font-size: 10px; fill: #4b5563; }
+.node-badge { font-size: 10px; font-weight: 700; fill: #7c2d12; }
+.edge { stroke-width: 2.1; fill: none; opacity: 0.9; }
+.root-box { fill: #f9fafb; stroke: #111827; stroke-width: 1.8; rx: 12; }
+</style>
+<text class="stage-title" x="230.0" y="42">A / stage1</text>
+<text class="stage-title" x="490.0" y="42">B / stage2</text>
+<text class="stage-title" x="750.0" y="42">C / stage3</text>
+<text class="stage-title" x="1010.0" y="42">D / stage4</text>
+<text class="stage-title" x="1270.0" y="42">E / stage5</text>
+<rect class="root-box" x="45.0" y="315.0" width="110.0" height="56.0" />
+<text class="node-alias" x="83.0" y="339.0">R</text>
+<text class="node-role" x="68.0" y="359.0">human / root</text>
+<path class="edge" stroke="#475569" d="M 155.0,343.0 C 191.0,343.0 184.0,132.0 220.0,132.0" />
+<path class="edge" stroke="#475569" d="M 155.0,343.0 C 191.0,343.0 184.0,252.0 220.0,252.0" />
+<path class="edge" stroke="#475569" d="M 155.0,343.0 C 191.0,343.0 184.0,372.0 220.0,372.0" />
+<path class="edge" stroke="#475569" d="M 155.0,343.0 C 191.0,343.0 184.0,492.0 220.0,492.0" />
+<path class="edge" stroke="#475569" d="M 155.0,343.0 C 191.0,343.0 184.0,612.0 220.0,612.0" />
+<path class="edge" stroke="#2563eb" d="M 408.0,132.0 C 442.0,132.0 446.0,132.0 480.0,132.0" />
+<path class="edge" stroke="#2563eb" d="M 408.0,132.0 C 442.0,132.0 446.0,252.0 480.0,252.0" />
+<path class="edge" stroke="#2563eb" d="M 408.0,132.0 C 442.0,132.0 446.0,372.0 480.0,372.0" />
+<path class="edge" stroke="#dc2626" d="M 408.0,252.0 C 442.0,252.0 446.0,132.0 480.0,132.0" />
+<path class="edge" stroke="#dc2626" d="M 408.0,252.0 C 442.0,252.0 446.0,252.0 480.0,252.0" />
+<path class="edge" stroke="#dc2626" d="M 408.0,252.0 C 442.0,252.0 446.0,372.0 480.0,372.0" />
+<path class="edge" stroke="#059669" d="M 408.0,372.0 C 442.0,372.0 446.0,132.0 480.0,132.0" />
+<path class="edge" stroke="#059669" d="M 408.0,372.0 C 442.0,372.0 446.0,252.0 480.0,252.0" />
+<path class="edge" stroke="#059669" d="M 408.0,372.0 C 442.0,372.0 446.0,372.0 480.0,372.0" />
+<path class="edge" stroke="#d97706" d="M 408.0,492.0 C 442.0,492.0 446.0,132.0 480.0,132.0" />
+<path class="edge" stroke="#d97706" d="M 408.0,492.0 C 442.0,492.0 446.0,252.0 480.0,252.0" />
+<path class="edge" stroke="#d97706" d="M 408.0,492.0 C 442.0,492.0 446.0,372.0 480.0,372.0" />
+<path class="edge" stroke="#d97706" d="M 408.0,492.0 C 442.0,492.0 446.0,492.0 480.0,492.0" />
+<path class="edge" stroke="#d97706" d="M 408.0,492.0 C 442.0,492.0 446.0,612.0 480.0,612.0" />
+<path class="edge" stroke="#7c3aed" d="M 408.0,612.0 C 442.0,612.0 446.0,372.0 480.0,372.0" />
+<path class="edge" stroke="#7c3aed" d="M 408.0,612.0 C 442.0,612.0 446.0,492.0 480.0,492.0" />
+<path class="edge" stroke="#7c3aed" d="M 408.0,612.0 C 442.0,612.0 446.0,612.0 480.0,612.0" />
+<path class="edge" stroke="#059669" d="M 668.0,132.0 C 702.0,132.0 706.0,132.0 740.0,132.0" />
+<path class="edge" stroke="#059669" d="M 668.0,132.0 C 702.0,132.0 706.0,252.0 740.0,252.0" />
+<path class="edge" stroke="#d97706" d="M 668.0,252.0 C 702.0,252.0 706.0,252.0 740.0,252.0" />
+<path class="edge" stroke="#d97706" d="M 668.0,252.0 C 702.0,252.0 706.0,372.0 740.0,372.0" />
+<path class="edge" stroke="#d97706" d="M 668.0,252.0 C 702.0,252.0 706.0,492.0 740.0,492.0" />
+<path class="edge" stroke="#d97706" d="M 668.0,252.0 C 702.0,252.0 706.0,612.0 740.0,612.0" />
+<path class="edge" stroke="#7c3aed" d="M 668.0,372.0 C 702.0,372.0 706.0,372.0 740.0,372.0" />
+<path class="edge" stroke="#7c3aed" d="M 668.0,372.0 C 702.0,372.0 706.0,492.0 740.0,492.0" />
+<path class="edge" stroke="#7c3aed" d="M 668.0,372.0 C 702.0,372.0 706.0,612.0 740.0,612.0" />
+<path class="edge" stroke="#0891b2" d="M 668.0,492.0 C 702.0,492.0 706.0,372.0 740.0,372.0" />
+<path class="edge" stroke="#0891b2" d="M 668.0,492.0 C 702.0,492.0 706.0,492.0 740.0,492.0" />
+<path class="edge" stroke="#0891b2" d="M 668.0,492.0 C 702.0,492.0 706.0,612.0 740.0,612.0" />
+<path class="edge" stroke="#e11d48" d="M 668.0,612.0 C 702.0,612.0 706.0,372.0 740.0,372.0" />
+<path class="edge" stroke="#e11d48" d="M 668.0,612.0 C 702.0,612.0 706.0,492.0 740.0,492.0" />
+<path class="edge" stroke="#e11d48" d="M 668.0,612.0 C 702.0,612.0 706.0,612.0 740.0,612.0" />
+<path class="edge" stroke="#7c3aed" d="M 928.0,132.0 C 962.0,132.0 966.0,132.0 1000.0,132.0" />
+<path class="edge" stroke="#0891b2" d="M 928.0,252.0 C 962.0,252.0 966.0,132.0 1000.0,132.0" />
+<path class="edge" stroke="#e11d48" d="M 928.0,372.0 C 962.0,372.0 966.0,252.0 1000.0,252.0" />
+<path class="edge" stroke="#e11d48" d="M 928.0,372.0 C 962.0,372.0 966.0,372.0 1000.0,372.0" />
+<path class="edge" stroke="#4f46e5" d="M 928.0,492.0 C 962.0,492.0 966.0,252.0 1000.0,252.0" />
+<path class="edge" stroke="#4f46e5" d="M 928.0,492.0 C 962.0,492.0 966.0,372.0 1000.0,372.0" />
+<path class="edge" stroke="#4f46e5" d="M 928.0,492.0 C 962.0,492.0 966.0,492.0 1000.0,492.0" />
+<path class="edge" stroke="#4f46e5" d="M 928.0,492.0 C 962.0,492.0 966.0,612.0 1000.0,612.0" />
+<path class="edge" stroke="#65a30d" d="M 928.0,612.0 C 962.0,612.0 966.0,252.0 1000.0,252.0" />
+<path class="edge" stroke="#65a30d" d="M 928.0,612.0 C 962.0,612.0 966.0,372.0 1000.0,372.0" />
+<path class="edge" stroke="#65a30d" d="M 928.0,612.0 C 962.0,612.0 966.0,492.0 1000.0,492.0" />
+<path class="edge" stroke="#65a30d" d="M 928.0,612.0 C 962.0,612.0 966.0,612.0 1000.0,612.0" />
+<path class="edge" stroke="#e11d48" d="M 1188.0,132.0 C 1222.0,132.0 1226.0,132.0 1260.0,132.0" />
+<path class="edge" stroke="#e11d48" d="M 1188.0,132.0 C 1222.0,132.0 1226.0,252.0 1260.0,252.0" />
+<path class="edge" stroke="#4f46e5" d="M 1188.0,252.0 C 1222.0,252.0 1226.0,132.0 1260.0,132.0" />
+<path class="edge" stroke="#4f46e5" d="M 1188.0,252.0 C 1222.0,252.0 1226.0,252.0 1260.0,252.0" />
+<path class="edge" stroke="#65a30d" d="M 1188.0,372.0 C 1222.0,372.0 1226.0,132.0 1260.0,132.0" />
+<path class="edge" stroke="#65a30d" d="M 1188.0,372.0 C 1222.0,372.0 1226.0,252.0 1260.0,252.0" />
+<path class="edge" stroke="#65a30d" d="M 1188.0,372.0 C 1222.0,372.0 1226.0,372.0 1260.0,372.0" />
+<path class="edge" stroke="#65a30d" d="M 1188.0,372.0 C 1222.0,372.0 1226.0,492.0 1260.0,492.0" />
+<path class="edge" stroke="#c2410c" d="M 1188.0,492.0 C 1222.0,492.0 1226.0,132.0 1260.0,132.0" />
+<path class="edge" stroke="#c2410c" d="M 1188.0,492.0 C 1222.0,492.0 1226.0,372.0 1260.0,372.0" />
+<path class="edge" stroke="#c2410c" d="M 1188.0,492.0 C 1222.0,492.0 1226.0,492.0 1260.0,492.0" />
+<path class="edge" stroke="#c2410c" d="M 1188.0,492.0 C 1222.0,492.0 1226.0,612.0 1260.0,612.0" />
+<path class="edge" stroke="#2563eb" d="M 1188.0,612.0 C 1222.0,612.0 1226.0,252.0 1260.0,252.0" />
+<path class="edge" stroke="#2563eb" d="M 1188.0,612.0 C 1222.0,612.0 1226.0,492.0 1260.0,492.0" />
+<path class="edge" stroke="#2563eb" d="M 1188.0,612.0 C 1222.0,612.0 1226.0,612.0 1260.0,612.0" />
+<rect x="220.0" y="100.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#2f855a" stroke-width="1.8" />
+<text class="node-alias" x="230.0" y="121.0">A1</text>
+<text class="node-meta" x="270.0" y="121.0">g=0 | public_stage1_intake</text>
+<text class="node-role" x="230.0" y="140.0">safe_core_user_grounding</text>
+<text class="node-meta" x="230.0" y="156.0">stage1_safe_core_user_grounding_g0_0</text>
+<rect x="220.0" y="220.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#2f855a" stroke-width="1.8" />
+<text class="node-alias" x="230.0" y="241.0">A2</text>
+<text class="node-meta" x="270.0" y="241.0">g=0 | public_stage1_intake</text>
+<text class="node-role" x="230.0" y="260.0">safe_core_lookup_line</text>
+<text class="node-meta" x="230.0" y="276.0">stage1_safe_core_lookup_line_g0_1</text>
+<rect x="220.0" y="340.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#2f855a" stroke-width="1.8" />
+<text class="node-alias" x="230.0" y="361.0">A3</text>
+<text class="node-meta" x="270.0" y="361.0">g=0 | public_stage1_intake</text>
+<text class="node-role" x="230.0" y="380.0">safe_core_context_verify</text>
+<text class="node-meta" x="230.0" y="396.0">stage1_safe_core_context_verify_g0_2</text>
+<rect x="220.0" y="460.0" width="188.0" height="64.0" rx="12" fill="#eef4ff" stroke="#3157c8" stroke-width="1.8" />
+<text class="node-alias" x="230.0" y="481.0">A4</text>
+<text class="node-meta" x="270.0" y="481.0">g=0 | mixed_stage1_intake</text>
+<text class="node-role" x="230.0" y="500.0">mixed_shared_edge_intake</text>
+<text class="node-meta" x="230.0" y="516.0">stage1_mixed_shared_edge_intake_g0_3</text>
+<rect x="220.0" y="580.0" width="188.0" height="64.0" rx="12" fill="#fff1f2" stroke="#c53030" stroke-width="1.8" />
+<text class="node-alias" x="230.0" y="601.0">A5</text>
+<text class="node-meta" x="270.0" y="601.0">g=1 | private_barrier_stage1</text>
+<text class="node-role" x="230.0" y="620.0">private_barrier_intake_gate</text>
+<text class="node-meta" x="230.0" y="636.0">stage1_private_barrier_intake_gate_g1_4</text>
+<rect x="480.0" y="100.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#d4a017" stroke-width="3.6" />
+<text class="node-alias" x="490.0" y="121.0">B1</text>
+<text class="node-meta" x="530.0" y="121.0">g=0 | public_stage2_core</text>
+<text class="node-role" x="490.0" y="140.0">safe_core_account_core</text>
+<text class="node-meta" x="490.0" y="156.0">stage2_safe_core_account_core_g0_0</text>
+<rect x="614.0" y="108.0" width="42" height="18" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />
+<text class="node-badge" x="622.0" y="121.0">FS×4</text>
+<rect x="480.0" y="220.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#2f855a" stroke-width="1.8" />
+<text class="node-alias" x="490.0" y="241.0">B2</text>
+<text class="node-meta" x="530.0" y="241.0">g=0 | public_stage2_core</text>
+<text class="node-role" x="490.0" y="260.0">safe_core_line_core</text>
+<text class="node-meta" x="490.0" y="276.0">stage2_safe_core_line_core_g0_1</text>
+<rect x="480.0" y="340.0" width="188.0" height="64.0" rx="12" fill="#eef4ff" stroke="#3157c8" stroke-width="1.8" />
+<text class="node-alias" x="490.0" y="361.0">B3</text>
+<text class="node-meta" x="530.0" y="361.0">g=0 | mixed_stage2_lane</text>
+<text class="node-role" x="490.0" y="380.0">mixed_shared_roaming_ready</text>
+<text class="node-meta" x="490.0" y="396.0">stage2_mixed_shared_roaming_ready_g0_2</text>
+<rect x="480.0" y="460.0" width="188.0" height="64.0" rx="12" fill="#fff4e6" stroke="#b86b00" stroke-width="1.8" />
+<text class="node-alias" x="490.0" y="481.0">B4</text>
+<text class="node-meta" x="530.0" y="481.0">g=0 | private_stage2_lane</text>
+<text class="node-role" x="490.0" y="500.0">private_edge_roaming_lane</text>
+<text class="node-meta" x="490.0" y="516.0">stage2_private_edge_roaming_lane_g0_3</text>
+<rect x="480.0" y="580.0" width="188.0" height="64.0" rx="12" fill="#fff1f2" stroke="#c53030" stroke-width="1.8" />
+<text class="node-alias" x="490.0" y="601.0">B5</text>
+<text class="node-meta" x="530.0" y="601.0">g=1 | private_barrier_stage2</text>
+<text class="node-role" x="490.0" y="620.0">private_barrier_roaming_gate</text>
+<text class="node-meta" x="490.0" y="636.0">stage2_private_barrier_roaming_gate_g1_4</text>
+<rect x="740.0" y="100.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#d4a017" stroke-width="3.6" />
+<text class="node-alias" x="750.0" y="121.0">C1</text>
+<text class="node-meta" x="790.0" y="121.0">g=0 | public_stage3_core</text>
+<text class="node-role" x="750.0" y="140.0">safe_core_network_core</text>
+<text class="node-meta" x="750.0" y="156.0">stage3_safe_core_network_core_g0_0</text>
+<rect x="874.0" y="108.0" width="42" height="18" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />
+<text class="node-badge" x="882.0" y="121.0">FS×4</text>
+<rect x="740.0" y="220.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#d4a017" stroke-width="3.6" />
+<text class="node-alias" x="750.0" y="241.0">C2</text>
+<text class="node-meta" x="790.0" y="241.0">g=0 | public_stage3_verify</text>
+<text class="node-role" x="750.0" y="260.0">safe_core_network_verify</text>
+<text class="node-meta" x="750.0" y="276.0">stage3_safe_core_network_verify_g0_1</text>
+<rect x="874.0" y="228.0" width="42" height="18" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />
+<text class="node-badge" x="882.0" y="241.0">FS×8</text>
+<rect x="740.0" y="340.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#d4a017" stroke-width="3.6" />
+<text class="node-alias" x="750.0" y="361.0">C3</text>
+<text class="node-meta" x="790.0" y="361.0">g=0 | public_stage3_edge</text>
+<text class="node-role" x="750.0" y="380.0">mixed_shared_edge_diagnosis</text>
+<text class="node-meta" x="750.0" y="396.0">stage3_mixed_shared_edge_diagnosis_g0_2</text>
+<rect x="874.0" y="348.0" width="42" height="18" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />
+<text class="node-badge" x="882.0" y="361.0">FS×13</text>
+<rect x="740.0" y="460.0" width="188.0" height="64.0" rx="12" fill="#eef4ff" stroke="#3157c8" stroke-width="1.8" />
+<text class="node-alias" x="750.0" y="481.0">C4</text>
+<text class="node-meta" x="790.0" y="481.0">g=0 | mixed_stage3_lane</text>
+<text class="node-role" x="750.0" y="500.0">private_edge_config_lane</text>
+<text class="node-meta" x="750.0" y="516.0">stage3_private_edge_config_lane_g0_3</text>
+<rect x="740.0" y="580.0" width="188.0" height="64.0" rx="12" fill="#fff1f2" stroke="#c53030" stroke-width="1.8" />
+<text class="node-alias" x="750.0" y="601.0">C5</text>
+<text class="node-meta" x="790.0" y="601.0">g=1 | private_barrier_stage3</text>
+<text class="node-role" x="750.0" y="620.0">private_barrier_config_gate</text>
+<text class="node-meta" x="750.0" y="636.0">stage3_private_barrier_config_gate_g1_4</text>
+<rect x="1000.0" y="100.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#d4a017" stroke-width="3.6" />
+<text class="node-alias" x="1010.0" y="121.0">D1</text>
+<text class="node-meta" x="1050.0" y="121.0">g=0 | public_stage4_core</text>
+<text class="node-role" x="1010.0" y="140.0">safe_core_repair_core</text>
+<text class="node-meta" x="1010.0" y="156.0">stage4_safe_core_repair_core_g0_0</text>
+<rect x="1134.0" y="108.0" width="42" height="18" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />
+<text class="node-badge" x="1142.0" y="121.0">FS×12</text>
+<rect x="1000.0" y="220.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#d4a017" stroke-width="3.6" />
+<text class="node-alias" x="1010.0" y="241.0">D2</text>
+<text class="node-meta" x="1050.0" y="241.0">g=0 | public_stage4_verify</text>
+<text class="node-role" x="1010.0" y="260.0">safe_core_repair_verify</text>
+<text class="node-meta" x="1010.0" y="276.0">stage4_safe_core_repair_verify_g0_1</text>
+<rect x="1134.0" y="228.0" width="42" height="18" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />
+<text class="node-badge" x="1142.0" y="241.0">FS×39</text>
+<rect x="1000.0" y="340.0" width="188.0" height="64.0" rx="12" fill="#eef4ff" stroke="#d4a017" stroke-width="3.6" />
+<text class="node-alias" x="1010.0" y="361.0">D3</text>
+<text class="node-meta" x="1050.0" y="361.0">g=0 | mixed_stage4_lane</text>
+<text class="node-role" x="1010.0" y="380.0">mixed_shared_repair_escalation</text>
+<text class="node-meta" x="1010.0" y="396.0">stage4_mixed_shared_repair_escalation_g0_2</text>
+<rect x="1134.0" y="348.0" width="42" height="18" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.2" />
+<text class="node-badge" x="1142.0" y="361.0">FS×39</text>
+<rect x="1000.0" y="460.0" width="188.0" height="64.0" rx="12" fill="#fff4e6" stroke="#b86b00" stroke-width="1.8" />
+<text class="node-alias" x="1010.0" y="481.0">D4</text>
+<text class="node-meta" x="1050.0" y="481.0">g=0 | private_stage4_lane</text>
+<text class="node-role" x="1010.0" y="500.0">private_edge_repair_lane</text>
+<text class="node-meta" x="1010.0" y="516.0">stage4_private_edge_repair_lane_g0_3</text>
+<rect x="1000.0" y="580.0" width="188.0" height="64.0" rx="12" fill="#fff1f2" stroke="#c53030" stroke-width="1.8" />
+<text class="node-alias" x="1010.0" y="601.0">D5</text>
+<text class="node-meta" x="1050.0" y="601.0">g=1 | private_barrier_stage4</text>
+<text class="node-role" x="1010.0" y="620.0">private_barrier_edge_repair</text>
+<text class="node-meta" x="1010.0" y="636.0">stage4_private_barrier_edge_repair_g1_4</text>
+<rect x="1260.0" y="100.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#2f855a" stroke-width="1.8" />
+<text class="node-alias" x="1270.0" y="121.0">E1</text>
+<text class="node-meta" x="1310.0" y="121.0">g=0 | public_stage5_verify</text>
+<text class="node-role" x="1270.0" y="140.0">safe_core_verify_core</text>
+<text class="node-meta" x="1270.0" y="156.0">stage5_safe_core_verify_core_g0_0</text>
+<rect x="1260.0" y="220.0" width="188.0" height="64.0" rx="12" fill="#eaf7ef" stroke="#2f855a" stroke-width="1.8" />
+<text class="node-alias" x="1270.0" y="241.0">E2</text>
+<text class="node-meta" x="1310.0" y="241.0">g=0 | public_stage5_decision</text>
+<text class="node-role" x="1270.0" y="260.0">safe_core_decision_core</text>
+<text class="node-meta" x="1270.0" y="276.0">stage5_safe_core_decision_core_g0_1</text>
+<rect x="1260.0" y="340.0" width="188.0" height="64.0" rx="12" fill="#eef4ff" stroke="#3157c8" stroke-width="1.8" />
+<text class="node-alias" x="1270.0" y="361.0">E3</text>
+<text class="node-meta" x="1310.0" y="361.0">g=0 | mixed_stage5_transfer</text>
+<text class="node-role" x="1270.0" y="380.0">mixed_shared_transfer_ready</text>
+<text class="node-meta" x="1270.0" y="396.0">stage5_mixed_shared_transfer_ready_g0_2</text>
+<rect x="1260.0" y="460.0" width="188.0" height="64.0" rx="12" fill="#fff4e6" stroke="#b86b00" stroke-width="1.8" />
+<text class="node-alias" x="1270.0" y="481.0">E4</text>
+<text class="node-meta" x="1310.0" y="481.0">g=0 | private_stage5_edge</text>
+<text class="node-role" x="1270.0" y="500.0">private_edge_resolution</text>
+<text class="node-meta" x="1270.0" y="516.0">stage5_private_edge_resolution_g0_3</text>
+<rect x="1260.0" y="580.0" width="188.0" height="64.0" rx="12" fill="#fff4e6" stroke="#b86b00" stroke-width="1.8" />
+<text class="node-alias" x="1270.0" y="601.0">E5</text>
+<text class="node-meta" x="1310.0" y="601.0">g=1 | private_stage5_leaf</text>
+<text class="node-role" x="1270.0" y="620.0">private_leaf_transfer_edge</text>
+<text class="node-meta" x="1270.0" y="636.0">stage5_private_leaf_transfer_edge_g1_4</text>
+<rect x="1505.0" y="48.0" width="300" height="168" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2" />
+<text class="stage-title" x="1517.0" y="72.0">Legend</text>
+<rect x="1517.0" y="90.0" width="18" height="18" rx="4" fill="#eaf7ef" stroke="#2f855a" stroke-width="1.5" />
+<text class="node-role" x="1545.0" y="103.0">pure / public lane</text>
+<rect x="1517.0" y="118.0" width="18" height="18" rx="4" fill="#eef4ff" stroke="#3157c8" stroke-width="1.5" />
+<text class="node-role" x="1545.0" y="131.0">mixed or handoff lane</text>
+<rect x="1517.0" y="146.0" width="18" height="18" rx="4" fill="#fff4e6" stroke="#b86b00" stroke-width="1.5" />
+<text class="node-role" x="1545.0" y="159.0">private edge lane</text>
+<rect x="1517.0" y="174.0" width="18" height="18" rx="4" fill="#fff1f2" stroke="#c53030" stroke-width="1.5" />
+<text class="node-role" x="1545.0" y="187.0">g=1 barrier lane</text>
+<text class="node-meta" x="1517.0" y="202.0">Edges = legal continuations; color = parent node</text>
+<text class="node-meta" x="1517.0" y="218.0">Gold border / FS badge = safe-prefix node</text>
+</svg>

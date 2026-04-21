@@ -1,16 +1,17 @@
-"""Barrier-style Partial-Share / Risky-PS baseline.
+"""Layered-barrier Partial-Share / Risky-PS baseline.
 
-This implementation aligns the internal policy mechanics with the barrier
-semantics described in ``notes/PartialShare_for_Codex_clean.md``:
+This implementation follows the updated upload semantics:
 
-- ``theta[leaf]`` stores shared-leaf scores only
-- ``shared_edge_mass[(prefix, child_prefix)]`` stores safe-subtree aggregates
-- ``risky_theta[(prefix, child_prefix)]`` stores local risky-node parameters
-- selection uses recursive safe aggregates on safe prefixes and local softmax on
-  risky prefixes
-- every sampled risky ancestor receives an importance-weighted update
-- shared-leaf deltas propagate only through the sampled safe suffix and stop at
-  the first risky ancestor barrier
+- the sampled leaf starts shared upload iff its own ``g=0``
+- ``shared_edge_mass[(prefix, child_prefix)]`` stores aggregate mass that
+  actually reaches that parent-child interface
+- a child is treated as full-share for a parent iff every reachable leaf in
+  that child subtree can upload all the way to that parent
+- a parent uses shared aggregation iff all of its legal children are full-share
+  children for that parent
+- otherwise that parent is handled locally by ``risky_theta``
+- shared deltas propagate only along the sampled leaf's upload-reachable edges
+  and stop at the first internal ``g=1`` barrier
 """
 
 from __future__ import annotations
@@ -19,7 +20,12 @@ import math
 from typing import Any
 
 from base import BasePolicy
-from fixed_tree_env import EpisodeResult, FixedTreeEnvironment
+from fixed_tree_env import (
+    EpisodeResult,
+    FixedTreeEnvironment,
+    compute_shared_upload_edges,
+    compute_shared_upload_stop_prefix,
+)
 from oracle_eval import enumerate_all_paths
 
 
@@ -39,10 +45,16 @@ class RiskyPSPolicy(BasePolicy):
         self.theta: dict[LeafKey, float] = {}
         self.leaf_types: dict[LeafKey, str] = {}
         self.safe_prefixes: dict[PrefixKey, bool] = {}
+        self.mixed_prefixes: dict[PrefixKey, bool] = {}
         self.shared_edge_mass: dict[EdgeKey, float] = {}
+        self.full_share_child_edges: dict[EdgeKey, bool] = {}
+        self.descendant_leaf_count: dict[EdgeKey, int] = {}
+        self.shared_reachable_leaf_count: dict[EdgeKey, int] = {}
         self.unshared_edge_mass: dict[EdgeKey, float] = {}
         self.unshared_edge_count: dict[EdgeKey, int] = {}
         self.risky_theta: dict[EdgeKey, float] = {}
+        self.upload_edges_by_leaf: dict[LeafKey, list[EdgeKey]] = {}
+        self.barrier_stop_prefix_by_leaf: dict[LeafKey, PrefixKey | None] = {}
         self.last_stage_probs: dict[str, float] = {}
         self.last_path_prob: float = 0.0
         self.last_sampled_edges: list[dict[str, Any]] = []
@@ -61,20 +73,24 @@ class RiskyPSPolicy(BasePolicy):
         self.theta = {}
         self.leaf_types = {}
         self.safe_prefixes = {}
+        self.mixed_prefixes = {}
         self.shared_edge_mass = {}
+        self.full_share_child_edges = {}
+        self.descendant_leaf_count = {}
+        self.shared_reachable_leaf_count = {}
         self.unshared_edge_mass = {}
         self.unshared_edge_count = {}
         self.risky_theta = {}
+        self.upload_edges_by_leaf = {}
+        self.barrier_stop_prefix_by_leaf = {}
         self.last_stage_probs = {}
         self.last_path_prob = 0.0
         self.last_sampled_edges = []
         self.last_update_info = {}
 
-        descendant_types: dict[PrefixKey, set[str]] = {}
-        subtree_nonleaf_all_share: dict[PrefixKey, bool] = {}
-        shared_prefix_mass: dict[EdgeKey, float] = {}
-        unshared_descendant_counts: dict[EdgeKey, int] = {}
-        all_prefixes: set[PrefixKey] = {()}
+        parent_children: dict[PrefixKey, set[PrefixKey]] = {}
+        total_descendant_counts: dict[EdgeKey, int] = {}
+        shared_reachable_counts: dict[EdgeKey, int] = {}
 
         for path in self.paths:
             leaf = tuple(path)
@@ -82,65 +98,54 @@ class RiskyPSPolicy(BasePolicy):
             self.leaf_types[leaf] = leaf_type
             self.theta[leaf] = 0.0
 
-            leaf_prefixes = self._prefixes(leaf)
-            for prefix in leaf_prefixes:
-                all_prefixes.add(prefix)
-                descendant_types.setdefault(prefix, set()).add(leaf_type)
-
             for depth in range(len(leaf)):
                 prefix = tuple(leaf[:depth])
                 child_prefix = tuple(leaf[: depth + 1])
                 edge = (prefix, child_prefix)
-                all_prefixes.add(child_prefix)
-                if leaf_type == "unshared":
-                    unshared_descendant_counts[edge] = unshared_descendant_counts.get(edge, 0) + 1
+                parent_children.setdefault(prefix, set()).add(child_prefix)
+                total_descendant_counts[edge] = total_descendant_counts.get(edge, 0) + 1
 
-            for prefix in leaf_prefixes:
-                if len(prefix) == 0 or len(prefix) == len(leaf):
-                    continue
-                gate_is_share = env.agent_catalog[prefix[-1]].g == 0
-                subtree_nonleaf_all_share[prefix] = (
-                    subtree_nonleaf_all_share.get(prefix, True) and gate_is_share
+            upload_edges = compute_shared_upload_edges(path, env.agent_catalog)
+            self.upload_edges_by_leaf[leaf] = upload_edges
+            self.barrier_stop_prefix_by_leaf[leaf] = compute_shared_upload_stop_prefix(
+                path,
+                env.agent_catalog,
+            )
+            leaf_weight = self._shared_leaf_weight(leaf)
+            for edge in upload_edges:
+                shared_reachable_counts[edge] = shared_reachable_counts.get(edge, 0) + 1
+                self.shared_edge_mass[edge] = self.shared_edge_mass.get(edge, 0.0) + leaf_weight
+
+        for prefix, child_prefixes in parent_children.items():
+            full_share_children: list[bool] = []
+            for child_prefix in child_prefixes:
+                edge = (prefix, child_prefix)
+                descendant_count = total_descendant_counts.get(edge, 0)
+                shared_reachable_count = shared_reachable_counts.get(edge, 0)
+                is_full_share_child = (
+                    descendant_count > 0 and shared_reachable_count == descendant_count
                 )
+                blocked_count = max(0, descendant_count - shared_reachable_count)
 
-        subtree_nonleaf_all_share.setdefault((), True)
-        for prefix in all_prefixes:
-            subtree_nonleaf_all_share.setdefault(prefix, True)
+                self.descendant_leaf_count[edge] = descendant_count
+                self.shared_reachable_leaf_count[edge] = shared_reachable_count
+                self.full_share_child_edges[edge] = is_full_share_child
+                self.unshared_edge_count[edge] = blocked_count
+                # Debug-only: descendants that do not expose shared aggregate across
+                # this parent-child interface.
+                self.unshared_edge_mass[edge] = float(blocked_count)
+                full_share_children.append(is_full_share_child)
 
-        for prefix in all_prefixes:
-            descendant_leaf_types = descendant_types.get(prefix, set())
-            self.safe_prefixes[prefix] = (
-                bool(descendant_leaf_types)
-                and descendant_leaf_types == {"shared"}
-                and subtree_nonleaf_all_share.get(prefix, True)
+            self.safe_prefixes[prefix] = bool(full_share_children) and all(full_share_children)
+            self.mixed_prefixes[prefix] = (
+                bool(full_share_children)
+                and any(full_share_children)
+                and not all(full_share_children)
             )
 
-        for path in self.paths:
-            leaf = tuple(path)
-            if self.leaf_types[leaf] != "shared":
-                continue
-            leaf_weight = self._shared_leaf_weight(leaf)
-            for depth in range(len(leaf)):
-                prefix = tuple(leaf[:depth])
-                child_prefix = tuple(leaf[: depth + 1])
-                if not self.safe_prefixes.get(prefix, False):
-                    continue
-                edge = (prefix, child_prefix)
-                shared_prefix_mass[edge] = shared_prefix_mass.get(edge, 0.0) + leaf_weight
-
-        for path in self.paths:
-            leaf = tuple(path)
-            for depth in range(len(leaf)):
-                prefix = tuple(leaf[:depth])
-                child_prefix = tuple(leaf[: depth + 1])
-                edge = (prefix, child_prefix)
-                self.shared_edge_mass[edge] = shared_prefix_mass.get(edge, 0.0)
-                self.unshared_edge_count[edge] = unshared_descendant_counts.get(edge, 0)
-                # Keep this debug mass around for inspection, but it is no longer
-                # the risky exploit state.
-                self.unshared_edge_mass[edge] = float(self.unshared_edge_count[edge])
-                if not self.safe_prefixes.get(prefix, False):
-                    self.risky_theta.setdefault(edge, 0.0)
+        for edge in total_descendant_counts:
+            if not self.safe_prefixes.get(edge[0], False):
+                self.risky_theta.setdefault(edge, 0.0)
 
     def select_path(self, instance: dict[str, Any], env: FixedTreeEnvironment) -> list[str]:
         del instance
@@ -166,6 +171,12 @@ class RiskyPSPolicy(BasePolicy):
                     "conditional_prob": conditional_prob,
                     "edge_prob": prefix_reach_prob * conditional_prob,
                     "is_safe_prefix": self.safe_prefixes.get(current_prefix, False),
+                    "is_full_share_parent": self.safe_prefixes.get(current_prefix, False),
+                    "is_mixed_parent": self.mixed_prefixes.get(current_prefix, False),
+                    "is_full_share_child": self.full_share_child_edges.get(
+                        (current_prefix, child_prefix),
+                        False,
+                    ),
                 }
             )
             prefix_reach_prob *= conditional_prob
@@ -202,7 +213,7 @@ class RiskyPSPolicy(BasePolicy):
             barrier_stop_prefix = list(barrier_prefix) if barrier_prefix is not None else None
 
         self.last_update_info = {
-            "update_type": "risky_ps_barrier_v1",
+            "update_type": "risky_ps_layered_barrier_v2",
             "leaf_type": self.leaf_types.get(leaf),
             "observed_cost": episode_result.total_cost,
             "risky_edges_updated": risky_edge_updates,
@@ -210,6 +221,7 @@ class RiskyPSPolicy(BasePolicy):
             "shared_leaf_estimated_loss": shared_estimated_loss,
             "shared_delta": shared_delta,
             "shared_safe_suffix_edges_updated": shared_safe_suffix_edges_updated,
+            "shared_upload_edges_updated": list(shared_safe_suffix_edges_updated),
             "barrier_stop_prefix": barrier_stop_prefix,
         }
 
@@ -320,19 +332,10 @@ class RiskyPSPolicy(BasePolicy):
         leaf: LeafKey,
         delta: float,
     ) -> tuple[list[EdgeKey], PrefixKey | None]:
-        touched_edges: list[EdgeKey] = []
-        barrier_stop_prefix: PrefixKey | None = None
-        for depth in range(len(leaf) - 1, -1, -1):
-            prefix = tuple(leaf[:depth])
-            child_prefix = tuple(leaf[: depth + 1])
-            if not self.safe_prefixes.get(prefix, False):
-                barrier_stop_prefix = prefix
-                break
-            edge = (prefix, child_prefix)
+        touched_edges = list(self.upload_edges_by_leaf.get(leaf, []))
+        for edge in touched_edges:
             self.shared_edge_mass[edge] = self.shared_edge_mass.get(edge, 0.0) + delta
-            touched_edges.append(edge)
-        touched_edges.reverse()
-        return touched_edges, barrier_stop_prefix
+        return touched_edges, self.barrier_stop_prefix_by_leaf.get(leaf)
 
     def _sampled_risky_edge_infos(self) -> list[dict[str, Any]]:
         return [
@@ -372,9 +375,13 @@ class RiskyPSPolicy(BasePolicy):
             "eta": self.eta,
             "epsilon": self.epsilon,
             "num_paths": len(self.paths),
-            "num_safe_prefixes": sum(1 for is_safe in self.safe_prefixes.values() if is_safe),
+            "num_full_share_parents": sum(1 for is_safe in self.safe_prefixes.values() if is_safe),
+            "num_mixed_parents": sum(1 for is_mixed in self.mixed_prefixes.values() if is_mixed),
             "num_risky_prefixes": sum(1 for is_safe in self.safe_prefixes.values() if not is_safe),
-            "num_safe_aggregate_edges": sum(1 for value in self.shared_edge_mass.values() if value > 0),
+            "num_full_share_child_edges": sum(
+                1 for is_full_share in self.full_share_child_edges.values() if is_full_share
+            ),
+            "num_exposed_shared_edges": sum(1 for value in self.shared_edge_mass.values() if value > 0),
             "num_risky_theta_edges": len(self.risky_theta),
             "shared_mass_total": round(shared_mass_total, 6),
             "debug_unshared_descendant_edge_count": sum(1 for value in self.unshared_edge_count.values() if value > 0),
@@ -393,10 +400,13 @@ class RiskyPSPolicy(BasePolicy):
                     "prefix_reach_prob": edge["prefix_reach_prob"],
                     "conditional_prob": edge["conditional_prob"],
                     "edge_prob": edge["edge_prob"],
-                    "is_safe_prefix": edge["is_safe_prefix"],
+                    "is_safe_prefix": edge.get("is_safe_prefix", False),
+                    "is_full_share_parent": edge.get("is_full_share_parent", False),
+                    "is_mixed_parent": edge.get("is_mixed_parent", False),
+                    "is_full_share_child": edge.get("is_full_share_child", False),
                 }
                 for edge in self.last_sampled_edges
             ],
-            "update_type": "risky_ps_barrier_v1",
+            "update_type": "risky_ps_layered_barrier_v2",
             "last_update_info": dict(self.last_update_info),
         }

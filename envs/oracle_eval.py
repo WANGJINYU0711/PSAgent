@@ -7,39 +7,60 @@ from typing import Any, Iterable
 from fixed_tree_env import EpisodeResult, FixedTreeEnvironment
 
 
-def enumerate_all_paths(env: FixedTreeEnvironment) -> list[list[str]]:
-    """Enumerate all complete fixed-tree paths from the environment catalog."""
+def enumerate_family_paths(
+    *,
+    stages: list[str],
+    stage_agents: dict[str, list[str]],
+    allowed_children: dict[tuple[str, ...], list[str]] | None = None,
+) -> list[tuple[str, ...]]:
+    """Enumerate complete paths from family stage metadata."""
 
-    family_spec = getattr(env, "family_spec", None)
-    allowed_children = getattr(family_spec, "allowed_children", None)
     if allowed_children:
-        out: list[list[str]] = []
+        out: list[tuple[str, ...]] = []
 
         def dfs(prefix: tuple[str, ...]) -> None:
-            if len(prefix) == len(env.STAGE_NAMES):
-                out.append(list(prefix))
+            if len(prefix) == len(stages):
+                out.append(prefix)
                 return
             child_ids = allowed_children.get(prefix)
             if child_ids is None:
-                stage_name = env.STAGE_NAMES[len(prefix)]
-                child_ids = [agent.agent_id for agent in env.agents_by_stage[stage_name]]
+                child_ids = stage_agents[stages[len(prefix)]]
             for agent_id in child_ids:
                 dfs(prefix + (agent_id,))
 
         dfs(())
         return out
 
-    stage_agent_ids: list[list[str]] = []
+    out: list[tuple[str, ...]] = [()]
+    for stage_name in stages:
+        out = [
+            prefix + (agent_id,)
+            for prefix in out
+            for agent_id in stage_agents[stage_name]
+        ]
+    return out
+
+
+def enumerate_all_paths(env: FixedTreeEnvironment) -> list[list[str]]:
+    """Enumerate all complete fixed-tree paths from the environment catalog."""
+
+    family_spec = getattr(env, "family_spec", None)
+    allowed_children = getattr(family_spec, "allowed_children", None)
+    stage_agents: dict[str, list[str]] = {}
     for stage_name in env.STAGE_NAMES:
         agent_ids = [agent.agent_id for agent in env.agents_by_stage[stage_name]]
         if not agent_ids:
             raise ValueError(f"No agents registered for stage {stage_name}.")
-        stage_agent_ids.append(agent_ids)
+        stage_agents[stage_name] = agent_ids
 
-    out: list[list[str]] = [[]]
-    for agent_ids in stage_agent_ids:
-        out = [prefix + [agent_id] for prefix in out for agent_id in agent_ids]
-    return out
+    return [
+        list(path)
+        for path in enumerate_family_paths(
+            stages=list(env.STAGE_NAMES),
+            stage_agents=stage_agents,
+            allowed_children=allowed_children,
+        )
+    ]
 
 
 def evaluate_path(

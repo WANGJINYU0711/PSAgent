@@ -175,10 +175,13 @@ class StagewiseScorePolicy(BasePolicy):
 
 
 class StagewiseExp3Policy(BasePolicy):
-    """A compact stagewise EXP3-style selector.
+    """A strict tree-local stagewise multiplicative bandit.
 
-    This is intentionally lightweight: each stage maintains an independent set
-    of adversarial-bandit weights and updates only the sampled child.
+    The learned objects are local parent-child interfaces rather than global
+    stage agents: even if the family reuses the same child agent id under
+    multiple prefixes, each ``(prefix, child_prefix)`` pair is treated as its
+    own arm. Selection simply normalizes the local child weights; there is no
+    explicit exploration mixture.
     """
 
     def __init__(
@@ -195,41 +198,67 @@ class StagewiseExp3Policy(BasePolicy):
         self.epsilon = epsilon
         self.estimator_type = estimator_type
         self.update_type = update_type
-        self.weights: dict[str, float] = {}
+        self.weights: dict[tuple[tuple[str, ...], tuple[str, ...]], float] = {}
         self.last_path_probs: list[float] = []
         self.last_stage_probs: dict[str, float] = {}
         self.last_stage_arm_counts: dict[str, int] = {}
         self.last_path_prob: float = 0.0
+        self.last_selected_edges: list[dict[str, Any]] = []
 
     def bind_env(self, env: FixedTreeEnvironment) -> None:
         super().bind_env(env)
-        for agent_ids in self.stage_agent_ids.values():
-            for agent_id in agent_ids:
-                self.weights.setdefault(agent_id, 1.0)
+        self.last_path_probs = []
+        self.last_stage_probs = {}
+        self.last_stage_arm_counts = {}
+        self.last_path_prob = 0.0
+        self.last_selected_edges = []
 
-    def _stage_probs(self, agent_ids: list[str]) -> list[float]:
-        weight_sum = sum(self.weights[agent_id] for agent_id in agent_ids)
+    def _edge_key(
+        self,
+        current_prefix: tuple[str, ...],
+        child_prefix: tuple[str, ...],
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        return (tuple(current_prefix), tuple(child_prefix))
+
+    def _edge_weight(
+        self,
+        current_prefix: tuple[str, ...],
+        child_prefix: tuple[str, ...],
+    ) -> float:
+        return self.weights.setdefault(self._edge_key(current_prefix, child_prefix), 1.0)
+
+    def _child_prefixes(
+        self,
+        current_prefix: tuple[str, ...],
+        agent_ids: list[str],
+    ) -> list[tuple[str, ...]]:
+        return [tuple(current_prefix + (agent_id,)) for agent_id in agent_ids]
+
+    def _stage_probs(
+        self,
+        current_prefix: tuple[str, ...],
+        child_prefixes: list[tuple[str, ...]],
+    ) -> list[float]:
+        local_weights = [self._edge_weight(current_prefix, child_prefix) for child_prefix in child_prefixes]
+        weight_sum = sum(max(0.0, weight) for weight in local_weights)
         if weight_sum <= 0:
-            base = 1.0 / len(agent_ids)
-            return [base for _ in agent_ids]
+            base = 1.0 / len(child_prefixes)
+            return [base for _ in child_prefixes]
 
-        probs: list[float] = []
-        num_arms = len(agent_ids)
-        for agent_id in agent_ids:
-            exploit = self.weights[agent_id] / weight_sum
-            mixed = (1.0 - self.gamma) * exploit + self.gamma / num_arms
-            mixed = (1.0 - self.epsilon) * mixed + self.epsilon / num_arms
-            probs.append(mixed)
-        return probs
+        return [max(0.0, weight) / weight_sum for weight in local_weights]
 
-    def _sample_from_probs(self, agent_ids: list[str], probs: list[float]) -> tuple[str, float]:
+    def _sample_from_probs(
+        self,
+        child_prefixes: list[tuple[str, ...]],
+        probs: list[float],
+    ) -> tuple[tuple[str, ...], float]:
         draw = self.rng.random()
         cumulative = 0.0
-        for agent_id, prob in zip(agent_ids, probs):
+        for child_prefix, prob in zip(child_prefixes, probs):
             cumulative += prob
             if draw <= cumulative:
-                return agent_id, prob
-        return agent_ids[-1], probs[-1]
+                return child_prefix, prob
+        return child_prefixes[-1], probs[-1]
 
     def select_path(self, instance: dict[str, Any], env: FixedTreeEnvironment) -> list[str]:
         del instance
@@ -240,16 +269,28 @@ class StagewiseExp3Policy(BasePolicy):
         self.last_path_probs = []
         self.last_stage_probs = {}
         self.last_stage_arm_counts = {}
+        self.last_selected_edges = []
         current_prefix: tuple[str, ...] = ()
         for stage_name in env.STAGE_NAMES:
             agent_ids = self._legal_agent_ids_for_prefix(current_prefix, stage_name, env)
-            probs = self._stage_probs(agent_ids)
-            agent_id, prob = self._sample_from_probs(agent_ids, probs)
-            path.append(agent_id)
+            child_prefixes = self._child_prefixes(current_prefix, agent_ids)
+            probs = self._stage_probs(current_prefix, child_prefixes)
+            child_prefix, prob = self._sample_from_probs(child_prefixes, probs)
+            path.append(child_prefix[-1])
             self.last_path_probs.append(prob)
             self.last_stage_probs[stage_name] = prob
-            self.last_stage_arm_counts[stage_name] = len(agent_ids)
-            current_prefix = current_prefix + (agent_id,)
+            self.last_stage_arm_counts[stage_name] = len(child_prefixes)
+            self.last_selected_edges.append(
+                {
+                    "stage_name": stage_name,
+                    "prefix": current_prefix,
+                    "child_prefix": child_prefix,
+                    "path_prob": prob,
+                    "arm_count": len(child_prefixes),
+                    "weight_before_update": self._edge_weight(current_prefix, child_prefix),
+                }
+            )
+            current_prefix = child_prefix
         path_prob = 1.0
         for prob in self.last_path_probs:
             path_prob *= prob
@@ -257,21 +298,29 @@ class StagewiseExp3Policy(BasePolicy):
         return path
 
     def update(self, episode_result: EpisodeResult) -> None:
-        for stage_name, agent_id, prob in zip(
-            self.stage_agent_ids.keys(),
-            episode_result.selected_path,
-            self.last_path_probs,
-        ):
-            arms = max(1, self.last_stage_arm_counts.get(stage_name, len(self.stage_agent_ids[stage_name])))
+        if len(self.last_selected_edges) != len(episode_result.selected_path):
+            raise RuntimeError(
+                "StagewiseExp3Policy update called without matching select_path metadata. "
+                f"selected_path_len={len(episode_result.selected_path)} "
+                f"last_selected_edges={len(self.last_selected_edges)}"
+            )
+
+        for selected_edge in self.last_selected_edges:
+            stage_name = str(selected_edge["stage_name"])
+            current_prefix = tuple(selected_edge["prefix"])
+            child_prefix = tuple(selected_edge["child_prefix"])
+            prob = float(selected_edge["path_prob"])
+            arms = max(1, int(selected_edge["arm_count"]))
+            edge_key = self._edge_key(current_prefix, child_prefix)
             if self.estimator_type == "loss":
                 estimated_signal = episode_result.total_cost / max(prob, 1e-12)
-                self.weights[agent_id] *= math.exp(
+                self.weights[edge_key] = self._edge_weight(current_prefix, child_prefix) * math.exp(
                     -self.gamma * estimated_signal / arms
                 )
             elif self.estimator_type == "reward":
                 reward = 1.0 / (1.0 + episode_result.total_cost)
                 estimated_signal = reward / max(prob, 1e-12)
-                self.weights[agent_id] *= math.exp(
+                self.weights[edge_key] = self._edge_weight(current_prefix, child_prefix) * math.exp(
                     self.gamma * estimated_signal / arms
                 )
             else:
@@ -280,28 +329,47 @@ class StagewiseExp3Policy(BasePolicy):
                 )
             self.last_stage_probs[stage_name] = prob
 
-    def _stage_for_agent(self, agent_id: str) -> str:
-        for stage_name, agent_ids in self.stage_agent_ids.items():
-            if agent_id in agent_ids:
-                return stage_name
-        raise KeyError(f"Unknown agent id in policy state: {agent_id}")
-
     def get_state(self) -> dict[str, Any]:
+        top_local_edges = sorted(
+            self.weights.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )[:10]
         return {
             "protocol_mode": self.protocol_mode,
-            "gamma": self.gamma,
-            "epsilon": self.epsilon,
+            "update_scale_gamma": self.gamma,
+            "explicit_exploration": "none",
             "estimator_type": self.estimator_type,
             "update_type": self.update_type,
-            "weights": {agent_id: round(weight, 6) for agent_id, weight in sorted(self.weights.items())},
+            "num_local_edge_arms": len(self.weights),
+            "top_local_edge_weights": [
+                {
+                    "prefix": list(prefix),
+                    "child_prefix": list(child_prefix),
+                    "weight": round(weight, 6),
+                }
+                for (prefix, child_prefix), weight in top_local_edges
+            ],
         }
 
     def get_last_selection_info(self) -> dict[str, Any]:
         return {
             "stage_probs": dict(self.last_stage_probs),
+            "selected_edges": [
+                {
+                    "stage_name": str(edge["stage_name"]),
+                    "prefix": list(edge["prefix"]),
+                    "child_prefix": list(edge["child_prefix"]),
+                    "prob": float(edge["path_prob"]),
+                    "arm_count": int(edge["arm_count"]),
+                    "weight_before_update": float(edge["weight_before_update"]),
+                }
+                for edge in self.last_selected_edges
+            ],
             "path_prob": self.last_path_prob,
             "estimator_type": self.estimator_type,
             "update_type": self.update_type,
+            "explicit_exploration": "none",
         }
 
 

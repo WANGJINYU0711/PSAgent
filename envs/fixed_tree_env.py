@@ -6,7 +6,7 @@ supports:
 
 - reset(instance)
 - run_path(path)
-- shared/unshared leaf typing via z(l)=max_h g(a_h)
+- leaf start-condition typing plus layered shared-upload barrier helpers
 - simple terminal-cost computation
 - default oracle-like and noisy rule-based stage executors
 """
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Sequence
 
 from evaluator import DEFAULT_COST_SPEC, evaluate_terminal_prediction
 from adapters.airline_adapter import AirlineTaskAdapter
@@ -36,6 +36,76 @@ from tree_family.generator import TreeFamilyGenerator
 
 JsonDict = dict[str, Any]
 StageExecutor = Callable[["FixedTreeEnvironment", "AgentSpec", JsonDict], JsonDict]
+PrefixKey = tuple[str, ...]
+EdgeKey = tuple[PrefixKey, PrefixKey]
+
+
+def leaf_starts_shared_upload(
+    path: Sequence[str],
+    agent_lookup: Mapping[str, Any],
+) -> bool:
+    """Return whether the sampled leaf can start a shared upload."""
+
+    if not path:
+        return False
+    return int(getattr(agent_lookup[path[-1]], "g", 1)) == 0
+
+
+def compute_shared_upload_edges(
+    path: Sequence[str],
+    agent_lookup: Mapping[str, Any],
+) -> list[EdgeKey]:
+    """Return the parent-child edges traversed by one shared upload.
+
+    The sampled leaf must have ``g=0`` to start an upload. Once started, the
+    update walks upward edge-by-edge until it reaches the first internal node
+    whose ``g=1``; that node can receive the update from its children but cannot
+    forward it to its own parent.
+    """
+
+    if not leaf_starts_shared_upload(path, agent_lookup):
+        return []
+
+    child_prefix: PrefixKey = tuple(path)
+    edges: list[EdgeKey] = []
+    while child_prefix:
+        parent_prefix = child_prefix[:-1]
+        edges.append((parent_prefix, child_prefix))
+        if not parent_prefix:
+            break
+        if int(getattr(agent_lookup[parent_prefix[-1]], "g", 1)) != 0:
+            break
+        child_prefix = parent_prefix
+    return edges
+
+
+def compute_shared_upload_stop_prefix(
+    path: Sequence[str],
+    agent_lookup: Mapping[str, Any],
+) -> PrefixKey | None:
+    """Return the first internal barrier prefix that stops upward upload."""
+
+    upload_edges = compute_shared_upload_edges(path, agent_lookup)
+    if not upload_edges:
+        return None
+    stop_prefix = upload_edges[-1][0]
+    if not stop_prefix:
+        return None
+    if int(getattr(agent_lookup[stop_prefix[-1]], "g", 1)) == 1:
+        return stop_prefix
+    return None
+
+
+def compute_first_private_barrier_depth(
+    path: Sequence[str],
+    agent_lookup: Mapping[str, Any],
+) -> int | None:
+    """Return the 1-indexed stage depth of the first ``g=1`` node on a path."""
+
+    for depth, agent_id in enumerate(path, start=1):
+        if int(getattr(agent_lookup[agent_id], "g", 1)) == 1:
+            return depth
+    return None
 
 
 @dataclass(frozen=True)
@@ -376,11 +446,12 @@ class FixedTreeEnvironment:
             .get("final_action")
         )
         success = bool(evaluator_result["exact_match"])
+        leaf_type = self.compute_leaf_type(path)
 
         episode_log = {
             "instance_id": self.current_instance_id,
             "selected_path": list(path),
-            "leaf_type": execution["leaf_type"],
+            "leaf_type": leaf_type,
             "stage_trace": deepcopy(execution.get("stage_trace", [])),
             "final_action": final_action,
             "oracle_action": oracle_action,
@@ -414,7 +485,7 @@ class FixedTreeEnvironment:
         return EpisodeResult(
             instance_id=self.current_instance_id or "unknown_instance",
             selected_path=list(path),
-            leaf_type=execution["leaf_type"],
+            leaf_type=leaf_type,
             stage_outputs=stage_outputs,
             final_action=final_action,
             oracle_action=oracle_action,
@@ -464,11 +535,28 @@ class FixedTreeEnvironment:
         return stage_outputs
 
     def compute_leaf_type(self, path: list[str]) -> str:
-        """Compute shared/unshared leaf type from z(l)=max_h g(a_h)."""
+        """Compute shared/unshared leaf type from the sampled leaf start condition."""
 
         self._validate_path(path)
-        z_value = max(self.agent_catalog[agent_id].g for agent_id in path)
-        return "shared" if z_value == 0 else "unshared"
+        return "shared" if self.leaf_starts_shared_upload(path) else "unshared"
+
+    def leaf_starts_shared_upload(self, path: list[str]) -> bool:
+        """Return whether the sampled leaf can start a shared upload."""
+
+        self._validate_path(path)
+        return leaf_starts_shared_upload(path, self.agent_catalog)
+
+    def compute_shared_upload_edges(self, path: list[str]) -> list[EdgeKey]:
+        """Return the upward shared-upload edges for one sampled path."""
+
+        self._validate_path(path)
+        return compute_shared_upload_edges(path, self.agent_catalog)
+
+    def compute_shared_upload_stop_prefix(self, path: list[str]) -> PrefixKey | None:
+        """Return the internal barrier node where upward upload stops, if any."""
+
+        self._validate_path(path)
+        return compute_shared_upload_stop_prefix(path, self.agent_catalog)
 
     def compute_terminal_cost(
         self,

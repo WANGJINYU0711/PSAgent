@@ -260,6 +260,8 @@ class TreeFamilyGenerator:
                         stage_name=stage_name,
                         profile=profile,
                     ),
+                    node_semantic=str(profile.get("node_semantic", "mixed_shared")),
+                    route_label=str(profile.get("route_label", "")),
                 )
             )
         return specs
@@ -399,10 +401,9 @@ class TreeFamilyGenerator:
         focus = set(STAGE_FOCUS[stage_name])
         anchors = set(profile.get("anchor_caps", []))
         supports = set(profile.get("support_caps", []))
-        is_shared = profile.get("profile_kind") == "shared_basin"
-        ranges = config["shared_skill_ranges"] if is_shared else config["specialist_skill_ranges"]
-
-        focus_fallback = config.get("shared_focus_fallback_range", ranges["support"])
+        node_semantic = str(profile.get("node_semantic", "mixed_shared"))
+        ranges = config["semantic_skill_ranges"][node_semantic]
+        focus_fallback = ranges.get("focus_fallback", ranges["support"])
 
         values: dict[str, float] = {}
         for capability_name in CAPABILITY_NAMES:
@@ -410,7 +411,7 @@ class TreeFamilyGenerator:
                 lo, hi = ranges["anchor"]
             elif capability_name in supports:
                 lo, hi = ranges["support"]
-            elif is_shared and capability_name in focus:
+            elif capability_name in focus:
                 lo, hi = focus_fallback
             else:
                 lo, hi = ranges["background"]
