@@ -1,0 +1,233 @@
+{
+  "depth": 5,
+  "stages": [
+    "stage1",
+    "stage2",
+    "stage3",
+    "stage4",
+    "stage5"
+  ],
+  "root_branching": 5,
+  "min_branching": 5,
+  "max_branching": 5,
+  "mean_branching": 5.0,
+  "num_paths": 3125,
+  "total_agent_ids": 3905,
+  "total_nodes": 3905,
+  "duplicate_agent_count": 0,
+  "duplicate_agent_ids": {},
+  "cross_prefix_duplicate_count": 0,
+  "cross_prefix_duplicate_agent_ids": [],
+  "cross_prefix_reuse_rate": 0.0,
+  "alias_duplicate_count": 0,
+  "g_counts_by_stage": {
+    "stage1": {
+      "0": 4,
+      "1": 1
+    },
+    "stage2": {
+      "0": 20,
+      "1": 5
+    },
+    "stage3": {
+      "0": 100,
+      "1": 25
+    },
+    "stage4": {
+      "0": 500,
+      "1": 125
+    },
+    "stage5": {
+      "0": 2500,
+      "1": 625
+    }
+  },
+  "expanded_share_fraction_by_stage": {
+    "stage1": 0.8,
+    "stage2": 0.8,
+    "stage3": 0.8,
+    "stage4": 0.8,
+    "stage5": 0.8
+  },
+  "base_alias_counts_by_stage": {
+    "stage1": {
+      "stage1_n1": 1,
+      "stage1_n2": 1,
+      "stage1_n3": 1,
+      "stage1_n4": 1,
+      "stage1_n5": 1
+    },
+    "stage2": {
+      "stage2_n1": 5,
+      "stage2_n2": 5,
+      "stage2_n3": 5,
+      "stage2_n4": 5,
+      "stage2_n5": 5
+    },
+    "stage3": {
+      "stage3_n1": 25,
+      "stage3_n2": 25,
+      "stage3_n3": 25,
+      "stage3_n4": 25,
+      "stage3_n5": 25
+    },
+    "stage4": {
+      "stage4_n1": 125,
+      "stage4_n2": 125,
+      "stage4_n3": 125,
+      "stage4_n4": 125,
+      "stage4_n5": 125
+    },
+    "stage5": {
+      "stage5_n1": 625,
+      "stage5_n2": 625,
+      "stage5_n3": 625,
+      "stage5_n4": 625,
+      "stage5_n5": 625
+    }
+  },
+  "share_barrier_summary": {
+    "g0_total": 3124,
+    "g1_total": 781,
+    "share_ratio_per_parent": "4/5",
+    "barrier_node_count": 781,
+    "barrier_node_sample": [
+      "s1_root_c05_agent",
+      "s2_n0001_c05_agent",
+      "s2_n0002_c05_agent",
+      "s2_n0003_c05_agent",
+      "s2_n0004_c05_agent",
+      "s2_n0005_c05_agent",
+      "s3_n0006_c05_agent",
+      "s3_n0007_c05_agent",
+      "s3_n0008_c05_agent",
+      "s3_n0009_c05_agent",
+      "s3_n0010_c05_agent",
+      "s3_n0011_c05_agent"
+    ]
+  },
+  "metadata": {
+    "purpose": "fair unique-agent harder tree for ancestor-chain RiskyPS",
+    "construction": "full-branching prefix-expanded unique-agent 4/5-share tree",
+    "agent_reuse_policy": "unique_per_parent_no_cross_prefix_reuse",
+    "cross_prefix_reuse_rate": 0.0,
+    "no_cross_prefix_suffix_family": true,
+    "compatible_with": [
+      "risky_ps",
+      "barriershare_controlled_sim"
+    ],
+    "share_ratio_definition": "every internal node has five direct children with four g=0 shareable interfaces and one g=1 barrier/unshare interface",
+    "design_notes": [
+      "This is a full Cartesian tree with L=5 and K=5 at every internal node.",
+      "Every parent-child occurrence gets its own unique agent_id.",
+      "base_alias is retained only as latent-role provenance for existing controlled-sim loaders.",
+      "No child alias or agent id is reused across prefixes."
+    ],
+    "depth": 5,
+    "stages": [
+      "stage1",
+      "stage2",
+      "stage3",
+      "stage4",
+      "stage5"
+    ],
+    "root_branching": 5,
+    "min_branching": 5,
+    "max_branching": 5,
+    "mean_branching": 5.0,
+    "num_paths": 3125,
+    "total_agent_ids": 3905,
+    "total_nodes": 3905,
+    "duplicate_agent_count": 0,
+    "duplicate_agent_ids": {},
+    "cross_prefix_duplicate_count": 0,
+    "cross_prefix_duplicate_agent_ids": [],
+    "alias_duplicate_count": 0,
+    "g_counts_by_stage": {
+      "stage1": {
+        "0": 4,
+        "1": 1
+      },
+      "stage2": {
+        "0": 20,
+        "1": 5
+      },
+      "stage3": {
+        "0": 100,
+        "1": 25
+      },
+      "stage4": {
+        "0": 500,
+        "1": 125
+      },
+      "stage5": {
+        "0": 2500,
+        "1": 625
+      }
+    },
+    "expanded_share_fraction_by_stage": {
+      "stage1": 0.8,
+      "stage2": 0.8,
+      "stage3": 0.8,
+      "stage4": 0.8,
+      "stage5": 0.8
+    },
+    "base_alias_counts_by_stage": {
+      "stage1": {
+        "stage1_n1": 1,
+        "stage1_n2": 1,
+        "stage1_n3": 1,
+        "stage1_n4": 1,
+        "stage1_n5": 1
+      },
+      "stage2": {
+        "stage2_n1": 5,
+        "stage2_n2": 5,
+        "stage2_n3": 5,
+        "stage2_n4": 5,
+        "stage2_n5": 5
+      },
+      "stage3": {
+        "stage3_n1": 25,
+        "stage3_n2": 25,
+        "stage3_n3": 25,
+        "stage3_n4": 25,
+        "stage3_n5": 25
+      },
+      "stage4": {
+        "stage4_n1": 125,
+        "stage4_n2": 125,
+        "stage4_n3": 125,
+        "stage4_n4": 125,
+        "stage4_n5": 125
+      },
+      "stage5": {
+        "stage5_n1": 625,
+        "stage5_n2": 625,
+        "stage5_n3": 625,
+        "stage5_n4": 625,
+        "stage5_n5": 625
+      }
+    },
+    "share_barrier_summary": {
+      "g0_total": 3124,
+      "g1_total": 781,
+      "share_ratio_per_parent": "4/5",
+      "barrier_node_count": 781,
+      "barrier_node_sample": [
+        "s1_root_c05_agent",
+        "s2_n0001_c05_agent",
+        "s2_n0002_c05_agent",
+        "s2_n0003_c05_agent",
+        "s2_n0004_c05_agent",
+        "s2_n0005_c05_agent",
+        "s3_n0006_c05_agent",
+        "s3_n0007_c05_agent",
+        "s3_n0008_c05_agent",
+        "s3_n0009_c05_agent",
+        "s3_n0010_c05_agent",
+        "s3_n0011_c05_agent"
+      ]
+    }
+  }
+}

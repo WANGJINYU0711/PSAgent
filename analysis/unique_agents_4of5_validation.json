@@ -1,0 +1,261 @@
+{
+  "depth": 5,
+  "stages": [
+    "stage1",
+    "stage2",
+    "stage3",
+    "stage4",
+    "stage5"
+  ],
+  "root_branching": 5,
+  "min_branching": 1,
+  "max_branching": 5,
+  "mean_branching": 3.0324074074074074,
+  "num_paths": 440,
+  "total_agent_ids": 655,
+  "total_nodes": 655,
+  "duplicate_agent_count": 0,
+  "duplicate_agent_ids": {},
+  "cross_prefix_duplicate_count": 0,
+  "cross_prefix_duplicate_agent_ids": [],
+  "cross_prefix_reuse_rate": 0.0,
+  "alias_duplicate_count": 0,
+  "g_counts_by_stage": {
+    "stage1": {
+      "0": 4,
+      "1": 1
+    },
+    "stage2": {
+      "0": 15,
+      "1": 2
+    },
+    "stage3": {
+      "0": 38,
+      "1": 13
+    },
+    "stage4": {
+      "0": 116,
+      "1": 26
+    },
+    "stage5": {
+      "0": 388,
+      "1": 52
+    }
+  },
+  "expanded_node_share_fraction_by_stage": {
+    "stage1": 0.8,
+    "stage2": 0.8823529411764706,
+    "stage3": 0.7450980392156863,
+    "stage4": 0.8169014084507042,
+    "stage5": 0.8818181818181818
+  },
+  "base_alias_counts_by_stage": {
+    "stage1": {
+      "stage1_n1": 1,
+      "stage1_n2": 1,
+      "stage1_n3": 1,
+      "stage1_n4": 1,
+      "stage1_n5": 1
+    },
+    "stage2": {
+      "stage2_n1": 4,
+      "stage2_n2": 4,
+      "stage2_n3": 5,
+      "stage2_n4": 2,
+      "stage2_n5": 2
+    },
+    "stage3": {
+      "stage3_n1": 4,
+      "stage3_n2": 8,
+      "stage3_n3": 13,
+      "stage3_n4": 13,
+      "stage3_n5": 13
+    },
+    "stage4": {
+      "stage4_n1": 12,
+      "stage4_n2": 39,
+      "stage4_n3": 39,
+      "stage4_n4": 26,
+      "stage4_n5": 26
+    },
+    "stage5": {
+      "stage5_n1": 116,
+      "stage5_n2": 116,
+      "stage5_n3": 65,
+      "stage5_n4": 91,
+      "stage5_n5": 52
+    }
+  },
+  "share_barrier_summary": {
+    "g0_total": 561,
+    "g1_total": 94,
+    "base_profile_share_ratio": "4/5 in each source stage",
+    "barrier_node_count": 94,
+    "barrier_node_sample": [
+      "s1_root_c05_s1n5_agent",
+      "s2_n0004_c05_s2n5_agent",
+      "s2_n0005_c03_s2n5_agent",
+      "s3_n0007_c04_s3n5_agent",
+      "s3_n0008_c03_s3n5_agent",
+      "s3_n0010_c04_s3n5_agent",
+      "s3_n0011_c03_s3n5_agent",
+      "s3_n0013_c04_s3n5_agent",
+      "s3_n0014_c03_s3n5_agent",
+      "s3_n0016_c04_s3n5_agent",
+      "s3_n0017_c03_s3n5_agent",
+      "s3_n0018_c03_s3n5_agent"
+    ]
+  },
+  "metadata": {
+    "purpose": "align with ancestor-chain BarrierShare / RiskyPS",
+    "source_spec": "analysis/tree_specs/shared_basin_strong_4of5_minimal.json",
+    "construction": "prefix-expanded copy of the source 4/5-share DAG",
+    "no_cross_prefix_suffix_family": true,
+    "agent_reuse_policy": "unique_per_parent_low_reuse",
+    "cross_prefix_reuse_rate": 0.0,
+    "compatible_with": [
+      "risky_ps",
+      "barriershare_controlled_sim"
+    ],
+    "share_ratio_definition": "source stage profiles keep four g=0 share-capable profiles and one g=1 barrier/unshare profile",
+    "base_profile_gate_summary": {
+      "stage1": {
+        "g0_base_profiles": 4,
+        "g1_base_profiles": 1,
+        "base_profile_share_ratio": 0.8
+      },
+      "stage2": {
+        "g0_base_profiles": 4,
+        "g1_base_profiles": 1,
+        "base_profile_share_ratio": 0.8
+      },
+      "stage3": {
+        "g0_base_profiles": 4,
+        "g1_base_profiles": 1,
+        "base_profile_share_ratio": 0.8
+      },
+      "stage4": {
+        "g0_base_profiles": 4,
+        "g1_base_profiles": 1,
+        "base_profile_share_ratio": 0.8
+      },
+      "stage5": {
+        "g0_base_profiles": 4,
+        "g1_base_profiles": 1,
+        "base_profile_share_ratio": 0.8
+      }
+    },
+    "design_notes": [
+      "Every expanded node alias is a unique agent_id.",
+      "A base_alias is retained only as provenance for visualization and validation.",
+      "No child alias is attached to more than one parent.",
+      "The legal continuation pattern and gate values are inherited from the source minimal 4/5 spec."
+    ],
+    "depth": 5,
+    "stages": [
+      "stage1",
+      "stage2",
+      "stage3",
+      "stage4",
+      "stage5"
+    ],
+    "root_branching": 5,
+    "min_branching": 1,
+    "max_branching": 5,
+    "mean_branching": 3.0324074074074074,
+    "num_paths": 440,
+    "total_agent_ids": 655,
+    "total_nodes": 655,
+    "duplicate_agent_count": 0,
+    "duplicate_agent_ids": {},
+    "cross_prefix_duplicate_count": 0,
+    "cross_prefix_duplicate_agent_ids": [],
+    "alias_duplicate_count": 0,
+    "g_counts_by_stage": {
+      "stage1": {
+        "0": 4,
+        "1": 1
+      },
+      "stage2": {
+        "0": 15,
+        "1": 2
+      },
+      "stage3": {
+        "0": 38,
+        "1": 13
+      },
+      "stage4": {
+        "0": 116,
+        "1": 26
+      },
+      "stage5": {
+        "0": 388,
+        "1": 52
+      }
+    },
+    "expanded_node_share_fraction_by_stage": {
+      "stage1": 0.8,
+      "stage2": 0.8823529411764706,
+      "stage3": 0.7450980392156863,
+      "stage4": 0.8169014084507042,
+      "stage5": 0.8818181818181818
+    },
+    "base_alias_counts_by_stage": {
+      "stage1": {
+        "stage1_n1": 1,
+        "stage1_n2": 1,
+        "stage1_n3": 1,
+        "stage1_n4": 1,
+        "stage1_n5": 1
+      },
+      "stage2": {
+        "stage2_n1": 4,
+        "stage2_n2": 4,
+        "stage2_n3": 5,
+        "stage2_n4": 2,
+        "stage2_n5": 2
+      },
+      "stage3": {
+        "stage3_n1": 4,
+        "stage3_n2": 8,
+        "stage3_n3": 13,
+        "stage3_n4": 13,
+        "stage3_n5": 13
+      },
+      "stage4": {
+        "stage4_n1": 12,
+        "stage4_n2": 39,
+        "stage4_n3": 39,
+        "stage4_n4": 26,
+        "stage4_n5": 26
+      },
+      "stage5": {
+        "stage5_n1": 116,
+        "stage5_n2": 116,
+        "stage5_n3": 65,
+        "stage5_n4": 91,
+        "stage5_n5": 52
+      }
+    },
+    "share_barrier_summary": {
+      "g0_total": 561,
+      "g1_total": 94,
+      "base_profile_share_ratio": "4/5 in each source stage",
+      "barrier_node_count": 94,
+      "barrier_node_sample": [
+        "s1_root_c05_s1n5_agent",
+        "s2_n0004_c05_s2n5_agent",
+        "s2_n0005_c03_s2n5_agent",
+        "s3_n0007_c04_s3n5_agent",
+        "s3_n0008_c03_s3n5_agent",
+        "s3_n0010_c04_s3n5_agent",
+        "s3_n0011_c03_s3n5_agent",
+        "s3_n0013_c04_s3n5_agent",
+        "s3_n0014_c03_s3n5_agent",
+        "s3_n0016_c04_s3n5_agent",
+        "s3_n0017_c03_s3n5_agent",
+        "s3_n0018_c03_s3n5_agent"
+      ]
+    }
+  }
+}

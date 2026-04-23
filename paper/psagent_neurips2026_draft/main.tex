@@ -9,194 +9,234 @@
 \usepackage{booktabs}
 \usepackage{amsfonts}
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{nicefrac}
 \usepackage{microtype}
 \usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{multirow}
 
-\title{PSAgent: A Fixed-Tree Telecom Recovery Benchmark for Partial-Share Learning in Multi-Stage Systems}
+\title{BarrierShare: Barrier-Limited Partial Sharing for Multi-Stage Agent Workflows}
 
 \author{Anonymous Authors}
+
+\newcommand{\towrite}[1]{\noindent\textbf{What to write.} #1}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-Many practical agent systems operate under structured multi-stage workflows, where the final outcome depends on a sequence of coordinated decisions rather than on a single tool call or local action. However, existing agent benchmarks largely emphasize open-ended interaction and free-form planning, providing limited support for studying online learning under end-to-end feedback in fixed-topology workflows, where reproducibility, comparable path structure, and selective information sharing are central. To address this gap, we present \textbf{PSAgent}, a fixed-tree benchmark and evaluation protocol for partial-share learning in multi-stage agent systems. Our key insight is that a frozen task topology is not merely a simplification, but a necessary control layer for isolating how workflow structure, feedback sparsity, and information-sharing boundaries affect learning dynamics. Concretely, PSAgent instantiates a five-stage telecom MMS recovery workflow with structured oracle stage outputs, a blocker-level evaluator, explicit shared versus unshared path semantics, and a deterministic expansion from 49 to 100 tasks that balances blocker count, persona, terminal action, permission failures, ownership, and blocker layers. Experiments show that the benchmark is non-trivial under the simulated executor, with the best non-oracle algorithm-direct baseline reaching mean regret 0.885 on the frozen 49-task base, while interaction design has an even larger effect: for Risky-PS in the strong family, theta-guided agent selection reduces mean regret from 1.547 to 0.028, supporting PSAgent as a benchmark-and-protocol testbed for structured agent workflows with end-to-end feedback.
+Hierarchical decision systems are a general learning setting in which a terminal outcome is determined by sequential decisions made across multiple stages or agents.
+However, prior work has largely focused on the end-to-end bandit regime, leaving hierarchical learning with partially propagated terminal feedback underexplored. 
+To address this gap, we propose BarrierShare, a distributed online learning framework for hierarchical decision systems with partially propagated terminal feedback.
+Our key insight is that partial propagation is a structural property of the hierarchy: terminal information can be aggregated within shared regions, but must switch to local bandit-style learning once a propagation barrier is reached. 
+Concretely, BarrierShare combines recursive aggregation over barrier-free shared regions, local bandit updates at risky nodes, and barrier-limited delta propagation that stops at the first structural barrier.
+Experiments on simulation and fixed-stage agent workflows evaluate whether these mechanisms improve regret, preserve the predicted long-safe-suffix and depth-scaling behavior, and remain practical under LLM-call, token, and latency costs.
+
 \end{abstract}
 
 \section{Introduction}
 
-Many agentic systems are naturally multi-stage: one component identifies the user and task, another resolves entities, another extracts state, and downstream components decide what to execute and how to verify the result. In such systems, the final outcome depends on the whole path rather than on a single local action. This matches the end-to-end bandit setting studied by \citet{hou2024distributed}, but practical agent systems add two complications: stage outputs are structured, and some path information can be shared while other parts remain path-local.
+\towrite{Use the introduction to establish the full story in a compact five-paragraph arc: multi-stage agent systems naturally induce hierarchical decisions; end-to-end bandit feedback is the conservative starting point; full-share delta propagation exposes the value of reusable hierarchical feedback; real systems impose privacy, telemetry, provider, or specialist-boundary barriers; BarrierShare is the intermediate algorithmic model that connects this feedback structure back to fixed-stage agent workflows. Keep the full-share paragraph short: it should motivate the bridge, not replace the problem setup.}
 
-This paper is an initial draft built directly from the current PSAgent codebase. Our goal is not to claim a finalized empirical story yet. Instead, we freeze a concrete telecom recovery track, document the benchmark construction, and summarize the strongest evidence already supported by the repository.
+\begin{figure}[t]
+    \centering
+    \fbox{\rule{0pt}{1.8in}\rule{0.98\textwidth}{0pt}}
+    \caption{Planned Figure 1. The figure should tell the full paper story, not only the algorithm: end-to-end bandit treats terminal feedback as path-local; full-share propagates a leaf delta through the whole hierarchy; BarrierShare propagates the delta only through barrier-free regions and switches to local bandit learning at risky interfaces. A bottom panel should map these regimes to a fixed-stage agent workflow.}
+    \label{fig:overview}
+\end{figure}
 
-The draft makes three concrete contributions.
-\begin{enumerate}
-\item We define a fixed-tree telecom MMS recovery benchmark with five frozen stages, three terminal actions, and blocker-level evaluation.
-\item We instantiate partial-share learning in this benchmark through shared/unshared path semantics and a barrier-style Risky-PS baseline.
-\item We report preliminary results showing where current signal is strong enough to support a paper claim, and where the system is still too unstable for a final headline.
-\end{enumerate}
+\paragraph{Paragraph 1: multi-stage agent systems.}
+\towrite{Start from practical agent workflows, not from a generic LLM-agent opening. Give concrete stages such as grounding, entity resolution, feature extraction, adjudication, and execution. The main point is that performance depends on the entire root-to-leaf path, so local stage accuracy is not the right object by itself. Add one timely sentence: as workflow-constrained agents become more common, understanding what terminal feedback can be safely reused across stages is both practical and theoretically missing.}
 
-\section{Benchmark Setup}
+\paragraph{Paragraph 2: end-to-end bandit baseline and concrete limitations.}
+\towrite{Introduce multi-stage online learning with terminal-only feedback as the first formal lens. Connect this to end-to-end bandit learning: the algorithm chooses a path and only observes a terminal cost. Then make the limitation reviewer-friendly by naming two failure modes. \textbf{L1: Structural flattening.} End-to-end bandit treats all terminal feedback as path-local, ignoring whether part of it is valid supervision for shared prefixes or safe subtrees. \textbf{L2: Missing intermediate sharing regimes.} Prior formulations largely model either bandit-limited feedback or idealized full sharing, without explicitly modeling structural barriers that stop upward propagation partway through the hierarchy.}
 
-\subsection{Task family}
+\paragraph{Paragraph 3: research question, key insight, and full-share bridge.}
+\towrite{Open with an explicit research question, preferably in italics: \emph{Can terminal feedback in a hierarchical system be partially reused as supervision for shared prefixes, rather than treated as purely path-local bandit feedback?} Then state the key insight directly: \emph{Our key insight lies in viewing terminal feedback as a potentially sharable delta over the hierarchy.} Explain the insight in two short parts: (1) when sharing is complete, a safe subtree can use recursive shared aggregation and avoid paying bandit cost at every layer; (2) when sharing is blocked by a barrier, the learner must switch back to local bandit-style learning. This paragraph should make full-share the ideal endpoint and motivate BarrierShare as the realistic intermediate regime.}
 
-The benchmark family is \texttt{telecom\_mms\_recovery}. Each instance is a derived telecom support task whose goal is to restore MMS functionality. Every task is serialized as a fixed five-stage tree:
-\begin{enumerate}
-\item \texttt{stage1}: user grounding
-\item \texttt{stage2}: customer-line resolution
-\item \texttt{stage3}: observed feature extraction
-\item \texttt{stage4}: blocker adjudication and repair planning
-\item \texttt{stage5}: terminal execution decision
-\end{enumerate}
+\paragraph{Paragraph 4: barriers create the real problem.}
+\towrite{Explain why full-share is too idealized. In agent workflows, some branches may not reveal details because of privacy restrictions, vendor boundaries, specialist knowledge, internal policy, or restricted telemetry. Therefore the real regime is not ``share everything'' or ``share nothing'', but feedback that propagates upward only until it reaches a structural barrier. End the paragraph by naming BarrierShare as the algorithmic response: it uses shared delta aggregation inside barrier-free regions and bandit updates at risky or barrier-limited decision points.}
 
-Each task includes structured oracle outputs for all five stages. The benchmark therefore isolates the online decision problem from free-form prompt engineering and makes repeated comparison across algorithms possible.
+\paragraph{Paragraph 5: standardized contributions.}
+\towrite{Use a standard NeurIPS-style contribution block: ``Our contributions are summarized as follows.'' Then list exactly three contributions. \textbf{(1) A new feedback modeling perspective.} Identify barrier-limited upward propagation as the missing intermediate regime between end-to-end bandit feedback and full-share feedback. \textbf{(2) A novel method.} Propose BarrierShare, which combines recursive shared aggregation in safe regions with local bandit learning at risky or barrier-limited nodes, and analyze regret in terms of risky depth rather than only total depth. \textbf{(3) Theory and empirical validation.} Prove the structural regret behavior and validate it through simulation, long-safe-suffix/depth studies, and fixed-stage agent workflow experiments.}
 
-The terminal action space is fixed to three choices:
-\texttt{repair\_all}, \texttt{repair\_subset}, and \texttt{transfer}.
-These actions are derived from blocker ownership and repairability. In the current freeze, purely safe repairs lead to \texttt{repair\_all}, deferable assistant-side blockers can produce \texttt{repair\_subset}, and hybrid blockers trigger \texttt{transfer}.
+\section{Related Work}
 
-\subsection{Shared and unshared leaves}
+\towrite{Keep this section in the main paper because the paper sits between online learning theory and agent workflows. The section should be functional rather than catalog-like: each subsection should first state what role that literature plays in the paper, then summarize the closest work, and finally close with a different positioning sentence. The three roles are: theoretical starting point, feedback-structure bridge, and practical agent motivation.}
 
-The codebase assigns each stage agent a binary gate $g(a_h) \in \{0,1\}$. For a complete path $\ell = (a_1,\dots,a_5)$, the leaf type is
-\begin{equation}
-z(\ell) = \max_h g(a_h).
-\end{equation}
-If $z(\ell)=0$, the leaf is \emph{shared}; otherwise it is \emph{unshared}. This semantics is implemented in the environment and is the basis for full-share, full-unshare, and Risky-PS style algorithms.
+\subsection{Multi-Stage Online Learning with End-to-End Bandit Feedback}
 
-\subsection{Evaluation}
+\towrite{Opening function sentence: this line is the closest theoretical starting point for BarrierShare. Discuss multi-stage systems where a policy selects a sequence of decisions and observes only terminal loss, with Hou-style distributed no-regret learning as the primary reference. Explain that these works formalize the conservative bandit-only endpoint: the learner can update from the selected terminal cost but cannot reuse that feedback as prefix-level shared supervision. Closing positioning sentence: unlike this line of work, BarrierShare studies what changes when terminal feedback can propagate upward through part of the hierarchy before a barrier stops it.}
 
-The evaluator operates at blocker level rather than only checking the final action label. Given the predicted \texttt{stage5} output, it measures final-action mismatch, false selected blockers, missed selected blockers, false deferred blockers, missed deferred blockers, and transfer-specific errors. The raw terminal penalty is combined with a weighted path-agent cost:
-\begin{equation}
-\mathrm{raw\_total\_cost}
-=
-\mathrm{raw\_terminal\_penalty}
-\;+\;
-\lambda \cdot \mathrm{path\_agent\_cost},
-\end{equation}
-where $\lambda=0.1$ in the telecom MMS cost spec. The final score is the normalized total cost used by the environment. Formal regret is computed against the best \emph{stationary} path on the same instance horizon, not against a per-instance oracle.
+\subsection{Structured Feedback in Hierarchical Online Learning}
 
-\subsection{Balanced benchmark expansion}
+\towrite{Opening function sentence: this literature provides the feedback-structure perspective needed to interpret full-share as an idealized endpoint. Keep the boundary narrow: do not review all full-information learning. Focus on settings where feedback is reusable, structured, hierarchical, or informative for more than the sampled action. The key contrast is whether terminal feedback can be converted into a shared delta for common prefixes or safe subtrees. Closing positioning sentence: prior structured-feedback views do not isolate barrier-limited upward propagation as its own hierarchical learning regime, where shared aggregation is valid below some interfaces but invalid above them.}
 
-The repository now contains a new benchmark version,
-\texttt{telecom\_mms\_fixed\_tree\_base\_v2\_100}, which expands the telecom MMS formal set from 49 to 100 tasks. The 100-task set is selected deterministically from 1,984 candidate \texttt{mms\_issue} tasks using a balanced round-robin greedy procedure. The selector explicitly balances blocker count, persona, terminal action, permission failures, ownership, and blocker layers.
+\subsection{Fixed-Stage Agent Workflows and Workflow-Constrained Agents}
+
+\towrite{Opening function sentence: this literature motivates why the barrier-limited feedback model is practically relevant for agents. Focus on fixed-stage, workflow-constrained, SOP-like, or tool-orchestrated agent systems; mention open-ended agent benchmarks only as contrast and keep benchmark discussion secondary. The point is that many deployed agents are not unconstrained planners: they pass through structured stages, organizational boundaries, restricted tools, and specialist modules. Closing positioning sentence: existing agent workflow and benchmark papers motivate selective feedback propagation, but they typically evaluate planning or execution quality rather than formulate and analyze the online learning problem created by barrier-limited terminal feedback.}
+
+\section{Problem Formulation}
+
+\towrite{This section is the mathematical base of the paper. Keep it short and service-oriented: define only the objects needed by BarrierShare, the theorem, and the experiments. The section should introduce one clean notation system and then move from the conservative bandit regime to the full-share endpoint and finally to the barrier-limited regime. A short notation paragraph at the start should unify tree symbols $(\mathcal{T}, r, \mathcal{L}, C_i, L(i))$, path and probability symbols $(\ell_t, \Pi_t(\cdot), p_t(j \mid i))$, and loss/comparator symbols $(c_t(\ell), Y_\eta[i,T], Y_\ast[i,T])$. The purpose of this section is to define the game and the feedback regimes, not the algorithm itself.}
+
+\subsection{Multi-Stage Tree Model and Regret Objective}
+
+\towrite{Define a rooted tree $\mathcal{T}$ of depth $L$ with root $r$, internal children sets $C_i$, and leaf set $\mathcal{L}$. At each round $t$, the learner selects a root-to-leaf path $\ell_t=(a_{1,t},\ldots,a_{L,t})$ and observes a terminal cost $c_t(\ell_t)$. This subsection should define the tree model, path probabilities, the stationary comparator, and the regret objective. Keep the role of this subsection explicit: it inherits the formal backbone of multi-stage end-to-end learning before any new feedback structure is introduced.}
+
+\subsection{End-to-End Bandit Regime}
+
+\towrite{Formalize the conservative baseline regime: the learner only observes the scalar terminal cost of the selected path, and the feedback is usable only through bandit-style importance weighting. State clearly why this regime is safe but conservative. Mention EXP3 and epsilon-EXP3 only as representative baselines for this regime; do not explain their internal algorithmic details here. This subsection should define the feedback model, not become a baseline-method subsection.}
+
+\subsection{Full-Share Delta Regime}
+
+\towrite{Define only the idealized semantics of full-share. A selected shared leaf induces an uploadable delta from its terminal feedback, and that delta is propagated to ancestors that can fully observe the shared subtree. State the one key invariant needed later: an aggregate weight at a node equals the sum of the descendant shared leaf weights visible to that node. Stop there. Do not yet explain the algorithmic equivalence to recursive exponential weights or safe-subtree forecasters; that belongs in the method or theory section.}
+
+\subsection{Barrier-Limited Sharing Regime}
+
+\towrite{Define gates, shared leaves, barriers, safe nodes, risky nodes, and risky depth $R$ in the cleanest mathematical form. A selected leaf can start a shared upload only if its leaf gate allows upload, and the upload propagates upward until the first ancestor barrier. A node is safe only when the relevant subtree is fully shareable and its shared aggregate is fully visible at that node; otherwise it is risky. Avoid implementation-flavored phrases such as ``legal child interfaces'' here. The goal is to define the regime mathematically, not to restate software semantics.}
+
+\paragraph{Core question.}
+\towrite{End this subsection with the shortest version of the paper's central question: \emph{How can a learner achieve low regret when terminal feedback can be propagated upward only until structural barriers are encountered?}}
+
+\section{BarrierShare}
+
+\towrite{This section should contain both the algorithm and the main theory-facing results. It should be module-based and should repeatedly answer why each module is needed. Refer back to Figure~\ref{fig:overview} for the full story-level overview, then focus this section on the algorithmic mechanisms. The method should be described as a unified algorithm rather than as an ad hoc mixture of baselines. Keep theorem statements, key lemmas, and proof intuition in the main paper, but send full proofs and full pseudocode to the appendix.}
+
+\subsection{From Full-Share to Barrier-Limited Sharing}
+
+\towrite{Explain the design transition. Full-share is powerful but assumes unrestricted upward propagation; end-to-end bandit is robust but wastes safe shared structure. BarrierShare keeps full-share aggregation wherever the tree exposes complete shared mass and falls back to bandit updates wherever a barrier makes sharing incomplete.}
+
+\subsection{Selection Rule}
+
+\towrite{Describe how the algorithm samples a path. At a safe prefix, children are sampled according to their shared aggregate masses. At a risky or mixed prefix, the algorithm uses a local bandit distribution, such as branch-conditioned epsilon-EXP3, over legal children. Explain that the selection rule is local but the probability of a full path is the product of the conditional decisions along the tree.}
+
+\subsection{Update Rule}
+
+\towrite{This is the most important method subsection. After observing terminal cost, risky edges on the sampled path receive bandit-style updates with the appropriate edge probability denominator. If the selected leaf can start a shared upload, update the leaf weight, compute the delta, and propagate that delta upward along upload-reachable edges. Stop propagation at the first internal barrier. State clearly that safe prefixes should not also receive risky updates.}
+
+\subsection{Endpoint Interpretation}
+
+\towrite{Make the unification explicit. If all gates allow upload and every leaf is shared, BarrierShare reduces to full-share recursive aggregation. If no useful shared upload exists, it reduces to the end-to-end bandit-style regime over risky nodes. The paper's contribution is the intermediate setting, where only part of the hierarchy can reuse terminal feedback as shared supervision.}
+
+\subsection{Theoretical Guarantees}
+
+\towrite{Place the main theorem and proof intuition here, inside the BarrierShare section rather than as a standalone section. The theoretical narrative should follow the story rather than dump the theorem first: first explain why full-share helps, then account for risky nodes, and then state the root regret bound. The central message is that the cost depends on the risky skeleton depth $R$, not only on the total depth $L$. Full derivations should go to the appendix.}
+
+\subsubsection{Safe-Subtree Equivalence}
+
+\towrite{Show that recursive aggregate sampling in a fully safe subtree is equivalent to running exponential weights over all leaves in that subtree. State the invariant $W[u]=\sum_{\ell \in \mathrm{subtree}(u)} \exp(\eta \theta_\ell)$ and the telescoping probability argument. This supports the full-share endpoint.}
+
+\subsubsection{Local Cost of Risky Nodes}
+
+\towrite{State the local regret contribution for risky nodes under the branch-conditioned bandit update. Explain how a barrier prevents safe shared deltas from being interpreted as public supervision above the barrier, so the algorithm must pay local bandit cost at risky decision points.}
+
+\subsubsection{Root Regret Bound}
+
+\towrite{State the main theorem for BarrierShare. Define the recursive excess term $\Delta(i)$ and show that root regret is bounded by $\Delta(r)$. The headline interpretation should be that long safe suffixes reduce the effective exponent from depending on total depth $L$ to depending on risky depth $R$. Put detailed proof steps in the appendix if space is limited.}
+
+\subsubsection{Structural Corollaries}
+
+\towrite{Give short corollaries for the two endpoints and the main intermediate case. All-share should recover a safe-subtree bound independent of depth in the intended way. All-unshare should recover the worst-case multi-stage bandit behavior. Long safe suffixes should show the predicted advantage when $R<L$. These corollaries should directly motivate the long-safe-suffix and depth experiments.}
+
+\section{Experiments}
+
+\towrite{Open this section with the research questions rather than a standalone discussion section. The experiments should answer not only whether BarrierShare is better, but also why it is better, when it is better, how it scales, and whether the fixed-stage agent instantiation preserves the predicted effect. State the six questions compactly in the opening paragraph: Q1 main fixed-stage LLM results, Q2 interaction mechanism ablation, Q3 candidate scaling, Q4 simulation main comparison, Q5 long safe suffix, and Q6 depth scaling.}
+
+\subsection{Fixed-Stage Agent Workflow Instantiation}
+
+\towrite{Move the application-mapping material here rather than keeping it as a standalone section. This subsection should explain how BarrierShare is instantiated in a fixed-stage agent workflow and should act as a bridge from theory to evaluation, not as a separate method section.}
+
+\paragraph{Workflow-to-Tree Instantiation.}
+\towrite{Map a fixed-stage agent workflow to the tree model. For the telecom MMS track, use five stages: user grounding, customer-line resolution, observed feature extraction, blocker adjudication and repair planning, and terminal execution decision. Each stage chooses among candidate agents or policies; a leaf is a complete workflow policy.}
+
+\paragraph{Delta Semantics and Barriers.}
+\towrite{Explain when terminal feedback can be treated as shared supervision in the workflow, and when it should remain private. For example, feedback about a common prefix, routing quality, or generic diagnosis can update shared ancestors, while provider-specific state, specialist internals, or private branch details should not be broadcast above the barrier. Give practical examples such as privacy boundaries, restricted telemetry, organizational ownership, vendor-specific tools, specialist knowledge leakage, and policy constraints. Be explicit that a barrier is a structural feedback-sharing constraint, not a formal legal privacy guarantee.}
+
+\paragraph{Evaluation Protocol.}
+\towrite{Define the agent-side evaluation at a high level. The main comparison should use a fixed workflow family, the same path space, the same evaluator, and the same decision space. The executor should not be the main variable. For LLM-backed runs, cost, token usage, and latency are supporting deployment metrics rather than the formal regret baseline.}
+
+\subsection{Experimental Setup}
+
+\towrite{Describe datasets, tree templates, horizons, seeds, baselines, mechanisms, and metrics. Baselines should include BarrierShare, EXP3, epsilon-EXP3, Random, Naive, full-share, full-unshare, and a stationary oracle when available. Metrics should include regret for simulation, total cost and success for LLM experiments, and efficiency metrics such as LLM calls, input tokens, output tokens, estimated API cost, and latency. Also state the online instrumentation used by BarrierShare experiments: selected path, path probability, safe/risky prefix usage, shared upload fraction, barrier stop depth, LLM calls, tokens, and wall-clock or API cost. Put bulky executor details and configuration tables in the appendix.}
+
+\subsection{Main LLM Results}
+
+\towrite{This should be the first empirical table in the main paper if the LLM run is stable. Compare BarrierShare under all-share, partial-share, and all-unshare settings against bandit and heuristic baselines. Sort primarily by average total cost or success, not regret, because LLM-backed execution is an application testbed.}
 
 \begin{table}[t]
-\caption{Coverage summary of the new 100-task telecom MMS benchmark. The construction is deterministic and does not rely on random sampling.}
-\label{tab:coverage}
-\centering
-\small
-\begin{tabular}{ll}
-\toprule
-Statistic & Value \\
-\midrule
-Candidate pool & 1,984 telecom \texttt{mms\_issue} tasks \\
-Selected tasks & 100 \\
-Blocker-count buckets & 1: 6, 2: 13, 3: 12, 4: 12, 5+: 57 \\
-Persona distribution & Hard: 34, None: 33, Easy: 33 \\
-Terminal action distribution & repair\_all: 33, repair\_subset: 34, transfer: 33 \\
-Permission coverage & SMS: 33, Storage: 32, Both: 32 \\
-Ownership coverage & user: 100, assistant: 41, hybrid: 33 \\
-Blocker layers & service: 83, data: 88, mms\_app: 99 \\
-\bottomrule
-\end{tabular}
+    \centering
+    \small
+    \caption{Planned LLM main results. Lower cost is better and higher success is better.}
+    \label{tab:llm_main}
+    \begin{tabular}{llccccc}
+        \toprule
+        Setting & Method & Share Ratio & Avg. Cost $\downarrow$ & Success $\uparrow$ & LLM Calls $\downarrow$ & Tokens $\downarrow$ \\
+        \midrule
+        Fixed-stage & BarrierShare & all-share & -- & -- & -- & -- \\
+        Fixed-stage & BarrierShare & 4/5-share & -- & -- & -- & -- \\
+        Fixed-stage & BarrierShare & 2/5-share & -- & -- & -- & -- \\
+        Fixed-stage & BarrierShare & all-unshare & -- & -- & -- & -- \\
+        Fixed-stage & EXP3 & ref tree & -- & -- & -- & -- \\
+        Fixed-stage & $\epsilon$-EXP3 & ref tree & -- & -- & -- & -- \\
+        Fixed-stage & Random & ref tree & -- & -- & -- & -- \\
+        \bottomrule
+    \end{tabular}
 \end{table}
 
-This balanced version is important because the legacy 49-task benchmark is narrower and action-skewed, especially toward \texttt{repair\_subset}. The new benchmark is therefore the more credible target for the next round of main experiments, even though only smoke-style pilot results are available on it so far.
+\subsection{Interaction Mechanism Ablation}
 
-\section{Methods and Interaction Mechanisms}
+\towrite{Compare algorithm-direct, theta-guided-agent, and agent-only variants. The goal is to show whether the algorithmic signal survives the interface to an agent selector, and to avoid confounding optimizer quality with agent-interface quality.}
 
-\subsection{Algorithms}
+\subsection{Candidate-Set Scaling}
 
-The current repository contains the following baselines: Risky-PS, direct multi-stage EXP3, $\epsilon$-EXP3, full-share, full-unshare, naive mixed, random path, and a stationary oracle reference. Risky-PS is the most structurally distinctive method: it implements a barrier-style partial-share update where shared-leaf statistics propagate through safe prefixes and stop at the first risky ancestor.
+\towrite{Fix the partial-share structure, such as 4/5-share, and vary candidate count per stage. Compare BarrierShare, EXP3, epsilon-EXP3, Random, and Naive at candidate counts such as 5, 15, and 25. This tests whether the method remains useful as branching grows.}
 
-The direct multi-stage EXP3 baseline ignores risky/safe structure and maintains independent adversarial-bandit weights at each stage. Full-share and full-unshare serve as structural ablations. Together, these baselines let us ask whether the benchmark actually rewards exploiting partial sharing rather than only generic bandit exploration.
+\subsection{Simulation Results}
 
-\subsection{Interaction mechanisms}
-
-The benchmark also varies \emph{how} algorithmic scores interact with the downstream agent system. The codebase currently supports three mechanisms:
-\begin{enumerate}
-\item \texttt{algorithm\_direct}: the algorithm selects the final path directly;
-\item \texttt{theta\_guided\_agent}: the algorithm exposes preferences, then an agent-side chooser picks among high-scoring candidates;
-\item \texttt{agent\_only}: the runner provides candidate paths, and the agent chooses without algorithmic guidance.
-\end{enumerate}
-
-This split is useful because, in practice, algorithm quality and agent-interface quality can be confounded. Our preliminary results show that this confound is real.
-
-\section{Preliminary Experiments}
-
-\subsection{Main simulated comparison on the frozen 49-task base}
-
-The most complete multi-method results currently available in the repository come from the frozen 49-task benchmark under the \texttt{simulated} executor. Table~\ref{tab:strong_direct} reports the strong-family, algorithm-direct slice. This is not the final experiment matrix we want for the paper, but it is the cleanest comparable run already available.
+\towrite{Use simulation as the clean regret-aligned experiment. This subsection should cover three pieces together: the main simulation comparison, the long-safe-suffix study, and the depth-scaling study. The purpose is to connect the empirical findings directly to the theorem and its structural corollaries.}
 
 \begin{table}[t]
-\caption{Strong-family, algorithm-direct results on the frozen 49-task simulated benchmark. Lower cost and regret are better.}
-\label{tab:strong_direct}
-\centering
-\small
-\begin{tabular}{lccc}
-\toprule
-Method & Exact match & Mean total cost & Mean regret \\
-\midrule
-Stationary oracle & 0.224 & 2.643 & -0.025 \\
-Direct multi-stage EXP3 & 0.082 & 3.554 & 0.885 \\
-Random path & 0.020 & 3.982 & 1.313 \\
-Risky-PS & 0.020 & 4.216 & 1.547 \\
-$\epsilon$-EXP3 & 0.020 & 4.308 & 1.639 \\
-Full-share & 0.020 & 4.308 & 1.639 \\
-Full-unshare & 0.020 & 4.308 & 1.639 \\
-Naive mixed & 0.000 & 4.456 & 1.787 \\
-\bottomrule
-\end{tabular}
+    \centering
+    \small
+    \caption{Planned simulation main results. This table should align with the regret theorem.}
+    \label{tab:sim_main}
+    \begin{tabular}{lcccc}
+        \toprule
+        Tree & Method & $T$ & $\mathrm{Reg}_T \downarrow$ & $\mathrm{Reg}_T/T \downarrow$ \\
+        \midrule
+        all-share & BarrierShare & -- & -- & -- \\
+        4/5-share & BarrierShare & -- & -- & -- \\
+        2/5-share & BarrierShare & -- & -- & -- \\
+        all-unshare & BarrierShare & -- & -- & -- \\
+        4/5-share & EXP3 & -- & -- & -- \\
+        4/5-share & $\epsilon$-EXP3 & -- & -- & -- \\
+        4/5-share & Random & -- & -- & -- \\
+        \bottomrule
+    \end{tabular}
 \end{table}
 
-Two observations stand out. First, the benchmark is not saturated under the simulated executor; there is a large gap between all non-oracle methods and the stationary oracle. Second, the best algorithm-direct method in this slice is not Risky-PS but direct multi-stage EXP3. This means the current paper cannot honestly claim that partial sharing already wins the main comparison.
+\paragraph{Long Safe Suffix.}
 
-At the same time, this negative result is scientifically useful. It suggests either that the present family generator does not yet expose enough partial-share advantage, or that the Risky-PS implementation needs stronger calibration relative to the generated family costs. Both are benchmark-design questions worth surfacing explicitly.
+\towrite{This is the key structure experiment for the theorem. Fix total depth $L$ and branching, then vary risky depth $R$ so the safe suffix becomes longer. The expected qualitative result is that BarrierShare improves as $R$ shrinks while bandit baselines still scale with the full depth.}
 
-\subsection{Mechanism effects are large}
+\paragraph{Depth Scaling.}
 
-Although Risky-PS does not win the strong-family algorithm-direct slice, its behavior changes sharply across interaction mechanisms. On the same 49-task benchmark:
-\begin{itemize}
-\item in the strong family, Risky-PS achieves mean regret 1.547 under \texttt{algorithm\_direct},
-\item rises to 2.101 under \texttt{agent\_only},
-\item but drops to 0.028 under \texttt{theta\_guided\_agent}.
-\end{itemize}
+\towrite{Sweep depth, such as $L=5,15,25$, while keeping candidate count fixed. Run BarrierShare under multiple share ratios and compare with EXP3, epsilon-EXP3, Naive, and Random. This should show whether the gap grows with hierarchy depth.}
 
-The same pattern appears in the moderate family, where Risky-PS goes from mean regret 1.221 (\texttt{algorithm\_direct}) and 0.709 (\texttt{agent\_only}) down to 0.013 (\texttt{theta\_guided\_agent}). In other words, the interface between bandit scores and agent selection currently matters at least as much as the underlying learning rule. This is an important empirical point for agentic systems: a paper that evaluates only the optimizer but not the optimizer-to-agent interface can be misleading.
+\subsection{Efficiency and Deployment Metrics}
 
-\subsection{Balanced 100-task benchmark pilot}
+\towrite{Report LLM calls, input tokens, output tokens, total tokens, estimated API cost, average latency, and optionally p95 latency. These are not the core theoretical claim, but they are important for the agent-paper story because they show whether the algorithmic gain is practical.}
 
-Only a small pilot run is currently available on the new 100-task benchmark. Under the strong-family simulated executor, full-share on \texttt{base\_v2\_100} attains exact match 0.16, mean total cost 0.139, and mean regret 0.035. Even this single pilot is enough to show that the balanced benchmark is not trivial. However, it is not yet enough for a full multi-method table, so the draft treats it as supporting evidence for benchmark quality rather than as a final comparison.
+\subsection{Additional Analyses}
 
-\subsection{LLM-backed executor sanity checks}
-
-The repository also contains a strong-family, algorithm-direct slice under the \texttt{llm\_bench} executor. All five tested methods achieve exact match 1.0, with mean LLM call counts between 4.43 and 4.65. These runs are useful as executor sanity checks, but not as headline algorithmic evidence. In particular, the current stationary-oracle reference is computed on the simulated executor, so cross-executor regret numbers from this slice should not be interpreted as formal comparisons.
-
-Separate smoke debugging logs reinforce this caution. After a Stage-3 fix, a Risky-PS smoke-3 rerun improved from exact match 0.0 to 0.667. However, a later smoke-10 run still reached only exact match 0.4, with post-repair verification tools appearing in just 1 of 10 episodes. This indicates that the residual issue is no longer only parsing or aggregation; tool coverage in Stage 3 and verification behavior in Stage 5 are still bottlenecks.
-
-\section{Discussion and Limitations}
-
-This draft supports a benchmark paper more strongly than it supports a definitive algorithmic win. The evidence already justifies the following claims.
-\begin{enumerate}
-\item The telecom MMS track is a concrete, reproducible multi-stage benchmark with structured stage supervision and blocker-level evaluation.
-\item The new 100-task benchmark is substantially better balanced than the legacy 49-task version.
-\item Interaction mechanisms are a first-class experimental variable in agentic multi-stage systems.
-\end{enumerate}
-
-By contrast, several claims would be premature.
-\begin{enumerate}
-\item We cannot yet claim that Risky-PS is the best overall algorithm on the main simulated benchmark.
-\item We should not use current \texttt{llm\_bench} results as a formal regret scoreboard.
-\item We do not yet have the full multi-method experiment matrix on \texttt{base\_v2\_100}.
-\end{enumerate}
-
-The next concrete milestones are therefore straightforward: run the full method suite on the balanced 100-task benchmark, tighten the family generator so partial sharing can create a more meaningful advantage when appropriate, and improve Stage-3 tool coverage plus Stage-5 verification in the LLM-backed executor.
+\towrite{Put specialist-mass and noise experiments here or in the appendix. Specialist mass asks whether BarrierShare remains useful as more probability mass falls into private or unshared branches. Noise asks whether the method remains stable under execution instability or noisy terminal cost.}
 
 \section{Conclusion}
 
-PSAgent already contains the skeleton of a publishable benchmark: a frozen five-stage telecom recovery environment, explicit shared versus unshared path semantics, multiple online-learning baselines, and a more balanced 100-task benchmark construction. The current empirical picture is preliminary but informative. Simulated results show meaningful headroom, mechanism effects are large, and LLM-backed runs expose exactly where executor realism still needs work. That is enough for a strong initial draft, and it also defines the shortest path from the current repository to a more complete NeurIPS-ready paper.
+\towrite{Summarize the story in one paragraph: multi-stage agent workflows motivate hierarchical online learning; bandit-only feedback is conservative; full-share reveals the value of upward delta propagation; real systems impose barriers; BarrierShare gives a unified intermediate algorithm with theory and fixed-stage agent evidence. Use the final sentence to note the main limitation or boundary if needed, rather than keeping a separate discussion section. Do not introduce new claims here.}
 
 \begin{thebibliography}{9}
 
@@ -211,5 +251,163 @@ I-Hong Hou.
 \newblock In \emph{Proceedings of the 25th International Symposium on Theory, Algorithmic Foundations, and Protocol Design for Mobile Networks and Mobile Computing (MobiHoc)}, 2024.
 
 \end{thebibliography}
+
+\appendix
+
+\section{Notation and Additional Definitions}
+
+\towrite{Use this appendix to reduce notation load in the main paper and make the proofs easier to read. Keep it concise but systematic. This section should gather the symbols that are currently spread across the problem setup, method, and theory.}
+
+\subsection{Global Symbol Table}
+
+\towrite{Provide a compact table for the main symbols: tree objects $(\mathcal{T}, r, \mathcal{L}, C_i, L(i))$; path and probability symbols $(\ell_t, \Pi_t(\cdot), p_t(j \mid i))$; loss and comparator symbols $(c_t(\ell), Y_\eta[i,T], Y_\ast[i,T], C_i^\ast, d_i)$; and algorithm-state symbols $(\theta_\ell, W[u], \Delta_t)$.}
+
+\subsection{Barrier and Sharing Definitions}
+
+\towrite{Collect the paper-specific definitions in one place: shared leaf, unshared leaf, gate, barrier, upload-reachable edge, safe node, risky node, risky height, risky skeleton depth $R$, and safe suffix. This should be the canonical reference for the appendix proofs.}
+
+\section{Complete Algorithms and Pseudocode}
+
+\towrite{This appendix should contain the full algorithmic descriptions that are too bulky for the main paper. Keep the main text focused on the conceptual modules, and use this appendix for exact procedural definitions.}
+
+\subsection{Full-Share Algorithm}
+
+\towrite{Provide the complete recursive aggregation pseudocode for the full-share endpoint, including the leaf update, aggregate update, and the invariant maintained by internal nodes.}
+
+\subsection{Risky-PS and Intermediate Variants}
+
+\towrite{Include pseudocode for the risky or truncated partial-share variant if you want to show how the endpoint and intermediate algorithms differ. This is the right place to expose the relationship among the variants without cluttering the main text.}
+
+\subsection{BarrierShare Algorithm}
+
+\towrite{Provide the full BarrierShare pseudocode: path selection, local bandit updates on risky prefixes, shared delta propagation, and barrier stopping. This should be the appendix version that a reader can directly implement.}
+
+\subsection{Implementation Notes}
+
+\towrite{Add short implementation notes for choices that matter in code but are too detailed for the main text, such as initialization, probability floors, shared-upload bookkeeping, or how the theorem-facing notation maps to actual state variables.}
+
+\section{Full Theoretical Proofs}
+
+\towrite{This is one of the core appendices. The main paper should keep only theorem statements, key lemmas, and proof intuition; this appendix should contain the complete derivations.}
+
+\subsection{Problem-Dependent Definitions}
+
+\towrite{Restate the definitions needed by the proofs, including safe subtrees, risky nodes, risky height, risky skeleton depth $R$, and barrier-free fully shared suffixes. This subsection should make the later proofs self-contained.}
+
+\subsection{Safe-Subtree Equivalence Proof}
+
+\towrite{Give the full proof that recursive aggregation on a fully safe subtree is equivalent to leaf-level exponential weights or an Exp3-style forecaster over the subtree leaves. The telescoping probability argument belongs here in full detail.}
+
+\subsection{Local Risky-Node Regret Bound}
+
+\towrite{Provide the complete risky single-layer regret derivation, including the branch-conditioned bandit update and any truncated or barrier-specific adjustments. If the main text only presents the final bound, all intermediate steps should be placed here.}
+
+\subsection{Root Regret Proof}
+
+\towrite{Provide the complete proof of the main theorem. This subsection should show how the recursive excess term $\Delta(i)$ is constructed, how the $R$-adjusted quantity enters the bound, and how the proof recovers the all-share and all-unshare endpoints.}
+
+\subsection{Structural Corollaries}
+
+\towrite{Expand the theorem into the corollaries used by the experiments: long safe suffix, depth effect, and the behavior when $R<L$. If you have additional structural discussion about coefficients or branch factors, place it here.}
+
+\subsection{Optional Lower-Bound or Endpoint Discussion}
+
+\towrite{If you decide to include lower-bound comparisons, naive-fix failures, or a more technical discussion of how BarrierShare relates to Hou-style worst-case behavior, put that material here instead of in the main text.}
+
+\section{Experimental Setup}
+
+\towrite{This appendix should make the experiments reproducible. Because your paper mixes LLM-backed workflow experiments and simulation, the setup appendix needs clear subsections rather than one long block of text.}
+
+\subsection{Common Setup}
+
+\towrite{Describe shared configuration choices: seeds, horizon or number of rounds, averaging procedure, regret aggregation, mean and standard deviation reporting, and any common evaluation conventions used across both experiment families.}
+
+\subsection{Fixed-Stage LLM Experiment Setup}
+
+\towrite{Specify how the fixed-stage workflow is instantiated: the stages, candidate agents or policies, terminal cost components, workflow-specific barrier semantics, and how token, cost, and latency statistics are collected. This is where you can document executor details without overloading the main paper.}
+
+\subsection{Simulation Setup}
+
+\towrite{Describe tree-generation rules, branching factors, depth, share-ratio construction, long-safe-suffix construction, specialist-mass construction, and noise injection. This subsection should make the simulation regime fully unambiguous.}
+
+\subsection{Baselines}
+
+\towrite{Describe BarrierShare, EXP3, epsilon-EXP3, Random, Naive, and any endpoint configurations such as full-share or full-unshare. This is the right place for implementation-level baseline details that do not belong in the main text.}
+
+\section{Additional Simulation Results}
+
+\towrite{Use this appendix for complete simulation reporting. The main paper should keep only the most decision-relevant tables and figures; this appendix should contain the full numerical picture.}
+
+\subsection{Full Simulation Tables}
+
+\towrite{Provide the full simulation result tables for all methods, share ratios, seeds, and summary statistics. This subsection should include the complete version of the main simulation table from the paper.}
+
+\subsection{Long Safe Suffix Results}
+
+\towrite{Provide the detailed results for varying risky depth $R$ under fixed total depth $L$, including full tables, curves, or error bars if available. This subsection should make the theorem-to-experiment connection explicit.}
+
+\subsection{Depth Scaling Results}
+
+\towrite{Provide the complete results for depth sweeps, such as $L=5,15,25$, including all methods and all share ratios that are too bulky for the main paper.}
+
+\subsection{Specialist-Mass and Noise Results}
+
+\towrite{If these experiments are run, place them here as mechanism and robustness supplements. They are useful, but they usually do not need to compete for space in the main paper.}
+
+\subsection{Variance and Error Bars}
+
+\towrite{Provide per-seed summaries, confidence intervals, or additional variance plots if they help establish stability. This is especially useful when the simulation evidence is part of the main theorem support.}
+
+\section{Additional LLM Results}
+
+\towrite{Use this appendix for all workflow-backed experimental material that is too detailed for the main paper. The main text should show the headline LLM table and the core ablations; this appendix should carry the rest.}
+
+\subsection{Full Main-Result Tables}
+
+\towrite{Provide the complete version of the main LLM result table, including all methods, share ratios, and metrics that may have been compressed in the main paper.}
+
+\subsection{Interaction Mechanism Ablations}
+
+\towrite{Provide the full ablation tables for algorithm-direct, theta-guided-agent, and agent-only settings, together with any additional breakdowns that do not fit in the main text.}
+
+\subsection{Candidate-Set Scaling Results}
+
+\towrite{Provide the full candidate-scaling tables for 5, 15, and 25 candidates per stage, including all methods and any variance statistics.}
+
+\subsection{Efficiency Analysis}
+
+\towrite{This subsection should contain the full efficiency-oriented reporting: input tokens, output tokens, total tokens, estimated LLM cost, average latency, p95 latency, tokens per success, and cost per success.}
+
+\subsection{Optional Case Studies}
+
+\towrite{If you include qualitative examples, use this subsection for success and failure cases showing why a barrier helped or failed to help. Keep the main paper quantitative and reserve narrative examples for here.}
+
+\section{Fixed-Stage Agent Workflow Instantiation Details}
+
+\towrite{The main paper should only include the minimal mapping needed to understand the experiments. This appendix should contain the full workflow instantiation details needed for careful reading or reproduction.}
+
+\subsection{Tree Schema and Stage Semantics}
+
+\towrite{Describe the fixed-stage schema in full detail: the meaning of each stage, what each node or candidate represents, and how leaves correspond to complete workflow or macro-policies.}
+
+\subsection{Terminal Cost and Barrier Semantics}
+
+\towrite{Document the full terminal-cost definition and explain how shared, unshared, and barrier-limited semantics are interpreted in the workflow environment. This is the right place to spell out workflow-specific nuances that would be too heavy for the main paper.}
+
+\subsection{Additional Environment Details}
+
+\towrite{Add any remaining fixed-tree environment details that a reviewer may want to inspect, such as task-family construction, stage-specific assumptions, or how workflow constraints are encoded.}
+
+\section{Limitations and Future Directions}
+
+\towrite{Keep a short but explicit appendix section on limitations. Even if the main paper no longer has a standalone discussion section, the appendix should still document the paper's scope and boundaries.}
+
+\subsection{Current Limitations}
+
+\towrite{State the main limitations clearly: BarrierShare is designed for fixed-stage or fixed-for-the-experiment hierarchical workflows; the barrier is a structural feedback model rather than a formal privacy guarantee; and the comparator is a best fixed path rather than a dynamic comparator.}
+
+\subsection{Future Directions}
+
+\towrite{Outline the most natural extensions: dynamic trees, planner-tree co-design, learned barriers, richer feedback models, or extending beyond fixed-stage workflows toward more open-ended planning systems.}
 
 \end{document}

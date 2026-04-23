@@ -31,12 +31,14 @@ from full_unshare import FullUnsharePolicy  # noqa: E402
 from mechanism_utils import choose_path_with_mechanism  # noqa: E402
 from oracle_eval import find_best_stationary_path  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
+from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
 
 
 PolicyFactory = Callable[[int], Any]
 
 POLICIES: dict[str, PolicyFactory] = {
     "risky_ps": lambda seed: RiskyPSPolicy(seed=seed),
+    "risky_ps_ix": lambda seed: RiskyPSIXPolicy(seed=seed),
     "direct_multistage_exp3": lambda seed: DirectMultiStageExp3Policy(seed=seed),
     "epsilon_exp3": lambda seed: EpsilonExp3Policy(seed=seed),
     "full_share": lambda seed: FullSharePolicy(seed=seed),
@@ -325,6 +327,7 @@ def main() -> None:
         nargs="+",
         default=[
             "risky_ps",
+            "risky_ps_ix",
             "direct_multistage_exp3",
             "epsilon_exp3",
             "full_share",

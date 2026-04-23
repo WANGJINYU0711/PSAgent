@@ -191,11 +191,40 @@ def _sync_risky_ps_selection(policy: Any, env: Any, path: list[str]) -> None:
         child_prefixes = policy._child_prefixes(current_prefix, stage_name, env)
         if policy.safe_prefixes.get(current_prefix, False):
             probs = policy._safe_child_probs(current_prefix, child_prefixes)
+            estimator_scope = "shared_safe_prefix"
+            estimated_loss_denominator = None
+            epsilon_value = None
+            epsilon_mode = None
+            selection_mode = "shared_safe"
+            mixture_conditional_prob = None
         else:
-            probs = policy._risky_child_probs(current_prefix, child_prefixes)
+            exploit_probs = policy._risky_child_probs(current_prefix, child_prefixes)
+            epsilon_value = min(1.0, max(0.0, float(getattr(policy, "epsilon", 0.0))))
+            uniform_prob = 1.0 / len(child_prefixes)
+            if epsilon_value > 0.0:
+                probs = [
+                    (1.0 - epsilon_value) * exploit_prob + epsilon_value * uniform_prob
+                    for exploit_prob in exploit_probs
+                ]
+                epsilon_mode = "sync_mixture_proxy"
+                selection_mode = "risky_mixed_sync_mixture_proxy" if policy.mixed_prefixes.get(current_prefix, False) else "risky_sync_mixture_proxy"
+                estimated_loss_denominator = "sync_mixture_edge_prob"
+                estimator_scope = "mechanism_sync_mixture_proxy"
+            else:
+                probs = exploit_probs
+                epsilon_mode = "E"
+                selection_mode = "risky_mixed_exploit" if policy.mixed_prefixes.get(current_prefix, False) else "risky_exploit"
+                estimated_loss_denominator = "branch_edge_prob"
+                estimator_scope = "branch_conditioned_multilevel_edge_probability"
+            mixture_conditional_prob = None
         child_prefix = tuple(list(current_prefix) + [agent_id])
         selected_idx = child_prefixes.index(child_prefix)
         conditional_prob = probs[selected_idx]
+        edge = (current_prefix, child_prefix)
+        is_safe_prefix = policy.safe_prefixes.get(current_prefix, False)
+        is_mixed_prefix = policy.mixed_prefixes.get(current_prefix, False)
+        if not is_safe_prefix:
+            mixture_conditional_prob = conditional_prob
         policy.last_stage_probs[stage_name] = conditional_prob
         policy.last_path_prob *= conditional_prob
         policy.last_sampled_edges.append(
@@ -203,9 +232,27 @@ def _sync_risky_ps_selection(policy: Any, env: Any, path: list[str]) -> None:
                 "prefix": current_prefix,
                 "child_prefix": child_prefix,
                 "prefix_reach_prob": prefix_reach_prob,
+                "path_prob_so_far": prefix_reach_prob,
+                "epsilon": epsilon_value,
+                "epsilon_mode": epsilon_mode,
+                "selection_mode": selection_mode,
+                "branch_conditional_prob": conditional_prob,
                 "conditional_prob": conditional_prob,
+                "mixture_conditional_prob": mixture_conditional_prob,
                 "edge_prob": prefix_reach_prob * conditional_prob,
-                "is_safe_prefix": policy.safe_prefixes.get(current_prefix, False),
+                "estimated_loss_denominator": estimated_loss_denominator,
+                "estimator_scope": estimator_scope,
+                "arm_count": len(child_prefixes),
+                "theta_before_update": (
+                    policy._shared_edge_theta(edge)
+                    if is_safe_prefix
+                    else policy.risky_theta.get(edge, 0.0)
+                ),
+                "is_safe_prefix": is_safe_prefix,
+                "safe_prefix_selected": is_safe_prefix,
+                "is_mixed_parent": is_mixed_prefix,
+                "mixed_prefix_selected": is_mixed_prefix and not is_safe_prefix,
+                "risky_prefix_selected": not is_safe_prefix,
             }
         )
         prefix_reach_prob *= conditional_prob
@@ -213,11 +260,14 @@ def _sync_risky_ps_selection(policy: Any, env: Any, path: list[str]) -> None:
 
 
 def _sync_stagewise_exp3_selection(policy: Any, env: Any, path: list[str]) -> None:
+    policy.last_conditional_probs = []
     policy.last_path_probs = []
     policy.last_stage_probs = {}
     policy.last_stage_arm_counts = {}
     policy.last_selected_edges = []
+    policy.last_update_info = {}
     path_prob = 1.0
+    path_prob_so_far = 1.0
     current_prefix: tuple[str, ...] = ()
     for stage_name, agent_id in zip(env.STAGE_NAMES, path):
         agent_ids = policy._legal_agent_ids_for_prefix(current_prefix, stage_name, env)
@@ -226,6 +276,18 @@ def _sync_stagewise_exp3_selection(policy: Any, env: Any, path: list[str]) -> No
         child_prefix = tuple(current_prefix + (agent_id,))
         selected_idx = child_prefixes.index(child_prefix)
         prob = probs[selected_idx]
+        epsilon_value = min(1.0, max(0.0, float(getattr(policy, "epsilon", 0.0))))
+        if epsilon_value > 0.0:
+            epsilon_mode = "sync_mixture_proxy"
+            selection_mode = "epsilon_sync_mixture_proxy"
+            estimated_loss_denominator = "sync_mixture_edge_prob"
+            estimator_scope = "mechanism_sync_mixture_proxy"
+        else:
+            epsilon_mode = "E"
+            selection_mode = "direct_exploit"
+            estimated_loss_denominator = "branch_edge_prob"
+            estimator_scope = "branch_conditioned_multilevel_edge_probability"
+        policy.last_conditional_probs.append(prob)
         policy.last_path_probs.append(prob)
         policy.last_stage_probs[stage_name] = prob
         policy.last_stage_arm_counts[stage_name] = len(child_prefixes)
@@ -234,12 +296,24 @@ def _sync_stagewise_exp3_selection(policy: Any, env: Any, path: list[str]) -> No
                 "stage_name": stage_name,
                 "prefix": current_prefix,
                 "child_prefix": child_prefix,
-                "path_prob": prob,
+                "prefix_reach_prob": path_prob_so_far,
+                "epsilon": epsilon_value,
+                "epsilon_mode": epsilon_mode,
+                "selection_mode": selection_mode,
+                "branch_conditional_prob": prob,
+                "conditional_prob": prob,
+                "mixture_conditional_prob": prob,
+                "path_prob_so_far": path_prob_so_far,
+                "edge_prob": path_prob_so_far * prob,
+                "estimated_loss_denominator": estimated_loss_denominator,
+                "estimator_scope": estimator_scope,
                 "arm_count": len(child_prefixes),
+                "theta_before_update": policy._edge_theta(current_prefix, child_prefix),
                 "weight_before_update": policy._edge_weight(current_prefix, child_prefix),
             }
         )
         path_prob *= prob
+        path_prob_so_far *= prob
         current_prefix = child_prefix
     policy.last_path_prob = path_prob
 
@@ -317,8 +391,7 @@ def _build_stage_choice_candidates(
     child_prefixes = policy._child_prefixes(current_prefix, agent_ids)
     candidates: list[dict[str, Any]] = []
     for idx, (agent_id, child_prefix) in enumerate(zip(agent_ids, child_prefixes), start=1):
-        weight = float(policy._edge_weight(current_prefix, child_prefix))
-        theta = math.log(max(weight, 1e-12))
+        theta = float(policy._edge_theta(current_prefix, child_prefix))
         candidates.append(
             {
                 "option_alias": f"option_{idx}",

@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1880" height="1160" viewBox="0 0 1880 1160">
+<style>
+text { font-family: Arial, sans-serif; fill: #172033; }
+.title { font-size: 26px; font-weight: 800; }
+.subtitle { font-size: 13px; fill: #475569; }
+.panel-title { font-size: 16px; font-weight: 800; }
+.stage-title { font-size: 15px; font-weight: 800; }
+.body { font-size: 12px; }
+.small { font-size: 11px; fill: #475569; }
+.tiny { font-size: 10px; fill: #475569; }
+.edge { stroke: #94a3b8; stroke-width: 2.4; fill: none; opacity: 0.85; }
+.edge-label { font-size: 12px; fill: #334155; font-weight: 700; }
+.node-box { rx: 12; stroke-width: 1.4; }
+.sample-node { rx: 7; stroke-width: 1.0; }
+.green { fill: #eaf7ef; stroke: #2f855a; }
+.red { fill: #fff1f2; stroke: #c53030; }
+.neutral { fill: #ffffff; stroke: #cbd5e1; }
+.legend-box { rx: 10; fill: #ffffff; stroke: #cbd5e1; }
+</style>
+<text class="title" x="54" y="42">Same-Topology Unique-Agent 4/5-Share Tree</text>
+<text class="subtitle" x="54" y="66">L=5, K=5, 3125 paths, 3905 unique agent IDs, cross-prefix reuse=0.</text>
+<text class="subtitle" x="54" y="86">The tree preserves the official full-branching 4/5-share topology exactly; the only structural change is removing cross-prefix agent reuse.</text>
+<rect class="legend-box" x="1410" y="26" width="390" height="88" />
+<rect class="sample-node green" x="1430" y="48" width="22" height="16" />
+<text class="small" x="1462" y="60">g=0 share/upload-capable child interface</text>
+<rect class="sample-node red" x="1430" y="76" width="22" height="16" />
+<text class="small" x="1462" y="88">g=1 barrier / unshared child interface</text>
+<rect class="node-box neutral" x="80" y="170" width="180" height="120" />
+<text class="stage-title" x="98" y="196">ROOT</text>
+<text class="body" x="98" y="222">nodes: 1</text>
+<text class="body" x="98" y="242">branching: 5</text>
+<text class="small" x="98" y="266">5 unique children</text>
+<path class="edge" d="M 260,230.0 C 300,230.0 320,230.0 360,230.0" />
+<text class="edge-label" x="294.0" y="220.0">×5</text>
+<rect class="node-box neutral" x="360" y="170" width="180" height="120" />
+<text class="stage-title" x="378" y="196">stage1</text>
+<text class="body" x="378" y="222">nodes: 5</text>
+<text class="body" x="378" y="242">g=0: 4 | g=1: 1</text>
+<text class="small" x="378" y="266">5 children per parent</text>
+<path class="edge" d="M 540,230.0 C 580,230.0 600,230.0 640,230.0" />
+<text class="edge-label" x="574.0" y="220.0">×5</text>
+<rect class="node-box neutral" x="640" y="170" width="180" height="120" />
+<text class="stage-title" x="658" y="196">stage2</text>
+<text class="body" x="658" y="222">nodes: 25</text>
+<text class="body" x="658" y="242">g=0: 20 | g=1: 5</text>
+<text class="small" x="658" y="266">5 children per parent</text>
+<path class="edge" d="M 820,230.0 C 860,230.0 880,230.0 920,230.0" />
+<text class="edge-label" x="854.0" y="220.0">×5</text>
+<rect class="node-box neutral" x="920" y="170" width="180" height="120" />
+<text class="stage-title" x="938" y="196">stage3</text>
+<text class="body" x="938" y="222">nodes: 125</text>
+<text class="body" x="938" y="242">g=0: 100 | g=1: 25</text>
+<text class="small" x="938" y="266">5 children per parent</text>
+<path class="edge" d="M 1100,230.0 C 1140,230.0 1160,230.0 1200,230.0" />
+<text class="edge-label" x="1134.0" y="220.0">×5</text>
+<rect class="node-box neutral" x="1200" y="170" width="180" height="120" />
+<text class="stage-title" x="1218" y="196">stage4</text>
+<text class="body" x="1218" y="222">nodes: 625</text>
+<text class="body" x="1218" y="242">g=0: 500 | g=1: 125</text>
+<text class="small" x="1218" y="266">5 children per parent</text>
+<path class="edge" d="M 1380,230.0 C 1420,230.0 1440,230.0 1480,230.0" />
+<text class="edge-label" x="1414.0" y="220.0">×5</text>
+<rect class="node-box neutral" x="1480" y="170" width="180" height="120" />
+<text class="stage-title" x="1498" y="196">stage5</text>
+<text class="body" x="1498" y="222">nodes: 3125</text>
+<text class="body" x="1498" y="242">g=0: 2500 | g=1: 625</text>
+<text class="small" x="1498" y="266">leaf stage</text>
+<rect class="legend-box" x="54" y="340" width="840" height="330" />
+<text class="panel-title" x="78" y="372">Parent-Local Unique Identity Examples</text>
+<text class="small" x="78" y="394">The same local child slot under different parents produces different agent IDs. No cross-prefix suffix-family reuse remains.</text>
+<text class="body" x="84" y="430">Stage 1 children of ROOT</text>
+<text class="tiny" x="84" y="446">parent: ROOT</text>
+<rect class="sample-node green" x="84" y="460" width="345" height="24" />
+<text class="tiny" x="92" y="475">s1_root_c01_agent | base=stage1_n1 | g=0</text>
+<rect class="sample-node green" x="84" y="494" width="345" height="24" />
+<text class="tiny" x="92" y="509">s1_root_c02_agent | base=stage1_n2 | g=0</text>
+<rect class="sample-node green" x="84" y="528" width="345" height="24" />
+<text class="tiny" x="92" y="543">s1_root_c03_agent | base=stage1_n3 | g=0</text>
+<rect class="sample-node green" x="84" y="562" width="345" height="24" />
+<text class="tiny" x="92" y="577">s1_root_c04_agent | base=stage1_n4 | g=0</text>
+<rect class="sample-node red" x="84" y="596" width="345" height="24" />
+<text class="tiny" x="92" y="611">s1_root_c05_agent | base=stage1_n5 | g=1</text>
+<text class="body" x="432" y="430">Stage 2 children of the first stage-1 parent</text>
+<text class="tiny" x="432" y="446">parent: s1_root_c01_agent</text>
+<rect class="sample-node green" x="432" y="460" width="345" height="24" />
+<text class="tiny" x="440" y="475">s2_n0001_c01_agent | base=stage2_n1 | g=0</text>
+<rect class="sample-node green" x="432" y="494" width="345" height="24" />
+<text class="tiny" x="440" y="509">s2_n0001_c02_agent | base=stage2_n2 | g=0</text>
+<rect class="sample-node green" x="432" y="528" width="345" height="24" />
+<text class="tiny" x="440" y="543">s2_n0001_c03_agent | base=stage2_n3 | g=0</text>
+<rect class="sample-node green" x="432" y="562" width="345" height="24" />
+<text class="tiny" x="440" y="577">s2_n0001_c04_agent | base=stage2_n4 | g=0</text>
+<rect class="sample-node red" x="432" y="596" width="345" height="24" />
+<text class="tiny" x="440" y="611">s2_n0001_c05_agent | base=stage2_n5 | g=1</text>
+<rect class="legend-box" x="930" y="340" width="870" height="330" />
+<text class="panel-title" x="954" y="372">Same Local Slot, Different Parent, Different Agent</text>
+<text class="small" x="954" y="394">These pairs would have been shared-family aliases in a compact DAG. Here they stay prefix-specific.</text>
+<rect class="sample-node green" x="956" y="430" width="362" height="24" />
+<rect class="sample-node green" x="1388" y="430" width="362" height="24" />
+<text class="tiny" x="964" y="445">s2_n0001_c01_agent | parent=n0001</text>
+<text class="tiny" x="1396" y="445">s2_n0002_c01_agent | parent=n0002</text>
+<path class="edge" d="M 1318,442 C 1340,442 1360,442 1388,442" />
+<text class="tiny" x="1216" y="473">same local slot/base_alias, different parent, different agent_id</text>
+<rect class="sample-node red" x="956" y="492" width="362" height="24" />
+<rect class="sample-node red" x="1388" y="492" width="362" height="24" />
+<text class="tiny" x="964" y="507">s2_n0001_c05_agent | parent=n0001</text>
+<text class="tiny" x="1396" y="507">s2_n0002_c05_agent | parent=n0002</text>
+<path class="edge" d="M 1318,504 C 1340,504 1360,504 1388,504" />
+<text class="tiny" x="1216" y="535">same local slot/base_alias, different parent, different agent_id</text>
+<rect class="sample-node green" x="956" y="554" width="362" height="24" />
+<rect class="sample-node green" x="1388" y="554" width="362" height="24" />
+<text class="tiny" x="964" y="569">s3_n0006_c01_agent | parent=n0006</text>
+<text class="tiny" x="1396" y="569">s3_n0007_c01_agent | parent=n0007</text>
+<path class="edge" d="M 1318,566 C 1340,566 1360,566 1388,566" />
+<text class="tiny" x="1216" y="597">same local slot/base_alias, different parent, different agent_id</text>
+<rect class="sample-node red" x="956" y="616" width="362" height="24" />
+<rect class="sample-node red" x="1388" y="616" width="362" height="24" />
+<text class="tiny" x="964" y="631">s3_n0006_c05_agent | parent=n0006</text>
+<text class="tiny" x="1396" y="631">s3_n0007_c05_agent | parent=n0007</text>
+<path class="edge" d="M 1318,628 C 1340,628 1360,628 1388,628" />
+<text class="tiny" x="1216" y="659">same local slot/base_alias, different parent, different agent_id</text>
+<rect class="legend-box" x="54" y="708" width="840" height="376" />
+<text class="panel-title" x="78" y="740">Validation Summary</text>
+<text class="body" x="78" y="774">depth = 5</text>
+<text class="body" x="78" y="800">root branching = 5</text>
+<text class="body" x="78" y="826">min / max / mean branching = 5 / 5 / 5.0</text>
+<text class="body" x="78" y="852">num paths = 3125</text>
+<text class="body" x="78" y="878">total agent IDs = 3905</text>
+<text class="body" x="78" y="904">duplicate agent count = 0</text>
+<text class="body" x="78" y="930">cross-prefix duplicate count = 0</text>
+<text class="body" x="78" y="956">cross-prefix reuse rate = 0.0</text>
+<text class="small" x="78" y="990">The tree keeps full 5-ary difficulty while removing only identity reuse.</text>
+<rect class="legend-box" x="930" y="708" width="870" height="376" />
+<text class="panel-title" x="954" y="740">Per-Stage Share / Barrier Profile</text>
+<text class="small" x="954" y="762">Every stage preserves the same 4/5 shareable profile under full branching.</text>
+<text class="body" x="954" y="792">Stage</text>
+<text class="body" x="1074" y="792">g=0</text>
+<text class="body" x="1214" y="792">g=1</text>
+<text class="body" x="1374" y="792">Share Fraction</text>
+<text class="body" x="954" y="836">stage1</text>
+<text class="body" x="1074" y="836">4</text>
+<text class="body" x="1214" y="836">1</text>
+<text class="body" x="1374" y="836">80.0%</text>
+<rect class="sample-node neutral" x="1512" y="824" width="180" height="16" />
+<rect class="sample-node green" x="1512" y="824" width="144.0" height="16" />
+<text class="body" x="954" y="880">stage2</text>
+<text class="body" x="1074" y="880">20</text>
+<text class="body" x="1214" y="880">5</text>
+<text class="body" x="1374" y="880">80.0%</text>
+<rect class="sample-node neutral" x="1512" y="868" width="180" height="16" />
+<rect class="sample-node green" x="1512" y="868" width="144.0" height="16" />
+<text class="body" x="954" y="924">stage3</text>
+<text class="body" x="1074" y="924">100</text>
+<text class="body" x="1214" y="924">25</text>
+<text class="body" x="1374" y="924">80.0%</text>
+<rect class="sample-node neutral" x="1512" y="912" width="180" height="16" />
+<rect class="sample-node green" x="1512" y="912" width="144.0" height="16" />
+<text class="body" x="954" y="968">stage4</text>
+<text class="body" x="1074" y="968">500</text>
+<text class="body" x="1214" y="968">125</text>
+<text class="body" x="1374" y="968">80.0%</text>
+<rect class="sample-node neutral" x="1512" y="956" width="180" height="16" />
+<rect class="sample-node green" x="1512" y="956" width="144.0" height="16" />
+<text class="body" x="954" y="1012">stage5</text>
+<text class="body" x="1074" y="1012">2500</text>
+<text class="body" x="1214" y="1012">625</text>
+<text class="body" x="1374" y="1012">80.0%</text>
+<rect class="sample-node neutral" x="1512" y="1000" width="180" height="16" />
+<rect class="sample-node green" x="1512" y="1000" width="144.0" height="16" />
+</svg>

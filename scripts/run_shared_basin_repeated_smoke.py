@@ -42,6 +42,12 @@ from naive_mixed import NaiveMixedPolicy  # noqa: E402
 from oracle_eval import find_best_stationary_path  # noqa: E402
 from random_path import RandomPathPolicy  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
+from risky_ps_direct_cost import RiskyPSDirectCostPolicy  # noqa: E402
+from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
+from risky_ps_safe_conditional import (  # noqa: E402
+    RiskyPSSafeConditionalIXPolicy,
+    RiskyPSSafeConditionalPolicy,
+)
 
 
 SMOKE10_INDICES = list(range(10))
@@ -57,6 +63,10 @@ EXECUTOR_NAME = "llm_bench"
 
 POLICY_REGISTRY = {
     "risky_ps": RiskyPSPolicy,
+    "risky_ps_ix": RiskyPSIXPolicy,
+    "risky_ps_safe_conditional": RiskyPSSafeConditionalPolicy,
+    "risky_ps_safe_conditional_ix": RiskyPSSafeConditionalIXPolicy,
+    "risky_ps_direct_cost": RiskyPSDirectCostPolicy,
     "direct_multistage_exp3": DirectMultiStageExp3Policy,
     "epsilon_exp3": EpsilonExp3Policy,
     "naive_mixed": NaiveMixedPolicy,
@@ -65,6 +75,10 @@ POLICY_REGISTRY = {
 
 DEFAULT_METHODS = [
     "risky_ps",
+    "risky_ps_ix",
+    "risky_ps_safe_conditional",
+    "risky_ps_safe_conditional_ix",
+    "risky_ps_direct_cost",
     "naive_mixed",
     "direct_multistage_exp3",
     "epsilon_exp3",
@@ -1145,10 +1159,16 @@ def merge_method_results(run_dir: Path, method: str) -> dict[str, Any]:
         json.dumps({"summary": summary, "specialist_summary": specialist_summary}, ensure_ascii=False, indent=2),
     )
 
-    if method == "risky_ps":
+    if method in {
+        "risky_ps",
+        "risky_ps_ix",
+        "risky_ps_safe_conditional",
+        "risky_ps_safe_conditional_ix",
+        "risky_ps_direct_cost",
+    }:
         dynamics_payload = build_risky_dynamics_payload(merged_episodes)
-        write_json(run_dir / "risky_ps_shared_unshared_dynamics.json", dynamics_payload)
-        write_csv(run_dir / "risky_ps_shared_unshared_dynamics.csv", dynamics_payload["episodes"])
+        write_json(run_dir / f"{method}_shared_unshared_dynamics.json", dynamics_payload)
+        write_csv(run_dir / f"{method}_shared_unshared_dynamics.csv", dynamics_payload["episodes"])
 
     return {
         "summary": summary,

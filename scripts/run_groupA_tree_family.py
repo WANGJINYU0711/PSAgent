@@ -31,6 +31,7 @@ from mechanism_utils import choose_path_with_mechanism  # noqa: E402
 from naive_mixed import NaiveMixedPolicy  # noqa: E402
 from oracle_policy import OraclePolicy  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
+from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
 
 
 POLICIES = {
@@ -40,6 +41,7 @@ POLICIES = {
     "direct_multistage_exp3": lambda seed: DirectMultiStageExp3Policy(seed=seed),
     "naive_mixed": lambda seed: NaiveMixedPolicy(seed=seed),
     "risky_ps": lambda seed: RiskyPSPolicy(seed=seed),
+    "risky_ps_ix": lambda seed: RiskyPSIXPolicy(seed=seed),
     "oracle": lambda seed: OraclePolicy(seed=seed),
 }
 

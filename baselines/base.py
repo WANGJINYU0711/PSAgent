@@ -175,43 +175,60 @@ class StagewiseScorePolicy(BasePolicy):
 
 
 class StagewiseExp3Policy(BasePolicy):
-    """A strict tree-local stagewise multiplicative bandit.
+    """Strict tree-local stagewise Exp3 over parent-child interfaces.
 
-    The learned objects are local parent-child interfaces rather than global
-    stage agents: even if the family reuses the same child agent id under
-    multiple prefixes, each ``(prefix, child_prefix)`` pair is treated as its
-    own arm. Selection simply normalizes the local child weights; there is no
-    explicit exploration mixture.
+    The learned objects are local edges, not global stage agents: even if the
+    family reuses the same child agent id under multiple prefixes, each
+    ``(prefix, child_prefix)`` pair is its own arm. Selection uses
+    ``softmax(eta * theta)`` under the current prefix. The optional epsilon
+    mixture is used only by the epsilon-EXP3 subclass.
+
+    ``conditional_prob`` is the branch-conditioned local probability of
+    choosing the direct child after reaching the current prefix. If
+    ``epsilon > 0``, the policy first samples mode ``U`` with probability
+    epsilon or mode ``E`` otherwise; the update denominator uses the selected
+    branch probability, not the marginal mixture probability.
+    ``prefix_reach_prob`` (also logged as ``path_prob_so_far``) is the
+    probability of reaching that prefix, matching ``v[i,t]`` in the paper
+    figure. The multilevel EXP3 estimator updates each selected edge with
+    denominator ``edge_prob = prefix_reach_prob * conditional_prob``.
     """
 
     def __init__(
         self,
         seed: int = 0,
         protocol_mode: str = "force_unshared",
-        gamma: float = 0.2,
+        eta: float = 0.2,
         epsilon: float = 0.0,
-        estimator_type: str = "reward",
-        update_type: str = "stagewise_exp3",
+        estimator_type: str = "loss",
+        update_type: str = "stagewise_exp3_theta_loss",
     ) -> None:
         super().__init__(seed=seed, protocol_mode=protocol_mode)
-        self.gamma = gamma
+        self.eta = eta
         self.epsilon = epsilon
         self.estimator_type = estimator_type
         self.update_type = update_type
+        self.theta: dict[tuple[tuple[str, ...], tuple[str, ...]], float] = {}
+        # Legacy/debug alias populated from theta for callers that inspect
+        # derived multiplicative weights. Updates are driven by theta.
         self.weights: dict[tuple[tuple[str, ...], tuple[str, ...]], float] = {}
+        self.last_conditional_probs: list[float] = []
         self.last_path_probs: list[float] = []
         self.last_stage_probs: dict[str, float] = {}
         self.last_stage_arm_counts: dict[str, int] = {}
         self.last_path_prob: float = 0.0
         self.last_selected_edges: list[dict[str, Any]] = []
+        self.last_update_info: dict[str, Any] = {}
 
     def bind_env(self, env: FixedTreeEnvironment) -> None:
         super().bind_env(env)
+        self.last_conditional_probs = []
         self.last_path_probs = []
         self.last_stage_probs = {}
         self.last_stage_arm_counts = {}
         self.last_path_prob = 0.0
         self.last_selected_edges = []
+        self.last_update_info = {}
 
     def _edge_key(
         self,
@@ -220,12 +237,23 @@ class StagewiseExp3Policy(BasePolicy):
     ) -> tuple[tuple[str, ...], tuple[str, ...]]:
         return (tuple(current_prefix), tuple(child_prefix))
 
+    def _edge_theta(
+        self,
+        current_prefix: tuple[str, ...],
+        child_prefix: tuple[str, ...],
+    ) -> float:
+        return self.theta.setdefault(self._edge_key(current_prefix, child_prefix), 0.0)
+
     def _edge_weight(
         self,
         current_prefix: tuple[str, ...],
         child_prefix: tuple[str, ...],
     ) -> float:
-        return self.weights.setdefault(self._edge_key(current_prefix, child_prefix), 1.0)
+        edge_key = self._edge_key(current_prefix, child_prefix)
+        theta = self.theta.setdefault(edge_key, 0.0)
+        weight = math.exp(max(-60.0, min(60.0, self.eta * theta)))
+        self.weights[edge_key] = weight
+        return weight
 
     def _child_prefixes(
         self,
@@ -234,18 +262,80 @@ class StagewiseExp3Policy(BasePolicy):
     ) -> list[tuple[str, ...]]:
         return [tuple(current_prefix + (agent_id,)) for agent_id in agent_ids]
 
+    def _softmax_child_probs(
+        self,
+        current_prefix: tuple[str, ...],
+        child_prefixes: list[tuple[str, ...]],
+    ) -> list[float]:
+        if not child_prefixes:
+            raise ValueError("Cannot build stage probabilities for an empty child set.")
+
+        local_theta = [
+            self._edge_theta(current_prefix, child_prefix)
+            for child_prefix in child_prefixes
+        ]
+        max_theta = max(local_theta, default=0.0)
+        exp_values = [
+            math.exp(max(-60.0, min(60.0, self.eta * (theta - max_theta))))
+            for theta in local_theta
+        ]
+        total = sum(exp_values)
+        if total <= 0.0:
+            return [1.0 / len(child_prefixes) for _ in child_prefixes]
+        return [value / total for value in exp_values]
+
     def _stage_probs(
         self,
         current_prefix: tuple[str, ...],
         child_prefixes: list[tuple[str, ...]],
     ) -> list[float]:
-        local_weights = [self._edge_weight(current_prefix, child_prefix) for child_prefix in child_prefixes]
-        weight_sum = sum(max(0.0, weight) for weight in local_weights)
-        if weight_sum <= 0:
-            base = 1.0 / len(child_prefixes)
-            return [base for _ in child_prefixes]
+        """Return the marginal mixture distribution for diagnostics/sync only."""
 
-        return [max(0.0, weight) / weight_sum for weight in local_weights]
+        exploit_probs = self._softmax_child_probs(current_prefix, child_prefixes)
+        epsilon = min(1.0, max(0.0, float(self.epsilon)))
+        if epsilon <= 0.0:
+            return exploit_probs
+        uniform = 1.0 / len(child_prefixes)
+        return [
+            (1.0 - epsilon) * exploit_prob + epsilon * uniform
+            for exploit_prob in exploit_probs
+        ]
+
+    def _sample_stage_child(
+        self,
+        current_prefix: tuple[str, ...],
+        child_prefixes: list[tuple[str, ...]],
+    ) -> tuple[tuple[str, ...], dict[str, Any]]:
+        exploit_probs = self._softmax_child_probs(current_prefix, child_prefixes)
+        epsilon = min(1.0, max(0.0, float(self.epsilon)))
+        arm_count = len(child_prefixes)
+        uniform_prob = 1.0 / arm_count
+        mixture_probs = [
+            (1.0 - epsilon) * exploit_prob + epsilon * uniform_prob
+            for exploit_prob in exploit_probs
+        ]
+
+        if epsilon > 0.0 and self.rng.random() < epsilon:
+            epsilon_mode = "U"
+            selection_mode = "epsilon_uniform"
+            branch_probs = [uniform_prob for _ in child_prefixes]
+        else:
+            epsilon_mode = "E"
+            selection_mode = "epsilon_exploit" if epsilon > 0.0 else "direct_exploit"
+            branch_probs = exploit_probs
+
+        child_prefix, branch_prob = self._sample_from_probs(child_prefixes, branch_probs)
+        selected_idx = child_prefixes.index(child_prefix)
+        return child_prefix, {
+            "epsilon": epsilon,
+            "epsilon_mode": epsilon_mode,
+            "selection_mode": selection_mode,
+            "branch_conditional_prob": branch_prob,
+            "conditional_prob": branch_prob,
+            "mixture_conditional_prob": mixture_probs[selected_idx],
+            "softmax_conditional_prob": exploit_probs[selected_idx],
+            "uniform_conditional_prob": uniform_prob,
+        }
 
     def _sample_from_probs(
         self,
@@ -266,17 +356,21 @@ class StagewiseExp3Policy(BasePolicy):
             self.bind_env(env)
 
         path: list[str] = []
+        self.last_conditional_probs = []
         self.last_path_probs = []
         self.last_stage_probs = {}
         self.last_stage_arm_counts = {}
         self.last_selected_edges = []
+        self.last_update_info = {}
         current_prefix: tuple[str, ...] = ()
+        path_prob_so_far = 1.0
         for stage_name in env.STAGE_NAMES:
             agent_ids = self._legal_agent_ids_for_prefix(current_prefix, stage_name, env)
             child_prefixes = self._child_prefixes(current_prefix, agent_ids)
-            probs = self._stage_probs(current_prefix, child_prefixes)
-            child_prefix, prob = self._sample_from_probs(child_prefixes, probs)
+            child_prefix, selection_meta = self._sample_stage_child(current_prefix, child_prefixes)
+            prob = float(selection_meta["branch_conditional_prob"])
             path.append(child_prefix[-1])
+            self.last_conditional_probs.append(prob)
             self.last_path_probs.append(prob)
             self.last_stage_probs[stage_name] = prob
             self.last_stage_arm_counts[stage_name] = len(child_prefixes)
@@ -285,14 +379,28 @@ class StagewiseExp3Policy(BasePolicy):
                     "stage_name": stage_name,
                     "prefix": current_prefix,
                     "child_prefix": child_prefix,
-                    "path_prob": prob,
+                    "prefix_reach_prob": path_prob_so_far,
+                    "epsilon": selection_meta["epsilon"],
+                    "epsilon_mode": selection_meta["epsilon_mode"],
+                    "selection_mode": selection_meta["selection_mode"],
+                    "branch_conditional_prob": selection_meta["branch_conditional_prob"],
+                    "conditional_prob": prob,
+                    "mixture_conditional_prob": selection_meta["mixture_conditional_prob"],
+                    "softmax_conditional_prob": selection_meta["softmax_conditional_prob"],
+                    "uniform_conditional_prob": selection_meta["uniform_conditional_prob"],
+                    "path_prob_so_far": path_prob_so_far,
+                    "edge_prob": path_prob_so_far * prob,
+                    "estimated_loss_denominator": "branch_edge_prob",
+                    "estimator_scope": "branch_conditioned_multilevel_edge_probability",
                     "arm_count": len(child_prefixes),
+                    "theta_before_update": self._edge_theta(current_prefix, child_prefix),
                     "weight_before_update": self._edge_weight(current_prefix, child_prefix),
                 }
             )
+            path_prob_so_far *= prob
             current_prefix = child_prefix
         path_prob = 1.0
-        for prob in self.last_path_probs:
+        for prob in self.last_conditional_probs:
             path_prob *= prob
         self.last_path_prob = path_prob
         return path
@@ -305,71 +413,155 @@ class StagewiseExp3Policy(BasePolicy):
                 f"last_selected_edges={len(self.last_selected_edges)}"
             )
 
+        if self.estimator_type != "loss":
+            raise ValueError(
+                "StagewiseExp3Policy now implements loss-style theta updates only. "
+                f"Got estimator_type={self.estimator_type!r}."
+            )
+
+        observed_loss = max(0.0, float(episode_result.total_cost))
+        edge_updates: list[dict[str, Any]] = []
         for selected_edge in self.last_selected_edges:
             stage_name = str(selected_edge["stage_name"])
             current_prefix = tuple(selected_edge["prefix"])
             child_prefix = tuple(selected_edge["child_prefix"])
-            prob = float(selected_edge["path_prob"])
-            arms = max(1, int(selected_edge["arm_count"]))
+            conditional_prob = float(selected_edge["conditional_prob"])
+            prefix_reach_prob = float(
+                selected_edge.get(
+                    "prefix_reach_prob",
+                    selected_edge.get("path_prob_so_far", 1.0),
+                )
+            )
+            edge_prob = float(
+                selected_edge.get("edge_prob", prefix_reach_prob * conditional_prob)
+            )
             edge_key = self._edge_key(current_prefix, child_prefix)
-            if self.estimator_type == "loss":
-                estimated_signal = episode_result.total_cost / max(prob, 1e-12)
-                self.weights[edge_key] = self._edge_weight(current_prefix, child_prefix) * math.exp(
-                    -self.gamma * estimated_signal / arms
-                )
-            elif self.estimator_type == "reward":
-                reward = 1.0 / (1.0 + episode_result.total_cost)
-                estimated_signal = reward / max(prob, 1e-12)
-                self.weights[edge_key] = self._edge_weight(current_prefix, child_prefix) * math.exp(
-                    self.gamma * estimated_signal / arms
-                )
-            else:
-                raise ValueError(
-                    f"Unknown estimator_type for StagewiseExp3Policy: {self.estimator_type}"
-                )
-            self.last_stage_probs[stage_name] = prob
+            estimated_loss = observed_loss / max(edge_prob, 1e-12)
+            theta_before = self.theta.setdefault(edge_key, 0.0)
+            theta_after = theta_before - estimated_loss
+            self.theta[edge_key] = theta_after
+            self.weights[edge_key] = self._edge_weight(current_prefix, child_prefix)
+            self.last_stage_probs[stage_name] = conditional_prob
+            selected_edge["estimated_loss"] = estimated_loss
+            selected_edge["observed_loss"] = observed_loss
+            selected_edge["theta_before_update"] = theta_before
+            selected_edge["theta_after_update"] = theta_after
+            selected_edge["estimated_loss_denominator"] = selected_edge.get(
+                "estimated_loss_denominator",
+                "branch_edge_prob",
+            )
+            selected_edge["estimator_scope"] = selected_edge.get(
+                "estimator_scope",
+                "branch_conditioned_multilevel_edge_probability",
+            )
+            edge_updates.append(
+                {
+                    "stage_name": stage_name,
+                    "prefix": list(current_prefix),
+                    "child_prefix": list(child_prefix),
+                    "prefix_reach_prob": prefix_reach_prob,
+                    "conditional_prob": conditional_prob,
+                    "branch_conditional_prob": float(
+                        selected_edge.get("branch_conditional_prob", conditional_prob)
+                    ),
+                    "mixture_conditional_prob": selected_edge.get("mixture_conditional_prob"),
+                    "epsilon": selected_edge.get("epsilon", self.epsilon),
+                    "epsilon_mode": selected_edge.get("epsilon_mode"),
+                    "selection_mode": selected_edge.get("selection_mode"),
+                    "path_prob_so_far": prefix_reach_prob,
+                    "edge_prob": edge_prob,
+                    "estimated_loss_denominator": selected_edge["estimated_loss_denominator"],
+                    "estimator_scope": selected_edge["estimator_scope"],
+                    "arm_count": int(selected_edge["arm_count"]),
+                    "observed_loss": observed_loss,
+                    "estimated_loss": estimated_loss,
+                    "theta_before_update": theta_before,
+                    "theta_after_update": theta_after,
+                    "update_type": self.update_type,
+                }
+            )
+
+        self.last_update_info = {
+            "update_type": self.update_type,
+            "eta": self.eta,
+            "epsilon": self.epsilon,
+            "observed_loss": observed_loss,
+            "edge_updates": edge_updates,
+        }
 
     def get_state(self) -> dict[str, Any]:
-        top_local_edges = sorted(
-            self.weights.items(),
-            key=lambda item: item[1],
-            reverse=True,
-        )[:10]
+        top_local_edges = sorted(self.theta.items(), key=lambda item: item[1], reverse=True)[:10]
         return {
             "protocol_mode": self.protocol_mode,
-            "update_scale_gamma": self.gamma,
-            "explicit_exploration": "none",
+            "eta": self.eta,
+            "epsilon": self.epsilon,
             "estimator_type": self.estimator_type,
             "update_type": self.update_type,
-            "num_local_edge_arms": len(self.weights),
-            "top_local_edge_weights": [
+            "num_local_edge_arms": len(self.theta),
+            "theta": [
                 {
                     "prefix": list(prefix),
                     "child_prefix": list(child_prefix),
-                    "weight": round(weight, 6),
+                    "theta": round(theta, 6),
+                    "weight": round(math.exp(max(-60.0, min(60.0, self.eta * theta))), 6),
                 }
-                for (prefix, child_prefix), weight in top_local_edges
+                for (prefix, child_prefix), theta in top_local_edges
             ],
+            "last_update_info": dict(self.last_update_info),
         }
 
     def get_last_selection_info(self) -> dict[str, Any]:
         return {
             "stage_probs": dict(self.last_stage_probs),
+            "stage_conditional_probs": dict(self.last_stage_probs),
             "selected_edges": [
                 {
                     "stage_name": str(edge["stage_name"]),
                     "prefix": list(edge["prefix"]),
                     "child_prefix": list(edge["child_prefix"]),
-                    "prob": float(edge["path_prob"]),
+                    "prefix_reach_prob": float(
+                        edge.get("prefix_reach_prob", edge.get("path_prob_so_far", 1.0))
+                    ),
+                    "epsilon": edge.get("epsilon", self.epsilon),
+                    "epsilon_mode": edge.get("epsilon_mode"),
+                    "selection_mode": edge.get("selection_mode"),
+                    "branch_conditional_prob": float(
+                        edge.get("branch_conditional_prob", edge["conditional_prob"])
+                    ),
+                    "conditional_prob": float(edge["conditional_prob"]),
+                    "mixture_conditional_prob": edge.get("mixture_conditional_prob"),
+                    "path_prob_so_far": float(edge.get("path_prob_so_far", 1.0)),
+                    "edge_prob": float(
+                        edge.get(
+                            "edge_prob",
+                            float(edge.get("path_prob_so_far", 1.0))
+                            * float(edge["conditional_prob"]),
+                        )
+                    ),
                     "arm_count": int(edge["arm_count"]),
+                    "theta_before_update": float(edge["theta_before_update"]),
+                    "theta_after_update": edge.get("theta_after_update"),
+                    "estimated_loss": edge.get("estimated_loss"),
+                    "estimated_loss_denominator": edge.get(
+                        "estimated_loss_denominator",
+                        "branch_edge_prob",
+                    ),
+                    "estimator_scope": edge.get(
+                        "estimator_scope",
+                        "branch_conditioned_multilevel_edge_probability",
+                    ),
+                    "observed_loss": edge.get("observed_loss"),
                     "weight_before_update": float(edge["weight_before_update"]),
                 }
                 for edge in self.last_selected_edges
             ],
             "path_prob": self.last_path_prob,
+            "conditional_prob_product": self.last_path_prob,
             "estimator_type": self.estimator_type,
             "update_type": self.update_type,
-            "explicit_exploration": "none",
+            "eta": self.eta,
+            "epsilon": self.epsilon,
+            "last_update_info": dict(self.last_update_info),
         }
 
 

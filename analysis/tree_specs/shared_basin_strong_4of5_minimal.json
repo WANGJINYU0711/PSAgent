@@ -1,0 +1,231 @@
+{
+  "tree_name": "shared_basin_strong_4of5_minimal",
+  "depth": 5,
+  "stages": [
+    "stage1",
+    "stage2",
+    "stage3",
+    "stage4",
+    "stage5"
+  ],
+  "nodes": {
+    "stage1": [
+      {
+        "alias": "stage1_n1",
+        "g": 0
+      },
+      {
+        "alias": "stage1_n2",
+        "g": 0
+      },
+      {
+        "alias": "stage1_n3",
+        "g": 0
+      },
+      {
+        "alias": "stage1_n4",
+        "g": 0
+      },
+      {
+        "alias": "stage1_n5",
+        "g": 1
+      }
+    ],
+    "stage2": [
+      {
+        "alias": "stage2_n1",
+        "g": 0
+      },
+      {
+        "alias": "stage2_n2",
+        "g": 0
+      },
+      {
+        "alias": "stage2_n3",
+        "g": 0
+      },
+      {
+        "alias": "stage2_n4",
+        "g": 0
+      },
+      {
+        "alias": "stage2_n5",
+        "g": 1
+      }
+    ],
+    "stage3": [
+      {
+        "alias": "stage3_n1",
+        "g": 0
+      },
+      {
+        "alias": "stage3_n2",
+        "g": 0
+      },
+      {
+        "alias": "stage3_n3",
+        "g": 0
+      },
+      {
+        "alias": "stage3_n4",
+        "g": 0
+      },
+      {
+        "alias": "stage3_n5",
+        "g": 1
+      }
+    ],
+    "stage4": [
+      {
+        "alias": "stage4_n1",
+        "g": 0
+      },
+      {
+        "alias": "stage4_n2",
+        "g": 0
+      },
+      {
+        "alias": "stage4_n3",
+        "g": 0
+      },
+      {
+        "alias": "stage4_n4",
+        "g": 0
+      },
+      {
+        "alias": "stage4_n5",
+        "g": 1
+      }
+    ],
+    "stage5": [
+      {
+        "alias": "stage5_n1",
+        "g": 0
+      },
+      {
+        "alias": "stage5_n2",
+        "g": 0
+      },
+      {
+        "alias": "stage5_n3",
+        "g": 0
+      },
+      {
+        "alias": "stage5_n4",
+        "g": 0
+      },
+      {
+        "alias": "stage5_n5",
+        "g": 1
+      }
+    ]
+  },
+  "edges_by_node_alias": {
+    "ROOT": [
+      "stage1_n1",
+      "stage1_n2",
+      "stage1_n3",
+      "stage1_n4",
+      "stage1_n5"
+    ],
+    "stage1_n1": [
+      "stage2_n1",
+      "stage2_n2",
+      "stage2_n3"
+    ],
+    "stage1_n2": [
+      "stage2_n1",
+      "stage2_n2",
+      "stage2_n3"
+    ],
+    "stage1_n3": [
+      "stage2_n1",
+      "stage2_n2",
+      "stage2_n3"
+    ],
+    "stage1_n4": [
+      "stage2_n1",
+      "stage2_n2",
+      "stage2_n3",
+      "stage2_n4",
+      "stage2_n5"
+    ],
+    "stage1_n5": [
+      "stage2_n3",
+      "stage2_n4",
+      "stage2_n5"
+    ],
+    "stage2_n1": [
+      "stage3_n1",
+      "stage3_n2"
+    ],
+    "stage2_n2": [
+      "stage3_n2",
+      "stage3_n3",
+      "stage3_n4",
+      "stage3_n5"
+    ],
+    "stage2_n3": [
+      "stage3_n3",
+      "stage3_n4",
+      "stage3_n5"
+    ],
+    "stage2_n4": [
+      "stage3_n3",
+      "stage3_n4",
+      "stage3_n5"
+    ],
+    "stage2_n5": [
+      "stage3_n3",
+      "stage3_n4",
+      "stage3_n5"
+    ],
+    "stage3_n1": [
+      "stage4_n1"
+    ],
+    "stage3_n2": [
+      "stage4_n1"
+    ],
+    "stage3_n3": [
+      "stage4_n2",
+      "stage4_n3"
+    ],
+    "stage3_n4": [
+      "stage4_n2",
+      "stage4_n3",
+      "stage4_n4",
+      "stage4_n5"
+    ],
+    "stage3_n5": [
+      "stage4_n2",
+      "stage4_n3",
+      "stage4_n4",
+      "stage4_n5"
+    ],
+    "stage4_n1": [
+      "stage5_n1",
+      "stage5_n2"
+    ],
+    "stage4_n2": [
+      "stage5_n1",
+      "stage5_n2"
+    ],
+    "stage4_n3": [
+      "stage5_n1",
+      "stage5_n2",
+      "stage5_n3",
+      "stage5_n4"
+    ],
+    "stage4_n4": [
+      "stage5_n1",
+      "stage5_n3",
+      "stage5_n4",
+      "stage5_n5"
+    ],
+    "stage4_n5": [
+      "stage5_n2",
+      "stage5_n4",
+      "stage5_n5"
+    ]
+  }
+}

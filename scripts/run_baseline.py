@@ -26,6 +26,7 @@ from naive_mixed import NaiveMixedPolicy  # noqa: E402
 from oracle_policy import OraclePolicy  # noqa: E402
 from random_path import RandomPathPolicy  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
+from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
 
 
 PolicyFactory = Callable[[int], Any]
@@ -41,6 +42,7 @@ POLICY_REGISTRY: dict[str, PolicyFactory] = {
     "direct_multistage_exp3": lambda seed: DirectMultiStageExp3Policy(seed=seed),
     "epsilon_exp3": lambda seed: EpsilonExp3Policy(seed=seed),
     "risky_ps": lambda seed: RiskyPSPolicy(seed=seed),
+    "risky_ps_ix": lambda seed: RiskyPSIXPolicy(seed=seed),
     "oracle": lambda seed: OraclePolicy(seed=seed),
 }
 

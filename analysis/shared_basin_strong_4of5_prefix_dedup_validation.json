@@ -1,0 +1,213 @@
+{
+  "depth": 5,
+  "num_paths": 440,
+  "source_num_paths": 440,
+  "total_agent_ids": 655,
+  "duplicate_agent_count": 0,
+  "duplicate_agent_ids": {},
+  "cross_prefix_duplicate_count": 0,
+  "cross_prefix_duplicate_agent_ids": [],
+  "cross_prefix_reuse_rate": 0.0,
+  "alias_duplicate_count": 0,
+  "per_stage_node_counts": {
+    "stage1": 5,
+    "stage2": 17,
+    "stage3": 51,
+    "stage4": 142,
+    "stage5": 440
+  },
+  "g_counts_by_stage": {
+    "stage1": {
+      "0": 4,
+      "1": 1
+    },
+    "stage2": {
+      "0": 15,
+      "1": 2
+    },
+    "stage3": {
+      "0": 38,
+      "1": 13
+    },
+    "stage4": {
+      "0": 116,
+      "1": 26
+    },
+    "stage5": {
+      "0": 388,
+      "1": 52
+    }
+  },
+  "root_branching": 5,
+  "min_branching": 1,
+  "max_branching": 5,
+  "mean_branching": 3.0324074074074074,
+  "original_connectivity_pattern_preserved": true,
+  "connectivity_pattern_error_count": 0,
+  "connectivity_pattern_error_sample": [],
+  "clone_g_consistent_with_base_alias": true,
+  "clone_g_consistency_error_count": 0,
+  "clone_g_consistency_error_sample": [],
+  "path_semantics_preserved": true,
+  "source_reused_aliases": {
+    "stage2_n1": [
+      "stage1_n1",
+      "stage1_n2",
+      "stage1_n3",
+      "stage1_n4"
+    ],
+    "stage2_n2": [
+      "stage1_n1",
+      "stage1_n2",
+      "stage1_n3",
+      "stage1_n4"
+    ],
+    "stage2_n3": [
+      "stage1_n1",
+      "stage1_n2",
+      "stage1_n3",
+      "stage1_n4",
+      "stage1_n5"
+    ],
+    "stage2_n4": [
+      "stage1_n4",
+      "stage1_n5"
+    ],
+    "stage2_n5": [
+      "stage1_n4",
+      "stage1_n5"
+    ],
+    "stage3_n2": [
+      "stage2_n1",
+      "stage2_n2"
+    ],
+    "stage3_n3": [
+      "stage2_n2",
+      "stage2_n3",
+      "stage2_n4",
+      "stage2_n5"
+    ],
+    "stage3_n4": [
+      "stage2_n2",
+      "stage2_n3",
+      "stage2_n4",
+      "stage2_n5"
+    ],
+    "stage3_n5": [
+      "stage2_n2",
+      "stage2_n3",
+      "stage2_n4",
+      "stage2_n5"
+    ],
+    "stage4_n1": [
+      "stage3_n1",
+      "stage3_n2"
+    ],
+    "stage4_n2": [
+      "stage3_n3",
+      "stage3_n4",
+      "stage3_n5"
+    ],
+    "stage4_n3": [
+      "stage3_n3",
+      "stage3_n4",
+      "stage3_n5"
+    ],
+    "stage4_n4": [
+      "stage3_n4",
+      "stage3_n5"
+    ],
+    "stage4_n5": [
+      "stage3_n4",
+      "stage3_n5"
+    ],
+    "stage5_n1": [
+      "stage4_n1",
+      "stage4_n2",
+      "stage4_n3",
+      "stage4_n4"
+    ],
+    "stage5_n2": [
+      "stage4_n1",
+      "stage4_n2",
+      "stage4_n3",
+      "stage4_n5"
+    ],
+    "stage5_n3": [
+      "stage4_n3",
+      "stage4_n4"
+    ],
+    "stage5_n4": [
+      "stage4_n3",
+      "stage4_n4",
+      "stage4_n5"
+    ],
+    "stage5_n5": [
+      "stage4_n4",
+      "stage4_n5"
+    ]
+  },
+  "clone_count_by_base_alias": {
+    "stage1_n1": 1,
+    "stage1_n2": 1,
+    "stage1_n3": 1,
+    "stage1_n4": 1,
+    "stage1_n5": 1,
+    "stage2_n1": 4,
+    "stage2_n2": 4,
+    "stage2_n3": 5,
+    "stage2_n4": 2,
+    "stage2_n5": 2,
+    "stage3_n1": 4,
+    "stage3_n2": 8,
+    "stage3_n3": 13,
+    "stage3_n4": 13,
+    "stage3_n5": 13,
+    "stage4_n1": 12,
+    "stage4_n2": 39,
+    "stage4_n3": 39,
+    "stage4_n4": 26,
+    "stage4_n5": 26,
+    "stage5_n1": 116,
+    "stage5_n2": 116,
+    "stage5_n3": 65,
+    "stage5_n4": 91,
+    "stage5_n5": 52
+  },
+  "cloned_aliases": {
+    "stage2_n1": 4,
+    "stage2_n2": 4,
+    "stage2_n3": 5,
+    "stage2_n4": 2,
+    "stage2_n5": 2,
+    "stage3_n1": 4,
+    "stage3_n2": 8,
+    "stage3_n3": 13,
+    "stage3_n4": 13,
+    "stage3_n5": 13,
+    "stage4_n1": 12,
+    "stage4_n2": 39,
+    "stage4_n3": 39,
+    "stage4_n4": 26,
+    "stage4_n5": 26,
+    "stage5_n1": 116,
+    "stage5_n2": 116,
+    "stage5_n3": 65,
+    "stage5_n4": 91,
+    "stage5_n5": 52
+  },
+  "metadata": {
+    "purpose": "prefix-specific de-dup of shared_basin_strong_4of5_minimal",
+    "source_spec": "analysis/tree_specs/shared_basin_strong_4of5_minimal.json",
+    "preserve_connectivity_pattern": true,
+    "preserve_g": true,
+    "agent_reuse_policy": "parent_specific_clone",
+    "cross_prefix_agent_reuse_removed": true,
+    "compatible_with": [
+      "risky_ps",
+      "barriershare_controlled_sim"
+    ],
+    "llm_runner_requires_adapter": true,
+    "not_directly_compatible_with_current_shared_basin_llm_runner": true
+  }
+}

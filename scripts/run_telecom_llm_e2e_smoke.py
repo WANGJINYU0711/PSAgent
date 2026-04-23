@@ -31,6 +31,7 @@ from naive_mixed import NaiveMixedPolicy  # noqa: E402
 from oracle_eval import find_best_stationary_path  # noqa: E402
 from random_path import RandomPathPolicy  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
+from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
 
 
 def mean(values: list[float]) -> float:
@@ -39,6 +40,7 @@ def mean(values: list[float]) -> float:
 
 POLICY_REGISTRY = {
     "risky_ps": RiskyPSPolicy,
+    "risky_ps_ix": RiskyPSIXPolicy,
     "direct_multistage_exp3": DirectMultiStageExp3Policy,
     "epsilon_exp3": EpsilonExp3Policy,
     "full_unshare": FullUnsharePolicy,

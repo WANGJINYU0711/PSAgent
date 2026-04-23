@@ -11,6 +11,12 @@ from time import perf_counter
 from typing import Any
 
 
+JSON_STDOUT = sys.stdout
+# Keep the subprocess stdout protocol clean: every dependency warning, tau2 log,
+# accidental print, or traceback should go to stderr. Only the final JSON result
+# is written to JSON_STDOUT explicitly.
+sys.stdout = sys.stderr
+
 ROOT = Path(__file__).resolve().parents[2]
 TAU2_ROOT = ROOT / "tau2-bench"
 TAU2_SRC = TAU2_ROOT / "src"
@@ -365,7 +371,7 @@ def _aggregate_resource_usage(
     }
 
 
-def main() -> None:
+def main(*, json_stdout: Any = JSON_STDOUT) -> None:
     payload = json.load(sys.stdin)
     stage_name = payload["stage_name"]
     original_task_id = str(payload.get("original_task_id", ""))
@@ -515,7 +521,9 @@ def main() -> None:
         "resource_usage": resource_usage,
         "policy_eval_debug": policy_eval_debug,
     }
-    json.dump(result, sys.stdout, ensure_ascii=False)
+    json.dump(result, json_stdout, ensure_ascii=False, separators=(",", ":"))
+    json_stdout.write("\n")
+    json_stdout.flush()
 
 
 def _filter_tools(env: Any, allowed_names: list[str]) -> tuple[list[Any], dict[str, str]]:
@@ -538,4 +546,4 @@ def _filter_tools(env: Any, allowed_names: list[str]) -> tuple[list[Any], dict[s
 
 
 if __name__ == "__main__":
-    main()
+    main(json_stdout=JSON_STDOUT)

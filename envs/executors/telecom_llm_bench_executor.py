@@ -6,7 +6,9 @@ import json
 import os
 import re
 import subprocess
+import uuid
 from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,7 @@ from tree_family.specs import AgentSpec, TaskDescriptor
 
 
 DEFAULT_LLM_MODEL = os.environ.get("PSAGENT_LLM_BENCH_MODEL", "gpt-4.1-2025-04-14")
+DEFAULT_BRIDGE_DEBUG_DIR = Path("/tmp/psagent_bridge_failures")
 STAGE4_REPAIR_TOOLS = [
     "toggle_airplane_mode",
     "toggle_data",
@@ -474,8 +477,9 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "user_prompt": user_prompt,
             "replay_tool_calls": replay_tool_calls or [],
         }
+        cmd = [str(self.venv_python), str(self.llm_bridge_script)]
         proc = subprocess.run(
-            [str(self.venv_python), str(self.llm_bridge_script)],
+            cmd,
             input=json.dumps(payload, ensure_ascii=False),
             capture_output=True,
             text=True,
@@ -487,7 +491,112 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 f"Telecom LLM bench bridge failed for {stage_name}: "
                 + (proc.stderr.strip() or proc.stdout.strip() or f"exit={proc.returncode}")
             )
-        return json.loads(proc.stdout)
+        return self._parse_bridge_stdout(
+            proc=proc,
+            cmd=cmd,
+            cwd=str(self.tau2_root),
+            payload=payload,
+        )
+
+    def _parse_bridge_stdout(
+        self,
+        *,
+        proc: subprocess.CompletedProcess[str],
+        cmd: list[str],
+        cwd: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Parse the bridge stdout protocol with diagnostics for polluted stdout.
+
+        Normal bridge output must be a single JSON object. If stdout was polluted
+        by dependency logs but the last non-empty line is JSON, recover and mark
+        the returned payload. Otherwise persist raw stdout/stderr and fail with a
+        diagnostic path.
+        """
+
+        try:
+            parsed = json.loads(proc.stdout)
+            if isinstance(parsed, dict):
+                return parsed
+            raise TypeError(f"Bridge stdout JSON is {type(parsed).__name__}, not object")
+        except Exception as strict_error:
+            non_empty_lines = [line for line in proc.stdout.strip().splitlines() if line.strip()]
+            if non_empty_lines:
+                last_line = non_empty_lines[-1]
+                try:
+                    recovered = json.loads(last_line)
+                    if isinstance(recovered, dict):
+                        recovered["_bridge_stdout_recovered"] = True
+                        recovered["_bridge_stdout_extra_line_count"] = max(
+                            0,
+                            len(non_empty_lines) - 1,
+                        )
+                        recovered["_bridge_stdout_recovery_mode"] = "last_json_line"
+                        return recovered
+                except Exception:
+                    pass
+
+            dump_path = self._write_bridge_parse_failure_dump(
+                strict_error=strict_error,
+                proc=proc,
+                cmd=cmd,
+                cwd=cwd,
+                payload=payload,
+            )
+            stdout_preview = self._preview_text(proc.stdout)
+            stderr_preview = self._preview_text(proc.stderr)
+            raise RuntimeError(
+                "Telecom LLM bench bridge JSON parse failure. "
+                f"Diagnostic dump: {dump_path}. "
+                f"stdout preview: {stdout_preview!r}. "
+                f"stderr preview: {stderr_preview!r}."
+            ) from strict_error
+
+    def _write_bridge_parse_failure_dump(
+        self,
+        *,
+        strict_error: Exception,
+        proc: subprocess.CompletedProcess[str],
+        cmd: list[str],
+        cwd: str,
+        payload: dict[str, Any],
+    ) -> Path:
+        debug_dir = Path(
+            os.environ.get("PSAGENT_BRIDGE_DEBUG_DIR", str(DEFAULT_BRIDGE_DEBUG_DIR))
+        )
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        stage_name = str(payload.get("stage_name") or "unknown_stage")
+        safe_stage_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", stage_name)[:80]
+        dump_path = (
+            debug_dir
+            / f"bridge_json_decode_failure_{timestamp}_{safe_stage_name}_{uuid.uuid4().hex}.json"
+        )
+        diagnostic = {
+            "error_type": type(strict_error).__name__,
+            "error_message": str(strict_error),
+            "returncode": proc.returncode,
+            "cmd": cmd,
+            "cwd": cwd,
+            "stdout_raw": proc.stdout,
+            "stderr_raw": proc.stderr,
+            "stdout_preview": self._preview_text(proc.stdout),
+            "stderr_preview": self._preview_text(proc.stderr),
+            "payload_stage_name": payload.get("stage_name"),
+            "payload_task_id": payload.get("original_task_id"),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        dump_path.write_text(json.dumps(diagnostic, indent=2, ensure_ascii=False))
+        return dump_path
+
+    @staticmethod
+    def _preview_text(text: str | None, max_chars: int = 1200) -> str:
+        if not text:
+            return ""
+        text = text.replace("\x00", "\\0")
+        if len(text) <= max_chars:
+            return text
+        return text[: max_chars - 3] + "..."
 
     def _maybe_fetch_stage3_account_side_fallback(
         self,

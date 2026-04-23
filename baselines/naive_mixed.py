@@ -1,9 +1,11 @@
-"""Naive mixed baseline with only direct parent-child feedback.
+"""Naive mixed baseline with only direct parent-child cost ordering.
 
 This policy does not use any shared/unshared structure and does not maintain
-whole-path arms. Instead, each prefix locally learns average end-to-end cost
-for the child edge it selected. Every parent therefore only updates its own
-chosen child interface; there is no non-local shared delta propagation.
+whole-path arms. Each prefix locally stores the latest observed end-to-end cost
+for each selected direct child edge. Selection greedily chooses the legal child
+with the smallest stored edge cost, using deterministic prefix ordering to break
+ties. There is no epsilon exploration, no historical averaging, no theta/EXP3
+update, and no shared delta propagation.
 """
 
 from __future__ import annotations
@@ -16,14 +18,12 @@ from oracle_eval import enumerate_all_paths
 
 
 class NaiveMixedPolicy(BasePolicy):
-    """Prefix-local epsilon-greedy baseline without shared propagation."""
+    """Prefix-local naive cost-ordering baseline without shared propagation."""
 
-    def __init__(self, seed: int = 0, epsilon: float = 0.2) -> None:
+    def __init__(self, seed: int = 0) -> None:
         super().__init__(seed=seed, protocol_mode="actual_leaf")
-        self.epsilon = epsilon
         self.paths: list[list[str]] = []
-        self.counts: dict[tuple[tuple[str, ...], tuple[str, ...]], int] = {}
-        self.total_costs: dict[tuple[tuple[str, ...], tuple[str, ...]], float] = {}
+        self.edge_costs: dict[tuple[tuple[str, ...], tuple[str, ...]], float] = {}
 
     @property
     def name(self) -> str:
@@ -33,14 +33,11 @@ class NaiveMixedPolicy(BasePolicy):
         super().bind_env(env)
         self.paths = enumerate_all_paths(env)
 
-    def _mean_cost(
+    def _edge_cost(
         self,
         edge_key: tuple[tuple[str, ...], tuple[str, ...]],
     ) -> float:
-        count = self.counts.get(edge_key, 0)
-        if count == 0:
-            return 0.0
-        return self.total_costs[edge_key] / count
+        return float(self.edge_costs.get(edge_key, 0.0))
 
     def _child_prefixes(
         self,
@@ -82,16 +79,13 @@ class NaiveMixedPolicy(BasePolicy):
                     f"current_prefix={list(current_prefix)} stage_name={stage_name}"
                 )
 
-            if self.rng.random() < self.epsilon:
-                chosen_child = self.rng.choice(child_prefixes)
-            else:
-                chosen_child = min(
-                    child_prefixes,
-                    key=lambda child_prefix: (
-                        self._mean_cost((current_prefix, child_prefix)),
-                        self.counts.get((current_prefix, child_prefix), 0),
-                    ),
-                )
+            chosen_child = min(
+                child_prefixes,
+                key=lambda child_prefix: (
+                    self._edge_cost((current_prefix, child_prefix)),
+                    child_prefix,
+                ),
+            )
 
             selected_path.append(chosen_child[-1])
             current_prefix = chosen_child
@@ -99,17 +93,18 @@ class NaiveMixedPolicy(BasePolicy):
 
     def update(self, episode_result: EpisodeResult) -> None:
         leaf = tuple(episode_result.selected_path)
+        observed_cost = float(episode_result.total_cost)
         for depth in range(len(leaf)):
             prefix = tuple(leaf[:depth])
             child_prefix = tuple(leaf[: depth + 1])
             edge_key = (prefix, child_prefix)
-            self.counts[edge_key] = self.counts.get(edge_key, 0) + 1
-            self.total_costs[edge_key] = self.total_costs.get(edge_key, 0.0) + episode_result.total_cost
+            self.edge_costs[edge_key] = observed_cost
 
     def get_state(self) -> dict[str, Any]:
         return {
             "protocol_mode": self.protocol_mode,
-            "epsilon": self.epsilon,
+            "selection_rule": "prefix_local_min_latest_edge_cost",
+            "update_rule": "overwrite_selected_edges_with_observed_total_cost",
             "num_paths": len(self.paths),
-            "visited_edges": len(self.counts),
+            "tracked_edges": len(self.edge_costs),
         }
