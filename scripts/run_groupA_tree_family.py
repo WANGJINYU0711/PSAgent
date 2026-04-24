@@ -23,6 +23,7 @@ for extra in (
         sys.path.insert(0, str(extra))
 
 from direct_multistage_exp3 import DirectMultiStageExp3Policy  # noqa: E402
+from direct_multistage_exp3_local import DirectMultiStageExp3LocalPolicy  # noqa: E402
 from epsilon_exp3 import EpsilonExp3Policy  # noqa: E402
 from fixed_tree_env import FixedTreeEnvironment  # noqa: E402
 from full_share import FullSharePolicy  # noqa: E402
@@ -32,6 +33,7 @@ from naive_mixed import NaiveMixedPolicy  # noqa: E402
 from oracle_policy import OraclePolicy  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
 from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
+from risky_ps_linear import RiskyPSLinearPolicy  # noqa: E402
 
 
 POLICIES = {
@@ -39,8 +41,10 @@ POLICIES = {
     "full_unshare": lambda seed: FullUnsharePolicy(seed=seed),
     "epsilon_exp3": lambda seed: EpsilonExp3Policy(seed=seed),
     "direct_multistage_exp3": lambda seed: DirectMultiStageExp3Policy(seed=seed),
+    "direct_multistage_exp3_local": lambda seed: DirectMultiStageExp3LocalPolicy(seed=seed),
     "naive_mixed": lambda seed: NaiveMixedPolicy(seed=seed),
     "risky_ps": lambda seed: RiskyPSPolicy(seed=seed),
+    "risky_ps_linear": lambda seed: RiskyPSLinearPolicy(seed=seed),
     "risky_ps_ix": lambda seed: RiskyPSIXPolicy(seed=seed),
     "oracle": lambda seed: OraclePolicy(seed=seed),
 }
@@ -124,7 +128,16 @@ def main() -> None:
     parser.add_argument(
         "--methods",
         nargs="+",
-        default=list(POLICIES),
+        default=[
+            "full_share",
+            "full_unshare",
+            "epsilon_exp3",
+            "direct_multistage_exp3",
+            "naive_mixed",
+            "risky_ps",
+            "risky_ps_ix",
+            "oracle",
+        ],
     )
     parser.add_argument(
         "--mechanism",

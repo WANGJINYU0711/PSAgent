@@ -1,268 +1,430 @@
+请在 /home/ubuntu/data/PSAgent 里，取消最近对 `ps_favored_trap` controlled sim landscape 的那轮 tweak，回到**上一个版本的 sim 实验环境**，然后对所有带超参数的算法做统一超参 sweep。最后对 13 个算法分别取“各自最优超参”的结果，汇总成一张总表，保留原来已有的所有指标。
+
+先阅读并核对这些文件：
+- scripts/run_barriershare_controlled_sim.py
+- outputs/barriershare_controlled_sim_prefix_dedup_ps_favored_trap_v9_eta02_eps002_switch_8_plus3_v1/run_config.json
+- outputs/barriershare_controlled_sim_prefix_dedup_ps_favored_trap_v9_eta02_eps002_switch_8_plus3_v1/ps_favored_trap_compare.md
+- outputs/barriershare_controlled_sim_prefix_dedup_ps_favored_trap_v9_eta02_eps002_switch_8_plus3_v2/run_config.json
+- outputs/barriershare_controlled_sim_prefix_dedup_ps_favored_trap_v9_eta02_eps002_switch_8_plus3_v2/ps_favored_trap_compare.md
+- baselines/risky_ps.py
+- baselines/risky_ps_linear.py
+- baselines/direct_multistage_exp3.py
+- baselines/direct_multistage_exp3_local.py
+- baselines/epsilon_exp3.py
+- baselines/naive_mixed.py
+- baselines/naive_mixed_avg.py
+- baselines/random_path.py
+
+目标：
+1. 取消 v2 那轮 landscape tweak，恢复到 **v1 那套 sim 环境**
+2. 在这套恢复后的 controlled sim 环境里，对 13 个算法做超参 sweep
+3. 对每个算法选出“本算法最优超参”
+4. 用每个算法的最优结果生成一张总对比表
+5. 保留旧图那套所有指标字段
+6. trap 修改时间统一设为 `T/8`
+
+一、必须恢复到的实验环境
+--------------------------------
+
+请明确恢复到 v1 的 controlled sim 环境，也就是：
+- 不使用 v2 那轮对 `_ps_favored_selected_good_leaf_paths()` 和 `_ps_favored_trap_base_probability()` 的 tweak
+- 恢复到 `outputs/barriershare_controlled_sim_prefix_dedup_ps_favored_trap_v9_eta02_eps002_switch_8_plus3_v1` 对应的 landscape 逻辑
+
+要求：
+- 如果当前工作树里已经是 v2 逻辑，请只修改 `scripts/run_barriershare_controlled_sim.py`
+- 恢复后要让：
+  - selected-good 逻辑回到 v1
+  - exact-best / oracle 逻辑回到 v1
+  - target_good 的成本逻辑回到 v1
+- 不要改 baseline 算法本体
+- 不要改 metric 逻辑
+- 不要覆盖已有 v1 / v2 输出目录
+
+二、统一实验口径
+--------------------------------
+
+请严格使用旧图对应的 controlled sim 代码和指标口径：
+
+- runner:
+  - `scripts/run_barriershare_controlled_sim.py`
+- tree spec:
+  - `analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup.json`
+- `tree_spec_role_mode = spec_or_agent_id`
+- `tree_spec_cost_mode = ps_favored_trap`
+- `trap_switch_denominator = 8`
+- `horizon = 1000`
+- `seeds = 0 1 2 3 4`
+- `cost_noise = 0.02`
+- `specialist_fraction = 0.15`
+
+说明：
+- `trap_switch_denominator = 8` 就是你要的 `T/8`
+- 不要改成别的 switch 时间
+- 不要用 repeated smoke runner
+- 不要用 LLM
+- 不要 orchestrate
+
+三、要跑的 13 个算法
+--------------------------------
+
+请统一比较这 13 个方法：
+
+1. `risky_ps_old`
+2. `risky_ps`
+3. `risky_ps_ix`
+4. `risky_ps_safe_conditional`
+5. `risky_ps_safe_conditional_ix`
+6. `risky_ps_direct_cost`
+7. `direct_multistage_exp3`
+8. `epsilon_exp3`
+9. `naive_mixed`
+10. `random_path`
+11. `naive_mixed_avg`
+12. `risky_ps_linear`
+13. `direct_multistage_exp3_local`
+
+如果当前 runner 已经接入这些方法，就直接复用。
+不要改旧方法行为。
+
+四、超参 sweep 要求
+--------------------------------
+
+请只对“有超参数设定”的算法做 sweep。
+
+至少覆盖这些超参轴：
+
+### 1. eta 类方法
+对所有吃 `eta` 的方法做 sweep。
+建议至少 sweep：
+- `0.02`
+- `0.05`
+- `0.1`
+- `0.2`
+- `0.5`
+
+适用方法至少包括：
+- `risky_ps_old`
+- `risky_ps`
+- `risky_ps_ix`
+- `risky_ps_safe_conditional`
+- `risky_ps_safe_conditional_ix`
+- `risky_ps_direct_cost`
+- `risky_ps_linear`
+- `direct_multistage_exp3`
+- `direct_multistage_exp3_local`
+- `epsilon_exp3`
+
+### 2. epsilon 类方法
+对所有吃 `epsilon` 的方法做 sweep。
+建议至少 sweep：
+- `0.0`
+- `0.01`
+- `0.02`
+- `0.05`
+- `0.1`
+
+适用方法至少包括：
+- `risky_ps_old`
+- `risky_ps`
+- `risky_ps_ix`
+- `risky_ps_safe_conditional`
+- `risky_ps_safe_conditional_ix`
+- `risky_ps_direct_cost`
+- `risky_ps_linear`
+- `epsilon_exp3`
+
+### 3. 无超参数方法
+这些方法不做 sweep，只跑一次：
+- `naive_mixed`
+- `naive_mixed_avg`
+- `random_path`
+
+如果你发现某个方法还有额外合法超参轴，而且当前 runner 已经支持，可以补充；但不要擅自改算法定义。
+
+五、最优参数的选取规则
+--------------------------------
+
+请在最终汇总前，先对每个方法内部选“最优超参”。
+
+要求：
+1. 明确指定主排序指标
+建议主指标：
+- `regret/T` 最小
+
+2. 若主指标并列，再按：
+- `overall avg cost` 最小
+- `post-switch avg regret` 最小
+
+3. 每个方法都要输出：
+- 本方法最优超参组合
+- 本方法最优结果的完整指标
+
+六、输出要求
+--------------------------------
+
+请输出到新的目录，不要覆盖旧结果。
+建议目录例如：
+
+- `outputs/barriershare_controlled_sim_prefix_dedup_ps_favored_trap_v9_sweep_bestof_v1`
+
+并保留中间 sweep 结果与最终 best-of 汇总。
+
+建议至少生成：
+
+### sweep 级输出
+- `sweep_runs_manifest.json`
+- `sweep_results_long.json`
+- `sweep_results_long.csv`
+
+### best-of 汇总输出
+- `best_params_by_method.json`
+- `best_params_by_method.csv`
+- `best_of_compare.json`
+- `best_of_compare.csv`
+- `best_of_compare.md`
+
+如果方便，也请保留每个 sweep run 对应的原始 controlled sim 标准产物。
+
+七、最终总表必须保留旧图那套指标
+--------------------------------
+
+最终 `best_of_compare` 总表至少要保留这些列：
+
+- `method`
+- `best_eta`（如适用）
+- `best_epsilon`（如适用）
+- `regret/T`
+- `overall avg cost`
+- `tail20 avg cost`
+- `post-switch avg regret`
+- `target good frac`
+- `trap frac`
+- `shared path frac`
+
+如果原始字段名是：
+- `regret_per_t_mean`
+- `average_cost_mean`
+- `tail20_avg_total_cost_mean`
+- `post_switch_avg_regret_mean`
+- `target_good_fraction_mean`
+- `trap_basin_fraction_mean`
+- `shared_path_fraction_mean`
+
+请在最终表里保留用户友好的展示名，但不要改原始 summary 逻辑。
+
+八、验证要求
+--------------------------------
+
+请完成这些验证：
+
+1. 静态检查
+```bash
+python -m py_compile scripts/run_barriershare_controlled_sim.py
+```
+
+2. 恢复检查
+请明确确认当前代码已经恢复到 v1 landscape，而不是 v2。
+
+3. 实际运行
+请完成所有需要的 sweep run，并生成 best-of 汇总。
+
+4. 合法性检查
+请确认：
+- 每个有超参的方法都确实扫到了对应参数网格
+- 每个方法都成功选出了 best params
+- 最终总表覆盖 13 个方法
+
+九、最终回复必须包含
+--------------------------------
+
 1. 修改了哪些文件
-
-只改了 [scripts/build_telecom_mms_fixed_tree.py](/home/ubuntu/data/PSAgent/scripts/build_telecom_mms_fixed_tree.py)。  
-新增产物是脚本生成的：
-
-- [data/derived/telecom_mms_fixed_tree_base_v2_100/tasks.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/tasks.json)
-- [data/derived/telecom_mms_fixed_tree_base_v2_100/manifest.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/manifest.json)
-
-2. 新的 `100` 条 benchmark 输出路径是什么
-
-新 benchmark 路径是：
-
-- [data/derived/telecom_mms_fixed_tree_base_v2_100/tasks.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/tasks.json)
-
-配套 manifest 是：
-
-- [data/derived/telecom_mms_fixed_tree_base_v2_100/manifest.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/manifest.json)
-
-这次没有动旧的 `49` 条版本，也没有覆盖旧 smoke10。
-
-3. 选样逻辑是怎么设计的
-
-我新增了一套确定性的 coverage-oriented 选择器，不从 `split_map["base"]` 取，而是从全量 `1984` 条 `mms_issue` 候选集里选 `100` 条。
-
-逻辑是：
-
-- 先解析每条 task 的特征：`blocker count`、`persona`、`terminal action`、`ownership`、`blocker layer`、是否包含 3 类 permission blocker。
-- 按“精确 blocker 个数”分桶。
-- 做 round-robin 轮转取样，避免高 blocker-count 任务把低 blocker-count 任务完全淹没。
-- 每个桶内用贪心优先级选 coverage gain 更高的样本，优先补齐：
-  - persona
-  - terminal action
-  - permission blocker
-  - ownership
-  - blocker layer
-- 全程不使用随机数，最终 tie-break 用 `task_id` 字典序，所以结果可复现、可冻结。
-
-4. 为什么它比原来的 `49` 条覆盖更好
-
-原来的 `49` 条本质上只是 `split_map["base"]` 里的 `mms_issue` 子集，覆盖面比较窄，而且 action 分布明显偏向 `repair_subset`。
-
-新 `100` 条的改善比较直观：
-
-- blocker count：旧版没有 `1` blocker 的样本；新版补进了 `6` 条。
-- persona：旧版 `Hard/Easy/None = 17/15/17`；新版几乎完全平衡到 `34/33/33`。
-- terminal action：旧版 `repair_all/repair_subset/transfer = 11/28/10`；新版平衡到 `33/34/33`。
-- permission blockers：旧版 `sms/storage/both = 10/11/14`；新版提升到 `33/32/32`。
-- hybrid ownership：旧版只有 `10` 条；新版提升到 `33` 条。
-
-所以新版不是单纯“多了 51 条”，而是把你现在最关心的漂移维度和决策维度一起补齐了。
-
-5. 新 benchmark 的 coverage summary 是什么
-
-来自 [manifest.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/manifest.json) 的最终统计是：
-
-- task 数量：`100`
-- source 候选池：`1984` 条 `mms_issue`
-- skipped：`0`
-
-- blocker count 分布：`1:6, 2:13, 3:12, 4:12, 5:12, 6:12, 7:12, 8:12, 9:9`
-- blocker count bucket 分布：`1:6, 2:13, 3:12, 4:12, 5+:57`
-- persona 分布：`Hard:34, None:33, Easy:33`
-- terminal action 分布：`repair_all:33, repair_subset:34, transfer:33`
-- permission blocker 覆盖：`break_app_sms_permission:33, break_app_storage_permission:32, break_app_both_permissions:32`
-- ownership 覆盖：`user:100, assistant:41, hybrid:33`
-- blocker layer 分布：`service:83, data:88, mms_app:99`
-
-6. schema 是否与旧 benchmark 完全兼容
-
-是，兼容。
-
-我核对了新旧 `tasks.json` 的 row schema，顶层键完全一致：
-
-- `family`
-- `instance_id`
-- `metadata`
-- `original_task_id`
-- `source_task`
-- `stage1`
-- `stage2`
-- `stage3`
-- `stage4`
-- `stage5`
-- `user_context`
-
-并且 `metadata`、`source_task`、`stage1~stage5`、`user_context` 的子键也一致。现有 runner / evaluator 不需要额外适配。
-
-7. 旧 `49` 条版本是否保留不变
-
-保留不变。
-
-我在重跑 builder 前后核对了旧文件哈希，下面两个文件内容没有变化：
-
-- [data/derived/telecom_mms_fixed_tree_base/tasks.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base/tasks.json)
-- [data/derived/telecom_mms_fixed_tree_smoke10/tasks.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_smoke10/tasks.json)
-
-8. 跑了哪些最小验证
-
-我做了这些验证：
-
-1. `python -m py_compile scripts/build_telecom_mms_fixed_tree.py`
-2. `python scripts/build_telecom_mms_fixed_tree.py`
-3. 检查新输出数量，确认 [tasks.json](/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100/tasks.json) 正好 `100` 条
-4. 检查新旧 schema 一致
-5. 检查 manifest 覆盖统计与 `skipped_count = 0`
-6. 检查旧 `49` 条和旧 smoke10 文件哈希未变
-7. 用现有 runner 直接跑新数据：
-   - `scripts/run_telecom_mms_main_experiment.py`
-   - 输出已生成在 [outputs/telecom_base_v2_100_smoke](/home/ubuntu/data/PSAgent/outputs/telecom_base_v2_100_smoke)
-   - `overall_summary.json` 显示 `episodes = 100`
-
-如果你愿意，我下一步可以继续把这个 `base_v2_100` 的 manifest 再整理成一段论文里能直接引用的 benchmark construction 描述。
-
-
-
-
-
-
-
-1. 实际跑了哪些测试
-
-跑了：
-- 测试 A：`smoke3` 完整 `Stage1→Stage5`
-- 测试 B：`smoke10` 完整 `Stage1→Stage5`
-
-没跑测试 C。
-原因是 A/B 已经足够说明当前主问题不再是 Stage 3 后处理 bug，而是 `Stage 3` 的工具选择覆盖不足、以及 `Stage 5` 几乎不主动做 verification tools；这时继续跑 full slice 性价比不高。
-
-2. 输出目录分别在哪
-
-- `smoke3` rerun:
-[summary.json](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_152334_risky_ps_smoke3_rerun/summary.json)
-[episodes.json](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_152334_risky_ps_smoke3_rerun/episodes.json)
-[smoke_summary.md](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_152334_risky_ps_smoke3_rerun/smoke_summary.md)
-
-- `smoke10`:
-[summary.json](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_153713_risky_ps_smoke10/summary.json)
-[episodes.json](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_153713_risky_ps_smoke10/episodes.json)
-[smoke_summary.md](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_153713_risky_ps_smoke10/smoke_summary.md)
-
-- 汇总结论：
-[20260417_smoke_assessment.md](/home/ubuntu/data/PSAgent/outputs/telecom_llm_e2e_smoke/20260417_smoke_assessment.md)
-
-3. smoke3 相比修复前改善了什么
-
-改善很明显。
-
-修复前旧结果：
-- `exact_match_mean = 0.0`
-- `terminal_penalty_mean = 2.0`
-- `mean_regret = 0.7022`
-
-这次 `smoke3` rerun：
-- `exact_match_mean = 0.6667`
-- `terminal_penalty_mean = 0.3333`
-- `raw_total_cost_mean = 0.4460`
-- `total_cost_mean = 0.01774`
-- `mean_regret = -0.03834`
-- `raw_mean_regret = -0.96397`
-
-逐条看：
-- `idx=0`
-  - `final_action=repair_all`，但仍未 exact match
-  - `break_app_both_permissions` 没恢复出来
-  - 当前只识别到 `airplane_mode_on`
-  - 我额外抽查了一次，这条的残余问题更像是 `Stage 3` 当次根本没调 `check_app_permissions`，不是 parser / 聚合 bug
-- `idx=2`
-  - 假的 `break_app_sms_permission` 已消失
-  - `final_action=transfer`
-  - `exact_match=true`
-  - `terminal_penalty=0.0`
-- `idx=3`
-  - `break_app_storage_permission` 已恢复
-  - `final_action=repair_subset`
-  - `exact_match=true`
-  - `subset_mismatch=false`
-
-4. smoke10 的整体结果怎么样
-
-`smoke10` 总体结果是“有明显进步，但还不够稳到值得直接上 full slice”。
-
-关键指标：
-- `exact_match_mean = 0.4`
-- `terminal_penalty_mean = 2.15`
-- `raw_total_cost_mean = 2.25664`
-- `total_cost_mean = 0.08976`
-- `mean_regret = 0.01114`
-- `raw_mean_regret = 0.28004`
-- `mean_llm_call_count = 8.3`
-
-真实性统计：
-- `stage1~5` 全部都是 `llm_bench`
-- `episodes_with_stage4_mutation = 7/10`
-- `episodes_with_stage5_replay = 7/10`
-- `episodes_with_stage5_verification_tools = 1/10`
-
-这说明：
-- Stage 4 的真实 repair execution 已经常态发生
-- Stage 5 的 replay 已经真实发生
-- 但 Stage 5 的 verification tools 使用明显不足，几乎没形成稳定的“复查”阶段
-
-5. 是否还有明显 blocker drift
-
-有，而且现在更像上游工具选择问题，不像后处理 bug。
-
-现状：
-- `smoke10` 里 `subset_mismatch_count = 6/10`
-- `idx=0` 仍然明显 drift
-  - 在 `smoke3` rerun 里缺的是 `break_app_both_permissions`
-  - 在 `smoke10` 里甚至漂到了 `data_mode_off + break_apn_mms_setting`
-- `idx=2` 已经基本修好
-- `idx=3` 已经基本修好
-
-另外一个好消息是：
-- `stage2_resolved_line_id_counts = {"L1002": 10}`
-这说明之前 Stage 2 的系统性 line grounding 问题，在 `smoke10` 上已经基本消失了。
-
-6. 现在 residual errors 更像是哪些类型
-
-现在更像这两类：
-- `LLM reasoning / tool selection` 问题
-- `tool 返回 vs oracle 不一致` 的少量问题
-
-不像主要是后处理 bug 了。
-
-更具体地说：
-- Stage 3 parser 和重复 `check_app_permissions` 覆盖 bug 已经修出了实质收益
-- 但 `idx=0` 这类失败，根因更像是 Stage 3 没把关键 permission tool 调起来
-- Stage 5 现在最大短板不是 schema，而是它大多数时候根本不主动做 verification tools
-
-7. cost 主轨 `[0,1]` 是否正常
-
-正常。
-
-证据：
-- `cost_scale_version = "telecom_mms_cost_norm_v1"`
-- `smoke3 total_cost_mean = 0.01774`
-- `smoke10 total_cost_mean = 0.08976`
-
-同时 raw cost 也还在单独保留：
-- `raw_total_cost_mean`
-- `raw_mean_regret`
-
-所以现在主轨仍然是 normalized `[0,1]`，raw 轨也还在，符合你要的口径。
-
-8. 现在是否值得继续跑 strong/direct full slice
-
-现在不建议立刻跑。
-
-理由很直接：
-- `smoke10 exact_match_mean` 只有 `0.4`
-- `Stage 5` verification tools 只在 `1/10` 里真正发生
-- 现在主要残差已经不是“一个小后处理 bug”，而是上游工具选择覆盖不足
-
-这时去跑 full slice，会更像花钱确认“问题还在”，而不是拿到稳定可解释的 supporting result。
-
-9. 如果值得，下一步最推荐先扩什么
-
-不是直接 3 seeds。
-
-更推荐顺序是：
-1. 先不要跑 full slice
-2. 先把 `Stage 3` 的关键 tool coverage 和 `Stage 5` verification-tool usage 这个问题定位清楚
-3. 如果修完后 `smoke10` 能明显超过现在这版，再跑 `full slice seed0`
-4. 只有 `full slice seed0` 结果站住了，再上 `3 seeds`
-
-一句话结论：
-这轮 smoke 已经证明前面的修复是有效的，尤其 `smoke3` 从 `0/3` 提升到了 `2/3`。但当前系统还没稳到值得直接扩大实验面，最该继续盯的是 `Stage 3` 的工具调用覆盖和 `Stage 5` 的 verification 行为。
+2. 是否已恢复到 v1 sim 环境
+3. 恢复时改回了哪些关键逻辑
+4. 实际 sweep 了哪些超参网格
+5. 哪些方法不需要 sweep
+6. 输出目录路径
+7. `best_params_by_method` 文件路径
+8. `best_of_compare` 文件路径
+9. 13 个方法各自的最优参数
+10. 最终总表
+11. 哪个方法在 best-of 比较里最好
+12. 明确说明：
+- 没有改 baseline 算法
+- 没有改 metric 逻辑
+- 没有覆盖旧结果
+- 没有跑 LLM
+- 没有跑 orchestrate
+- trap 修改时间统一使用 `T/8`
+
+一句话目标：
+回到 v1 的 `ps_favored_trap` controlled sim 环境，在 `T/8` switch 下对 13 个算法做统一超参 sweep，选出每个算法自己的最优参数，并用旧图那套全部指标生成最终 best-of 总对比表。
+
+
+
+
+
+改完并重跑了同一组诊断。
+
+修改的文件：
+- [envs/executors/telecom_llm_bench_executor.py](/home/ubuntu/data/PSAgent/envs/executors/telecom_llm_bench_executor.py)
+
+新增文件：
+- 无
+- [scripts/run_llm_path_sweep_diagnostic.py](/home/ubuntu/data/PSAgent/scripts/run_llm_path_sweep_diagnostic.py) 这次没改
+
+**这次加硬的规则**
+
+`stage3`：
+- blocker family 的保留/排除改成硬门槛，不能只凭“没看到证据”就排除
+- 对 `apn / roaming / permission / network` 明确要求：如果 task profile 下它们是高优先级，没有反证就不能排除
+- `fast` 只能紧凑验证 top 1-2 family，不能在弱证据下同时确认多个 family
+- `deep` 必须对 top family 做 decisive evidence cross-check 才能定 `observed_state`
+
+对应代码：
+- [telecom_llm_bench_executor.py:926](/home/ubuntu/data/PSAgent/envs/executors/telecom_llm_bench_executor.py:926)
+- [telecom_llm_bench_executor.py:1253](/home/ubuntu/data/PSAgent/envs/executors/telecom_llm_bench_executor.py:1253)
+
+`stage4`：
+- repair 前置条件写成硬规则，不再允许“常见就修”
+- 明确要求：
+  - APN repair 要有 APN evidence
+  - roaming repair 要有 roaming-side evidence
+  - permission/network repair 要有对应 blocker evidence
+- `fast` 不允许多步 repair chain，也不允许没 direct blocker evidence 就做 specialist repair
+- `deep` 在 blocker family 仍模糊时，优先 narrower/deferred action，不允许用更多预算硬修过去
+
+对应代码：
+- [telecom_llm_bench_executor.py:945](/home/ubuntu/data/PSAgent/envs/executors/telecom_llm_bench_executor.py:945)
+- [telecom_llm_bench_executor.py:1322](/home/ubuntu/data/PSAgent/envs/executors/telecom_llm_bench_executor.py:1322)
+
+`stage5`：
+- `transfer` 不能再当默认兜底，只能在“关键证据拿不到且本 stage 预算内补不齐”或“明确需要外部/人工处理”时用
+- `repair_all` 不能在 family 还实质性模糊时作为 fallback
+- `fast` 若没达到 minimum verification floor，必须转保守 terminal decision
+- `deep` 在 decisive evidence 没核验前，不允许 `transfer` / `close`
+
+对应代码：
+- [telecom_llm_bench_executor.py:963](/home/ubuntu/data/PSAgent/envs/executors/telecom_llm_bench_executor.py:963)
+- [telecom_llm_bench_executor.py:1443](/home/ubuntu/data/PSAgent/envs/executors/telecom_llm_bench_executor.py:1443)
+
+**mismatch 规则的硬化**
+
+我把 mismatch 从“预算提示”改成了“可否 finalize 某类决策”的硬约束：
+
+- `deep-required + fast-agent`
+  - 可以缩 scope
+  - 但不能跳过 decisive verification 后仍输出高自信 blocker / repair / terminal 决策
+  - 预算不够时必须更保守
+- `fast-required + deep-agent`
+  - 达到 minimum evidence floor 后必须停
+  - depth 不是继续做低收益 verification 的理由
+
+对应代码：
+- [telecom_llm_bench_executor.py:903](/home/ubuntu/data/PSAgent/envs/executors/telecom_llm_bench_executor.py:903)
+- [telecom_llm_bench_executor.py:1065](/home/ubuntu/data/PSAgent/envs/executors/telecom_llm_bench_executor.py:1065)
+- [telecom_llm_bench_executor.py:1092](/home/ubuntu/data/PSAgent/envs/executors/telecom_llm_bench_executor.py:1092)
+
+**prompt 文本层面的关键变化**
+
+这次不是只加原则，而是把这些字段真正变成 binding text：
+- `search_policy`
+- `stop_policy`
+- `capability_mismatch_policy`
+- `stage_specific_hard_constraints`
+
+并把 stage3/4/5 的 rulebook 同时塞进：
+- system prompt
+- user prompt JSON
+
+所以模型现在不只是“知道预算不同”，而是明确读到：
+- 什么时候不能排除 family
+- 什么时候不能 repair
+- 什么时候不能 transfer / repair_all
+
+**静态检查**
+
+执行：
+```bash
+python -m py_compile \
+  envs/executors/telecom_llm_bench_executor.py \
+  scripts/run_llm_path_sweep_diagnostic.py
+```
+
+结果：通过。
+
+**诊断跑**
+
+执行：
+```bash
+export PSAGENT_LLM_BENCH_MODEL=gpt-4o-mini
+python scripts/run_llm_path_sweep_diagnostic.py \
+  --data data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch/tasks.json \
+  --family-kind shared_basin_strong_prefix_dedup_profile_switch \
+  --output-dir /tmp/llm_path_sweep_diagnostic_v2 \
+  --seed 0 \
+  --max-paths-per-task 5 \
+  --path-mode representative
+```
+
+结果：通过。  
+样本量仍是 `4 task × 5 path = 20`。
+
+输出目录：
+- v1: `/tmp/llm_path_sweep_diagnostic`
+- v2: `/tmp/llm_path_sweep_diagnostic_v2`
+
+**和旧版诊断相比**
+
+`final_action` 分化：
+- 没有增加，反而下降
+- v1: `1/4` task 有 action diversity
+- v2: `0/4`
+- 典型退化是第二个 trap task：
+  - v1: `repair_all / transfer` 分叉
+  - v2: 全部收敛成 `transfer`
+
+`terminal penalty spread`：
+- 没有更稳定，整体更弱
+- overall mean terminal spread:
+  - v1: `2.875`
+  - v2: `0.75`
+- 有正 terminal spread 的 task 数：
+  - v1: `3/4`
+  - v2: `2/4`
+
+细看：
+- 第二个 trap task 从 `9.5` spread 直接塌成 `0.0`
+- target task 倒是从 `1.0` 提到 `2.0`
+- 但整体上 path differentiation 变弱了，不是变强
+
+`offline path_match` 和 terminal 的关系：
+- 数值上略有改善，但仍不稳定
+- overall corr mean:
+  - v1: `-0.385`
+  - v2: `-0.134`
+- v2 里 target task 出现了正相关 `0.369`
+- 但 specialist task 仍是强负相关 `-0.637`
+- trap task 之一直接塌成全同 terminal，相关性失去判别力
+
+所以结论是：
+- **prompt 约束确实更硬了**
+- 但这版硬化把一部分 path 差异压成了“统一保守 transfer”
+- 行为差异没有被稳定放大，反而出现了过度保守收缩
+
+**我对这轮结果的判断**
+
+当前问题已经不是“约束不够硬”，而是这版约束把 stage5 的 conservative gate 压得过重，导致：
+- path 差异没有更多转化成 terminal decision 分层
+- 相反，一部分 path 被统一推向 `transfer`
+
+如果继续往前，我建议下一步不是再加硬，而是做一版更窄的修正：
+- 保留 `stage3` 的 family elimination hard gate
+- 保留 `stage4` 的 repair precondition gate
+- 适当放松 `stage5 transfer` 约束，避免把“证据未满”直接统一压成 `transfer`
+
+明确说明：
+- 没有改 cost 聚合公式
+- 没有改 evaluator
+- 没有改 family / dataset
+- 没有跑正式 repeated smoke
+- 没有 orchestrate

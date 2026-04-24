@@ -37,13 +37,17 @@ for extra in (
 
 from fixed_tree_env import FixedTreeEnvironment  # noqa: E402
 from direct_multistage_exp3 import DirectMultiStageExp3Policy  # noqa: E402
+from direct_multistage_exp3_local import DirectMultiStageExp3LocalPolicy  # noqa: E402
 from epsilon_exp3 import EpsilonExp3Policy  # noqa: E402
 from naive_mixed import NaiveMixedPolicy  # noqa: E402
+from naive_mixed_avg import NaiveMixedAveragePolicy  # noqa: E402
 from oracle_eval import find_best_stationary_path  # noqa: E402
 from random_path import RandomPathPolicy  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
 from risky_ps_direct_cost import RiskyPSDirectCostPolicy  # noqa: E402
 from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
+from risky_ps_linear import RiskyPSLinearPolicy  # noqa: E402
+from risky_ps_old import RiskyPSOldPolicy  # noqa: E402
 from risky_ps_safe_conditional import (  # noqa: E402
     RiskyPSSafeConditionalIXPolicy,
     RiskyPSSafeConditionalPolicy,
@@ -56,22 +60,54 @@ DATASET_DEFAULT = (
 )
 SPECIALIST_ANALYSIS_PATH = ROOT / "analysis" / "shared_basin_strong_static_analysis.json"
 MODEL_REQUIRED = "gpt-4o-mini"
-FAMILY_KIND = "shared_basin_strong"
+DEFAULT_FAMILY_KIND = "shared_basin_strong"
+SCHEDULE_MODE_STATIONARY = "stationary"
+SCHEDULE_MODE_TRAP_SWITCH = "trap_switch"
 SEED = 0
-EXECUTOR_NAME = "llm_bench"
+DEFAULT_EXECUTOR_NAME = "llm_bench"
 
 
 POLICY_REGISTRY = {
+    "risky_ps_old": RiskyPSOldPolicy,
     "risky_ps": RiskyPSPolicy,
+    "risky_ps_linear": RiskyPSLinearPolicy,
     "risky_ps_ix": RiskyPSIXPolicy,
     "risky_ps_safe_conditional": RiskyPSSafeConditionalPolicy,
     "risky_ps_safe_conditional_ix": RiskyPSSafeConditionalIXPolicy,
     "risky_ps_direct_cost": RiskyPSDirectCostPolicy,
     "direct_multistage_exp3": DirectMultiStageExp3Policy,
+    "direct_multistage_exp3_local": DirectMultiStageExp3LocalPolicy,
     "epsilon_exp3": EpsilonExp3Policy,
     "naive_mixed": NaiveMixedPolicy,
+    "naive_mixed_avg": NaiveMixedAveragePolicy,
     "random_path": RandomPathPolicy,
 }
+COMMON_ETA_METHODS = frozenset(
+    {
+        "direct_multistage_exp3",
+        "direct_multistage_exp3_local",
+        "epsilon_exp3",
+        "risky_ps_old",
+        "risky_ps",
+        "risky_ps_linear",
+        "risky_ps_ix",
+        "risky_ps_safe_conditional",
+        "risky_ps_safe_conditional_ix",
+        "risky_ps_direct_cost",
+    }
+)
+COMMON_EPSILON_METHODS = frozenset(
+    {
+        "epsilon_exp3",
+        "risky_ps_old",
+        "risky_ps",
+        "risky_ps_linear",
+        "risky_ps_ix",
+        "risky_ps_safe_conditional",
+        "risky_ps_safe_conditional_ix",
+        "risky_ps_direct_cost",
+    }
+)
 
 DEFAULT_METHODS = [
     "risky_ps",
@@ -93,6 +129,23 @@ def validate_methods(methods: list[str]) -> None:
             f"Repeated smoke only supports these baselines: {sorted(POLICY_REGISTRY)}. "
             f"Unsupported methods: {invalid}"
         )
+
+
+def build_policy_kwargs_by_method(
+    methods: list[str],
+    *,
+    common_eta_override: float | None = None,
+    common_epsilon_override: float | None = None,
+) -> dict[str, dict[str, Any]]:
+    kwargs_by_method: dict[str, dict[str, Any]] = {}
+    for method in methods:
+        method_kwargs: dict[str, Any] = {}
+        if common_eta_override is not None and method in COMMON_ETA_METHODS:
+            method_kwargs["eta"] = common_eta_override
+        if common_epsilon_override is not None and method in COMMON_EPSILON_METHODS:
+            method_kwargs["epsilon"] = common_epsilon_override
+        kwargs_by_method[method] = method_kwargs
+    return kwargs_by_method
 
 
 def mean(values: list[float]) -> float:
@@ -161,15 +214,31 @@ def load_instances(path: Path) -> list[dict[str, Any]]:
     return data
 
 
-def load_specialist_task_ids() -> set[str]:
+def load_schedule_buckets(path: Path | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    if not path.exists():
+        raise FileNotFoundError(f"Schedule bucket file does not exist: {path}")
+    data = load_json(path)
+    if not isinstance(data, dict):
+        raise ValueError("Schedule bucket JSON must be an object.")
+    return data
+
+
+def load_specialist_task_ids(schedule_buckets: dict[str, Any] | None = None) -> set[str]:
+    if schedule_buckets is not None:
+        values = schedule_buckets.get("specialist_task_ids", [])
+        if not isinstance(values, list):
+            raise ValueError("specialist_task_ids must be a JSON list.")
+        return {str(value) for value in values}
     data = load_json(SPECIALIST_ANALYSIS_PATH)
     return set(data.get("unshared_win_task_ids", []))
 
 
-def build_env(*, executor_name: str) -> FixedTreeEnvironment:
+def build_env(*, executor_name: str, family_kind: str) -> FixedTreeEnvironment:
     return FixedTreeEnvironment(
         agent_catalog=[],
-        family_kind=FAMILY_KIND,
+        family_kind=family_kind,
         family_seed=SEED,
         executor_name=executor_name,
     )
@@ -182,17 +251,162 @@ def build_repeated_selection(
     repeats: int,
 ) -> list[dict[str, Any]]:
     repeated: list[dict[str, Any]] = []
+    episode_index = 0
     for repeat_index in range(repeats):
         for position_in_cycle, dataset_index in enumerate(indices):
             repeated.append(
                 {
+                    "episode_index": episode_index,
                     "repeat_index": repeat_index,
                     "position_in_cycle": position_in_cycle,
                     "dataset_index": dataset_index,
                     "instance": instances[dataset_index],
+                    "schedule_phase": SCHEDULE_MODE_STATIONARY,
+                    "task_bucket": "stationary",
+                    "is_specialist_task": False,
                 }
             )
+            episode_index += 1
     return repeated
+
+
+def _instances_by_task_id(instances: list[dict[str, Any]]) -> dict[str, tuple[int, dict[str, Any]]]:
+    mapping: dict[str, tuple[int, dict[str, Any]]] = {}
+    for dataset_index, instance in enumerate(instances):
+        task_id = str(instance["original_task_id"])
+        if task_id in mapping:
+            raise ValueError(f"Duplicate original_task_id in dataset: {task_id}")
+        mapping[task_id] = (dataset_index, instance)
+    return mapping
+
+
+def build_trap_switch_selection(
+    instances: list[dict[str, Any]],
+    *,
+    repeats: int,
+    switch_denominator: int,
+    schedule_buckets: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    trap_ids_raw = schedule_buckets.get("trap_favoring_task_ids")
+    target_ids_raw = schedule_buckets.get("target_favoring_task_ids")
+    if not isinstance(trap_ids_raw, list) or not isinstance(target_ids_raw, list):
+        raise ValueError(
+            "trap_switch schedule requires trap_favoring_task_ids and "
+            "target_favoring_task_ids JSON lists."
+        )
+    trap_ids = [str(value) for value in trap_ids_raw]
+    target_ids = [str(value) for value in target_ids_raw]
+    if not trap_ids or not target_ids:
+        raise ValueError("trap_switch schedule buckets must both be non-empty.")
+    if len(trap_ids) != len(target_ids):
+        raise ValueError(
+            "trap_switch schedule currently requires equal-sized trap_favoring_task_ids "
+            f"and target_favoring_task_ids. got trap={len(trap_ids)} target={len(target_ids)}"
+        )
+    if switch_denominator <= 0:
+        raise ValueError("switch_denominator must be a positive integer.")
+
+    instances_by_task_id = _instances_by_task_id(instances)
+    missing_ids = [
+        task_id
+        for task_id in [*trap_ids, *target_ids]
+        if task_id not in instances_by_task_id
+    ]
+    if missing_ids:
+        raise ValueError(
+            "Schedule buckets reference task IDs not present in dataset: "
+            + ", ".join(sorted(set(missing_ids))[:10])
+        )
+
+    specialist_task_ids = load_specialist_task_ids(schedule_buckets)
+    missing_specialist_ids = [
+        task_id for task_id in specialist_task_ids if task_id not in instances_by_task_id
+    ]
+    if missing_specialist_ids:
+        raise ValueError(
+            "specialist_task_ids reference task IDs not present in dataset: "
+            + ", ".join(sorted(missing_specialist_ids)[:10])
+        )
+    cycle_length = len(trap_ids)
+    total_episodes = repeats * cycle_length
+    switch_episode = total_episodes // switch_denominator
+    if switch_episode <= 0 or switch_episode >= total_episodes:
+        raise ValueError(
+            "trap_switch schedule must have a non-empty pre-switch and post-switch segment. "
+            f"got total_episodes={total_episodes} switch_denominator={switch_denominator} "
+            f"switch_episode={switch_episode}"
+        )
+
+    selected: list[dict[str, Any]] = []
+    trap_phase_index = 0
+    target_phase_index = 0
+    for episode_index in range(total_episodes):
+        repeat_index = episode_index // cycle_length
+        position_in_cycle = episode_index % cycle_length
+        if episode_index < switch_episode:
+            task_id = trap_ids[trap_phase_index % len(trap_ids)]
+            trap_phase_index += 1
+            schedule_phase = "trap_pre_switch"
+            task_bucket = "trap_favoring"
+        else:
+            task_id = target_ids[target_phase_index % len(target_ids)]
+            target_phase_index += 1
+            schedule_phase = "target_post_switch"
+            task_bucket = "target_favoring"
+        dataset_index, instance = instances_by_task_id[task_id]
+        selected.append(
+            {
+                "episode_index": episode_index,
+                "repeat_index": repeat_index,
+                "position_in_cycle": position_in_cycle,
+                "dataset_index": dataset_index,
+                "instance": instance,
+                "schedule_phase": schedule_phase,
+                "task_bucket": task_bucket,
+                "is_specialist_task": task_id in specialist_task_ids,
+            }
+        )
+
+    metadata = {
+        "cycle_length": cycle_length,
+        "total_episodes": total_episodes,
+        "switch_episode": switch_episode,
+        "trap_bucket_size": len(trap_ids),
+        "target_bucket_size": len(target_ids),
+        "specialist_task_count": len(specialist_task_ids),
+    }
+    return selected, metadata
+
+
+def build_schedule_selection(
+    instances: list[dict[str, Any]],
+    *,
+    repeats: int,
+    schedule_mode: str,
+    switch_denominator: int,
+    schedule_buckets: dict[str, Any] | None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if schedule_mode == SCHEDULE_MODE_STATIONARY:
+        selected = build_repeated_selection(instances, indices=SMOKE10_INDICES, repeats=repeats)
+        return selected, {
+            "cycle_length": len(SMOKE10_INDICES),
+            "total_episodes": len(selected),
+            "switch_episode": None,
+            "trap_bucket_size": None,
+            "target_bucket_size": None,
+        }
+    if schedule_mode == SCHEDULE_MODE_TRAP_SWITCH:
+        if schedule_buckets is None:
+            raise FileNotFoundError(
+                "trap_switch schedule requires --schedule-buckets and does not fallback silently."
+            )
+        return build_trap_switch_selection(
+            instances,
+            repeats=repeats,
+            switch_denominator=switch_denominator,
+            schedule_buckets=schedule_buckets,
+        )
+    raise ValueError(f"Unsupported schedule_mode: {schedule_mode}")
 
 
 def serialize_schedule(selected: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -201,12 +415,15 @@ def serialize_schedule(selected: list[dict[str, Any]]) -> list[dict[str, Any]]:
         instance = row["instance"]
         rows.append(
             {
-                "episode_index": episode_index,
+                "episode_index": int(row.get("episode_index", episode_index)),
                 "repeat_index": row["repeat_index"],
                 "position_in_cycle": row["position_in_cycle"],
                 "dataset_index": row["dataset_index"],
                 "instance_id": instance["instance_id"],
                 "original_task_id": instance["original_task_id"],
+                "schedule_phase": row.get("schedule_phase"),
+                "task_bucket": row.get("task_bucket"),
+                "is_specialist_task": bool(row.get("is_specialist_task", False)),
             }
         )
     return rows
@@ -232,15 +449,37 @@ def materialize_schedule(
                 "position_in_cycle": int(row["position_in_cycle"]),
                 "dataset_index": dataset_index,
                 "instance": instance,
+                "schedule_phase": row.get("schedule_phase", SCHEDULE_MODE_STATIONARY),
+                "task_bucket": row.get("task_bucket", "stationary"),
+                "is_specialist_task": bool(row.get("is_specialist_task", False)),
             }
         )
     return selected
 
 
-def compute_stationary_oracle(selected: list[dict[str, Any]]) -> dict[str, Any]:
-    oracle_env = build_env(executor_name="simulated")
+def attach_schedule_metadata(instance: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
+    instance_copy = json.loads(json.dumps(instance))
+    metadata = instance_copy.setdefault("metadata", {})
+    schedule_payload = {
+        "schedule_phase": row.get("schedule_phase", SCHEDULE_MODE_STATIONARY),
+        "task_bucket": row.get("task_bucket", "stationary"),
+        "is_specialist_task": bool(row.get("is_specialist_task", False)),
+        "episode_index": int(row["episode_index"]),
+        "repeat_index": int(row["repeat_index"]),
+        "position_in_cycle": int(row["position_in_cycle"]),
+    }
+    metadata["psagent_schedule"] = schedule_payload
+    return instance_copy
+
+
+def compute_stationary_oracle(
+    selected: list[dict[str, Any]],
+    *,
+    family_kind: str,
+) -> dict[str, Any]:
+    oracle_env = build_env(executor_name="simulated", family_kind=family_kind)
     oracle_path, oracle_summary_raw = find_best_stationary_path(
-        [row["instance"] for row in selected],
+        [attach_schedule_metadata(row["instance"], row) for row in selected],
         oracle_env,
     )
     oracle_summary = {
@@ -547,6 +786,9 @@ def build_summary(
     dataset: str,
     repeats: int,
     model: str,
+    family_kind: str,
+    executor_name: str,
+    schedule_mode: str,
     oracle_summary: dict[str, Any],
     episodes: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -557,15 +799,16 @@ def build_summary(
     policy_nl_total = sum(ep["policy_nl_assertions_total"] for ep in episodes)
     policy_nl_failed = sum(ep["policy_nl_assertions_failed"] for ep in episodes)
     return {
-        "test_name": f"{method}_smoke10x{repeats}_{FAMILY_KIND}_full_llm",
+        "test_name": f"{method}_repeated_{schedule_mode}_x{repeats}_{family_kind}_full_llm",
         "dataset": dataset,
-        "dataset_indices": SMOKE10_INDICES,
+        "dataset_indices": sorted({int(ep["dataset_index"]) for ep in episodes}),
         "repeats": repeats,
         "episodes": len(episodes),
         "method": method,
         "mechanism": "algorithm_direct",
-        "executor_name": EXECUTOR_NAME,
-        "family_kind": FAMILY_KIND,
+        "executor_name": executor_name,
+        "family_kind": family_kind,
+        "schedule_mode": schedule_mode,
         "seed": SEED,
         "model": model,
         "stationary_oracle_path": oracle_summary["path"],
@@ -710,6 +953,9 @@ def build_partial_summary(
     dataset: str,
     repeats: int,
     model: str,
+    family_kind: str,
+    executor_name: str,
+    schedule_mode: str,
     oracle_summary: dict[str, Any],
     episodes: list[dict[str, Any]],
     total_episodes: int,
@@ -720,6 +966,9 @@ def build_partial_summary(
         dataset=dataset,
         repeats=repeats,
         model=model,
+        family_kind=family_kind,
+        executor_name=executor_name,
+        schedule_mode=schedule_mode,
         oracle_summary=oracle_summary,
         episodes=episodes,
     )
@@ -888,13 +1137,106 @@ def ensure_model_env(required: bool = True) -> str:
     return model_name
 
 
+def resolve_model_name_for_executor(executor_name: str) -> str:
+    if executor_name == "llm_bench":
+        return ensure_model_env(required=True)
+    if executor_name == "simulated":
+        return "simulated"
+    raise SystemExit(f"Unsupported executor_name: {executor_name!r}")
+
+
+def _assert_existing_run_compatible(
+    *,
+    run_config: dict[str, Any],
+    data_path: Path,
+    repeats: int,
+    methods: list[str],
+    family_kind: str,
+    schedule_mode: str,
+    switch_denominator: int,
+    schedule_buckets_path: Path | None,
+    policy_kwargs_by_method: dict[str, dict[str, Any]],
+    common_eta_override: float | None,
+    common_epsilon_override: float | None,
+    executor_name: str,
+) -> None:
+    mismatches: list[str] = []
+    if str(run_config.get("dataset")) != str(data_path):
+        mismatches.append(
+            f"dataset existing={run_config.get('dataset')} requested={data_path}"
+        )
+    if int(run_config.get("repeats", repeats)) != repeats:
+        mismatches.append(
+            f"repeats existing={run_config.get('repeats')} requested={repeats}"
+        )
+    existing_methods = list(run_config.get("methods", []))
+    if existing_methods and existing_methods != list(methods):
+        mismatches.append(
+            f"methods existing={existing_methods} requested={list(methods)}"
+        )
+    if str(run_config.get("family_kind", DEFAULT_FAMILY_KIND)) != family_kind:
+        mismatches.append(
+            f"family_kind existing={run_config.get('family_kind')} requested={family_kind}"
+        )
+    if str(run_config.get("executor_name", DEFAULT_EXECUTOR_NAME)) != executor_name:
+        mismatches.append(
+            f"executor_name existing={run_config.get('executor_name')} requested={executor_name}"
+        )
+    if str(run_config.get("schedule_mode", SCHEDULE_MODE_STATIONARY)) != schedule_mode:
+        mismatches.append(
+            f"schedule_mode existing={run_config.get('schedule_mode')} requested={schedule_mode}"
+        )
+    existing_switch_denominator = run_config.get("switch_denominator")
+    if schedule_mode == SCHEDULE_MODE_TRAP_SWITCH:
+        if int(existing_switch_denominator or switch_denominator) != switch_denominator:
+            mismatches.append(
+                "switch_denominator "
+                f"existing={existing_switch_denominator} requested={switch_denominator}"
+            )
+        existing_schedule_buckets = run_config.get("schedule_buckets")
+        requested_schedule_buckets = str(schedule_buckets_path) if schedule_buckets_path else None
+        if str(existing_schedule_buckets) != str(requested_schedule_buckets):
+            mismatches.append(
+                "schedule_buckets "
+                f"existing={existing_schedule_buckets} requested={requested_schedule_buckets}"
+            )
+    existing_common_eta = run_config.get("common_eta_override")
+    if existing_common_eta != common_eta_override:
+        mismatches.append(
+            f"common_eta_override existing={existing_common_eta} requested={common_eta_override}"
+        )
+    existing_common_epsilon = run_config.get("common_epsilon_override")
+    if existing_common_epsilon != common_epsilon_override:
+        mismatches.append(
+            "common_epsilon_override "
+            f"existing={existing_common_epsilon} requested={common_epsilon_override}"
+        )
+    existing_policy_kwargs = run_config.get("policy_kwargs_by_method")
+    if existing_policy_kwargs is None and common_eta_override is None and common_epsilon_override is None:
+        existing_policy_kwargs = policy_kwargs_by_method
+    if existing_policy_kwargs != policy_kwargs_by_method:
+        mismatches.append(
+            "policy_kwargs_by_method "
+            f"existing={existing_policy_kwargs} requested={policy_kwargs_by_method}"
+        )
+    if mismatches:
+        raise RuntimeError(
+            "Existing run directory is incompatible with requested setup: "
+            + "; ".join(mismatches)
+        )
+
+
 def load_run_context(run_dir: Path) -> dict[str, Any]:
     run_config = load_json(run_dir / "run_config.json")
     schedule_rows = load_json(run_dir / "schedule.json")
     oracle_summary = load_json(run_dir / "stationary_oracle_summary.json")
     instances = load_instances(Path(run_config["dataset"]))
     selected = materialize_schedule(instances, schedule_rows)
-    specialist_task_ids = load_specialist_task_ids()
+    specialist_path = run_dir / "specialist_task_ids.json"
+    if specialist_path.exists():
+        specialist_task_ids = {str(value) for value in load_json(specialist_path)}
+    else:
+        specialist_task_ids = load_specialist_task_ids()
     return {
         "run_config": run_config,
         "schedule_rows": schedule_rows,
@@ -911,8 +1253,20 @@ def initialize_run(
     repeats: int,
     methods: list[str],
     model_name: str,
+    family_kind: str,
+    schedule_mode: str,
+    switch_denominator: int,
+    schedule_buckets_path: Path | None,
+    common_eta_override: float | None,
+    common_epsilon_override: float | None,
+    executor_name: str,
 ) -> Path:
     validate_methods(methods)
+    policy_kwargs_by_method = build_policy_kwargs_by_method(
+        methods,
+        common_eta_override=common_eta_override,
+        common_epsilon_override=common_epsilon_override,
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     run_config_path = output_dir / "run_config.json"
     schedule_path = output_dir / "schedule.json"
@@ -920,27 +1274,61 @@ def initialize_run(
     specialist_path = output_dir / "specialist_task_ids.json"
 
     if run_config_path.exists() and schedule_path.exists() and oracle_path.exists():
+        _assert_existing_run_compatible(
+            run_config=load_json(run_config_path),
+            data_path=data_path,
+            repeats=repeats,
+            methods=methods,
+            family_kind=family_kind,
+            schedule_mode=schedule_mode,
+            switch_denominator=switch_denominator,
+            schedule_buckets_path=schedule_buckets_path,
+            policy_kwargs_by_method=policy_kwargs_by_method,
+            common_eta_override=common_eta_override,
+            common_epsilon_override=common_epsilon_override,
+            executor_name=executor_name,
+        )
         return output_dir
 
     instances = load_instances(data_path)
-    selected = build_repeated_selection(instances, indices=SMOKE10_INDICES, repeats=repeats)
-    oracle_summary = compute_stationary_oracle(selected)
+    schedule_buckets = load_schedule_buckets(schedule_buckets_path)
+    selected, schedule_metadata = build_schedule_selection(
+        instances,
+        repeats=repeats,
+        schedule_mode=schedule_mode,
+        switch_denominator=switch_denominator,
+        schedule_buckets=schedule_buckets,
+    )
+    oracle_summary = compute_stationary_oracle(selected, family_kind=family_kind)
     schedule_rows = serialize_schedule(selected)
-    specialist_task_ids = sorted(load_specialist_task_ids())
+    specialist_task_ids = sorted(
+        load_specialist_task_ids(
+            schedule_buckets if schedule_mode == SCHEDULE_MODE_TRAP_SWITCH else None
+        )
+    )
 
     write_json(
         run_config_path,
         {
             "created_at": datetime.now().isoformat(),
             "dataset": str(data_path),
-            "dataset_indices": SMOKE10_INDICES,
+            "dataset_indices": sorted({row["dataset_index"] for row in selected}),
             "repeats": repeats,
             "horizon": len(selected),
-            "family_kind": FAMILY_KIND,
-            "executor_name": EXECUTOR_NAME,
+            "family_kind": family_kind,
+            "executor_name": executor_name,
+            "schedule_mode": schedule_mode,
+            "switch_denominator": switch_denominator if schedule_mode == SCHEDULE_MODE_TRAP_SWITCH else None,
+            "schedule_buckets": (
+                str(schedule_buckets_path) if schedule_buckets_path is not None else None
+            ),
+            "schedule_metadata": schedule_metadata,
             "model": model_name,
             "seed": SEED,
             "methods": methods,
+            "policy_kwargs_by_method": policy_kwargs_by_method,
+            "common_eta_override": common_eta_override,
+            "common_epsilon_override": common_epsilon_override,
             "parallelism": "method_only",
         },
     )
@@ -980,6 +1368,9 @@ def persist_method_state(
     model: str,
     dataset: str,
     repeats: int,
+    family_kind: str,
+        executor_name: str,
+    schedule_mode: str,
     oracle_summary: dict[str, Any],
 ) -> None:
     add_cumulative_fields(episodes)
@@ -1007,6 +1398,9 @@ def persist_method_state(
         dataset=dataset,
         repeats=repeats,
         model=model,
+        family_kind=family_kind,
+        executor_name=executor_name,
+        schedule_mode=schedule_mode,
         oracle_summary=oracle_summary,
         episodes=episodes,
         total_episodes=total_episodes,
@@ -1032,9 +1426,9 @@ def run_policy_method(
     run_dir: Path,
     method: str,
 ) -> None:
-    ensure_model_env(required=True)
     context = load_run_context(run_dir)
     run_config = context["run_config"]
+    resolve_model_name_for_executor(str(run_config.get("executor_name", DEFAULT_EXECUTOR_NAME)))
     selected = context["selected"]
     oracle_summary = context["oracle_summary"]
     specialist_task_ids = context["specialist_task_ids"]
@@ -1042,7 +1436,10 @@ def run_policy_method(
     method_dir = run_dir / method
     method_dir.mkdir(parents=True, exist_ok=True)
 
-    env = build_env(executor_name=EXECUTOR_NAME)
+    env = build_env(
+        executor_name=str(run_config.get("executor_name", DEFAULT_EXECUTOR_NAME)),
+        family_kind=str(run_config.get("family_kind", DEFAULT_FAMILY_KIND)),
+    )
     checkpoint = load_method_checkpoint(method_dir)
     if checkpoint is not None:
         policy = checkpoint["policy"]
@@ -1050,8 +1447,10 @@ def run_policy_method(
         model = checkpoint.get("model", getattr(env.family_executor, "model", MODEL_REQUIRED))
     else:
         episodes = []
-        model = getattr(env.family_executor, "model", MODEL_REQUIRED)
-        policy = POLICY_REGISTRY[method](seed=SEED)
+        model = str(run_config.get("model", getattr(env.family_executor, "model", MODEL_REQUIRED)))
+        policy_kwargs_by_method = run_config.get("policy_kwargs_by_method", {})
+        policy_kwargs = dict(policy_kwargs_by_method.get(method, {}))
+        policy = POLICY_REGISTRY[method](seed=SEED, **policy_kwargs)
         policy.bind_env(env)
         policy.reset()
 
@@ -1066,6 +1465,9 @@ def run_policy_method(
             model=model,
             dataset=run_config["dataset"],
             repeats=int(run_config["repeats"]),
+            family_kind=str(run_config.get("family_kind", DEFAULT_FAMILY_KIND)),
+            executor_name=str(run_config.get("executor_name", DEFAULT_EXECUTOR_NAME)),
+            schedule_mode=str(run_config.get("schedule_mode", SCHEDULE_MODE_STATIONARY)),
             oracle_summary=oracle_summary,
         )
         return
@@ -1073,14 +1475,15 @@ def run_policy_method(
     for local_offset in range(completed_count, total_episodes):
         row = selected[local_offset]
         episode_index = int(row["episode_index"])
+        runtime_instance = attach_schedule_metadata(row["instance"], row)
         print(
             f"[run] method={method} episode={episode_index + 1}/{len(selected)} "
             f"repeat={row['repeat_index'] + 1} pos={row['position_in_cycle']} dataset_index={row['dataset_index']}",
             flush=True,
         )
-        path = policy.select_path(row["instance"], env)
+        path = policy.select_path(runtime_instance, env)
         selection_info = policy.get_last_selection_info() if hasattr(policy, "get_last_selection_info") else {}
-        env.reset(row["instance"])
+        env.reset(runtime_instance)
         result = env.run_path(path)
         policy.update(result)
         state = policy.get_state() if hasattr(policy, "get_state") else {}
@@ -1106,6 +1509,9 @@ def run_policy_method(
             model=model,
             dataset=run_config["dataset"],
             repeats=int(run_config["repeats"]),
+            family_kind=str(run_config.get("family_kind", DEFAULT_FAMILY_KIND)),
+            executor_name=str(run_config.get("executor_name", DEFAULT_EXECUTOR_NAME)),
+            schedule_mode=str(run_config.get("schedule_mode", SCHEDULE_MODE_STATIONARY)),
             oracle_summary=oracle_summary,
         )
 
@@ -1138,6 +1544,9 @@ def merge_method_results(run_dir: Path, method: str) -> dict[str, Any]:
         dataset=run_config["dataset"],
         repeats=int(run_config["repeats"]),
         model=model,
+        family_kind=str(run_config.get("family_kind", DEFAULT_FAMILY_KIND)),
+        executor_name=str(run_config.get("executor_name", DEFAULT_EXECUTOR_NAME)),
+        schedule_mode=str(run_config.get("schedule_mode", SCHEDULE_MODE_STATIONARY)),
         oracle_summary=oracle_summary,
         episodes=merged_episodes,
     )
@@ -1160,6 +1569,7 @@ def merge_method_results(run_dir: Path, method: str) -> dict[str, Any]:
     )
 
     if method in {
+        "risky_ps_old",
         "risky_ps",
         "risky_ps_ix",
         "risky_ps_safe_conditional",
@@ -1214,8 +1624,15 @@ def orchestrate_run(
     output_dir: Path,
     repeats: int,
     methods: list[str],
+    family_kind: str,
+    schedule_mode: str,
+    switch_denominator: int,
+    schedule_buckets_path: Path | None,
+    common_eta_override: float | None,
+    common_epsilon_override: float | None,
+    executor_name: str,
 ) -> Path:
-    model_name = ensure_model_env(required=True)
+    model_name = resolve_model_name_for_executor(executor_name)
     validate_methods(methods)
     run_dir = initialize_run(
         data_path=data_path,
@@ -1223,6 +1640,13 @@ def orchestrate_run(
         repeats=repeats,
         methods=methods,
         model_name=model_name,
+        family_kind=family_kind,
+        schedule_mode=schedule_mode,
+        switch_denominator=switch_denominator,
+        schedule_buckets_path=schedule_buckets_path,
+        common_eta_override=common_eta_override,
+        common_epsilon_override=common_epsilon_override,
+        executor_name=executor_name,
     )
     script_path = Path(__file__).resolve()
     launched: list[tuple[str, subprocess.Popen[Any], Any]] = []
@@ -1280,6 +1704,23 @@ def build_cli() -> argparse.ArgumentParser:
     common_run.add_argument("--data", type=Path, default=DATASET_DEFAULT)
     common_run.add_argument("--output-dir", type=Path, required=True)
     common_run.add_argument("--repeats", type=int, default=10)
+    common_run.add_argument("--family-kind", type=str, default=DEFAULT_FAMILY_KIND)
+    common_run.add_argument(
+        "--schedule-mode",
+        type=str,
+        default=SCHEDULE_MODE_STATIONARY,
+        choices=[SCHEDULE_MODE_STATIONARY, SCHEDULE_MODE_TRAP_SWITCH],
+    )
+    common_run.add_argument("--switch-denominator", type=int, default=3)
+    common_run.add_argument("--schedule-buckets", type=Path)
+    common_run.add_argument("--common-eta-override", type=float)
+    common_run.add_argument("--common-epsilon-override", type=float)
+    common_run.add_argument(
+        "--executor-name",
+        type=str,
+        default=DEFAULT_EXECUTOR_NAME,
+        choices=["llm_bench", "simulated"],
+    )
     common_run.add_argument("--methods", nargs="+", default=list(DEFAULT_METHODS))
 
     setup_parser = subparsers.add_parser("setup", parents=[common_run])
@@ -1313,7 +1754,7 @@ def main() -> None:
     args = parser.parse_args(argv)
 
     if args.command == "setup":
-        model_name = ensure_model_env(required=True)
+        model_name = resolve_model_name_for_executor(args.executor_name)
         validate_methods(args.methods)
         run_dir = initialize_run(
             data_path=args.data,
@@ -1321,6 +1762,13 @@ def main() -> None:
             repeats=args.repeats,
             methods=args.methods,
             model_name=model_name,
+            family_kind=args.family_kind,
+            schedule_mode=args.schedule_mode,
+            switch_denominator=args.switch_denominator,
+            schedule_buckets_path=args.schedule_buckets,
+            common_eta_override=args.common_eta_override,
+            common_epsilon_override=args.common_epsilon_override,
+            executor_name=args.executor_name,
         )
         print(str(run_dir))
         return
@@ -1332,6 +1780,13 @@ def main() -> None:
             output_dir=args.output_dir,
             repeats=args.repeats,
             methods=args.methods,
+            family_kind=args.family_kind,
+            schedule_mode=args.schedule_mode,
+            switch_denominator=args.switch_denominator,
+            schedule_buckets_path=args.schedule_buckets,
+            common_eta_override=args.common_eta_override,
+            common_epsilon_override=args.common_epsilon_override,
+            executor_name=args.executor_name,
         )
         print(str(run_dir))
         return

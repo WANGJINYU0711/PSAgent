@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import random
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
 from .presets import (
@@ -13,6 +15,8 @@ from .presets import (
     build_shared_basin_strong_all_share_gonly_family_spec,
     build_shared_basin_strong_all_unshare_gonly_family_spec,
     build_shared_basin_strong_family_spec,
+    build_shared_basin_strong_prefix_dedup_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_family_spec,
     build_strong_family_spec,
 )
 from .specs import AgentSpec, CAPABILITY_NAMES, FamilySpec
@@ -54,6 +58,10 @@ class TreeFamilyGenerator:
     def build_family(self, kind: str, seed: int = 0) -> tuple[FamilySpec, dict[str, AgentSpec]]:
         config = self._load_preset(kind)
         rng = random.Random(seed)
+        generation_mode = config.get("generation_mode")
+
+        if generation_mode == "capability_shared_basin_prefix_dedup":
+            return self._build_prefix_dedup_family(kind=kind, config=config, rng=rng, seed=seed)
 
         stages = list(config["stages"])
         stage_agents: dict[str, list[str]] = {}
@@ -175,6 +183,10 @@ class TreeFamilyGenerator:
             return build_strong_family_spec()
         if kind == "shared_basin_strong":
             return build_shared_basin_strong_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup":
+            return build_shared_basin_strong_prefix_dedup_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_family_spec()
         if kind == "shared_basin_strong_2of5_gonly":
             return build_shared_basin_strong_2of5_gonly_family_spec()
         if kind == "shared_basin_strong_all_share_gonly":
@@ -255,7 +267,7 @@ class TreeFamilyGenerator:
         for idx, profile in enumerate(profiles):
             agent_id = f"{stage_name}_{profile['role']}_g{profile['g']}_{idx}"
             attribute_skill = self._build_shared_basin_attribute_skill(stage_name, profile, config, rng)
-            base_cost = self._build_shared_basin_base_cost(config, rng)
+            base_cost = self._build_shared_basin_base_cost(config, rng, profile=profile)
             specs.append(
                 AgentSpec(
                     agent_id=agent_id,
@@ -274,6 +286,101 @@ class TreeFamilyGenerator:
                 )
             )
         return specs
+
+    def _build_prefix_dedup_family(
+        self,
+        *,
+        kind: str,
+        config: dict[str, Any],
+        rng: random.Random,
+        seed: int,
+    ) -> tuple[FamilySpec, dict[str, AgentSpec]]:
+        stages = list(config["stages"])
+        topology_path = Path(str(config["prefix_dedup_topology_spec_path"]))
+        topology = json.loads(topology_path.read_text(encoding="utf-8"))
+        topology_stages = list(topology.get("stages", []))
+        if topology_stages != stages:
+            raise ValueError(
+                "Prefix-dedup topology stages do not match preset stages: "
+                f"preset={stages} topology={topology_stages}"
+            )
+
+        base_profile_by_alias: dict[str, dict[str, dict[str, Any]]] = {}
+        for stage_name in stages:
+            stage_profiles = list(config["stage_profiles"][stage_name])
+            stage_alias_map: dict[str, dict[str, Any]] = {}
+            for idx, profile in enumerate(stage_profiles, start=1):
+                stage_alias_map[f"{stage_name}_n{idx}"] = dict(profile)
+            base_profile_by_alias[stage_name] = stage_alias_map
+
+        fields = config["profile_fields"]
+        stage_agents: dict[str, list[str]] = {stage_name: [] for stage_name in stages}
+        agent_map: dict[str, AgentSpec] = {}
+        allowed_children: dict[tuple[str, ...], list[str]] = {(): []}
+        alias_to_prefix: dict[str, tuple[str, ...]] = {}
+
+        for stage_index, stage_name in enumerate(stages):
+            stage_nodes = list(topology.get("nodes", {}).get(stage_name, []))
+            for node in stage_nodes:
+                agent_id = str(node["agent_id"])
+                base_alias = str(node["base_alias"])
+                profile = base_profile_by_alias[stage_name].get(base_alias)
+                if profile is None:
+                    raise ValueError(
+                        f"Missing base profile for prefix-dedup node {agent_id!r} "
+                        f"with base_alias={base_alias!r}."
+                    )
+                attribute_skill = self._build_shared_basin_attribute_skill(
+                    stage_name,
+                    profile,
+                    config,
+                    rng,
+                )
+                base_cost = self._build_shared_basin_base_cost(config, rng, profile=profile)
+                agent_map[agent_id] = AgentSpec(
+                    agent_id=agent_id,
+                    g=int(node.get("g", profile["g"])),
+                    base_cost=round(base_cost, 3),
+                    competence_level=fields["competence_level"],
+                    scope_level=fields["scope_level"],
+                    stability_level=fields["stability_level"],
+                    attribute_skill=attribute_skill,
+                    deliberation_mode=self._shared_basin_deliberation_mode(
+                        stage_name=stage_name,
+                        profile=profile,
+                    ),
+                    node_semantic=str(profile.get("node_semantic", "mixed_shared")),
+                    route_label=str(profile.get("route_label", "")),
+                )
+                stage_agents[stage_name].append(agent_id)
+
+                parent_alias = str(node.get("parent_alias", "ROOT"))
+                if stage_index == 0:
+                    if parent_alias != "ROOT":
+                        raise ValueError(
+                            f"Stage1 prefix-dedup node {agent_id!r} must parent to ROOT, "
+                            f"got {parent_alias!r}."
+                        )
+                    allowed_children[()].append(agent_id)
+                    alias_to_prefix[agent_id] = (agent_id,)
+                    continue
+
+                parent_prefix = alias_to_prefix.get(parent_alias)
+                if parent_prefix is None:
+                    raise ValueError(
+                        f"Prefix-dedup parent alias {parent_alias!r} for node {agent_id!r} "
+                        "was not built before its child."
+                    )
+                allowed_children.setdefault(parent_prefix, []).append(agent_id)
+                alias_to_prefix[agent_id] = parent_prefix + (agent_id,)
+
+        family_spec = FamilySpec(
+            family_name=f"{kind}_seed_{seed}",
+            stages=stages,
+            stage_agents=stage_agents,
+            allowed_children=allowed_children,
+        )
+        return family_spec, agent_map
 
     def _build_allowed_children(
         self,
@@ -448,6 +555,18 @@ class TreeFamilyGenerator:
         self,
         config: dict[str, Any],
         rng: random.Random,
+        profile: dict[str, Any] | None = None,
     ) -> float:
+        if profile is not None:
+            explicit_range = profile.get("base_cost_range")
+            if (
+                isinstance(explicit_range, (list, tuple))
+                and len(explicit_range) == 2
+            ):
+                lo = float(explicit_range[0])
+                hi = float(explicit_range[1])
+                if lo > hi:
+                    lo, hi = hi, lo
+                return rng.uniform(lo, hi)
         lo, hi = config["cost_ranges"]["uniform"]
         return rng.uniform(lo, hi)

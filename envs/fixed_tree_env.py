@@ -656,6 +656,7 @@ class FixedTreeEnvironment:
             agent_map=self.family_agent_map,
             raw_instance=self.current_instance,
         )
+        execution = self._apply_family_behavior_to_execution(path, execution)
         stage_outputs = self._family_stage_outputs_from_execution(execution)
         evaluator_result = self.evaluate_terminal_outcome(
             stage_outputs,
@@ -787,6 +788,8 @@ class FixedTreeEnvironment:
         }
         if isinstance(execution.get("bench_aux_eval"), dict):
             episode_log["bench_aux_eval"] = deepcopy(execution["bench_aux_eval"])
+        if isinstance(execution.get("family_behavior"), dict):
+            episode_log["family_behavior"] = deepcopy(execution["family_behavior"])
         self._last_episode_log = deepcopy(episode_log)
 
         return EpisodeResult(
@@ -1363,6 +1366,30 @@ class FixedTreeEnvironment:
                 }
             )
 
+        behavior_context = self._prefix_dedup_behavior_context(path)
+        if behavior_context is not None:
+            total = 0.0
+            for row in trace:
+                multiplier = self._prefix_dedup_reasoning_stage_multiplier(
+                    behavior_context["archetype"],
+                    str(row["stage_name"]),
+                )
+                row["family_behavior_archetype"] = behavior_context["archetype"]
+                row["family_reasoning_multiplier"] = multiplier
+                row["base_reasoning_cost"] = round(
+                    float(row["base_reasoning_cost"]) * multiplier,
+                    6,
+                )
+                row["mismatch_penalty"] = round(
+                    float(row["mismatch_penalty"]) * multiplier,
+                    6,
+                )
+                row["stage_reasoning_cost"] = round(
+                    float(row["stage_reasoning_cost"]) * multiplier,
+                    6,
+                )
+                total += float(row["stage_reasoning_cost"])
+
         return {
             "raw_reasoning_cost_component": round(total, 6),
             "raw_reasoning_cost_component_api": None,
@@ -1405,6 +1432,318 @@ class FixedTreeEnvironment:
             return str(stage_requirements[stage_name])
         difficulty = getattr(task, "stage_difficulty", {}).get(stage_name, 0.0)
         return "deep" if difficulty >= 0.42 else "fast"
+
+    def _apply_family_behavior_to_execution(
+        self,
+        path: list[str],
+        execution: JsonDict,
+    ) -> JsonDict:
+        behavior_context = self._prefix_dedup_behavior_context(path)
+        if behavior_context is None or behavior_context["archetype"] == "neutral":
+            return execution
+
+        adjusted = deepcopy(execution)
+        adjusted["family_behavior"] = deepcopy(behavior_context)
+        stage_trace = adjusted.get("stage_trace", [])
+        if not isinstance(stage_trace, list):
+            stage_trace = []
+            adjusted["stage_trace"] = stage_trace
+        self._apply_prefix_dedup_stage_trace_adjustments(stage_trace, behavior_context)
+
+        stage5_output = self._behavioral_stage5_output(behavior_context)
+        stage5_row = next(
+            (row for row in stage_trace if row.get("stage_name") == "stage5"),
+            None,
+        )
+        if isinstance(stage5_row, dict):
+            stage5_row["output"] = deepcopy(stage5_output)
+
+        stage_outputs = adjusted.get("stage_outputs")
+        if isinstance(stage_outputs, dict):
+            stage5_payload = stage_outputs.setdefault("stage5", {})
+            if isinstance(stage5_payload, dict):
+                stage5_payload["output"] = deepcopy(stage5_output)
+
+        adjusted["final_action"] = stage5_output["final_action"]
+        adjusted["selected_blocker_ids"] = list(stage5_output["selected_blocker_ids"])
+        adjusted["deferred_blocker_ids"] = list(stage5_output["deferred_blocker_ids"])
+        adjusted["cancelled_reservation_ids"] = list(stage5_output["cancelled_reservation_ids"])
+        adjusted["refused_reservation_ids"] = list(stage5_output["refused_reservation_ids"])
+        if isinstance(adjusted.get("bench_aux_eval"), dict):
+            adjusted["bench_aux_eval"]["family_behavior_archetype"] = behavior_context[
+                "archetype"
+            ]
+            adjusted["bench_aux_eval"]["family_schedule_phase"] = behavior_context[
+                "schedule_phase"
+            ]
+        return adjusted
+
+    def _apply_prefix_dedup_stage_trace_adjustments(
+        self,
+        stage_trace: list[JsonDict],
+        behavior_context: JsonDict,
+    ) -> None:
+        for row in stage_trace:
+            stage_name = str(row.get("stage_name", ""))
+            multiplier = self._prefix_dedup_reasoning_stage_multiplier(
+                behavior_context["archetype"],
+                stage_name,
+            )
+            row["family_behavior_archetype"] = behavior_context["archetype"]
+            row["family_schedule_phase"] = behavior_context["schedule_phase"]
+            row["family_resource_multiplier"] = multiplier
+            row["family_path_signature"] = behavior_context["base_aliases"]
+            if multiplier == 1.0:
+                continue
+
+            llm_call_count = row.get("llm_call_count_stage")
+            if llm_call_count is not None:
+                scaled_calls = int(round(float(llm_call_count) * multiplier))
+                row["llm_call_count_stage"] = max(
+                    1 if float(llm_call_count) > 0 else 0,
+                    scaled_calls,
+                )
+
+            for field_name in (
+                "prompt_tokens_total_stage",
+                "completion_tokens_total_stage",
+                "total_tokens_total_stage",
+                "api_cost_total_usd_stage",
+                "generation_time_total_seconds_stage",
+                "llm_round_trip_total_seconds_stage",
+                "tool_wall_clock_total_seconds_stage",
+                "stage_wall_clock_seconds",
+            ):
+                field_value = row.get(field_name)
+                if field_value is None:
+                    continue
+                row[field_name] = round(float(field_value) * multiplier, 6)
+
+            usage_breakdown = row.get("usage_breakdown_stage")
+            if isinstance(usage_breakdown, dict):
+                for field_name in (
+                    "prompt_tokens_total",
+                    "completion_tokens_total",
+                    "total_tokens_total",
+                ):
+                    if field_name in usage_breakdown:
+                        usage_breakdown[field_name] = round(
+                            float(usage_breakdown[field_name]) * multiplier,
+                            6,
+                        )
+
+            cost_breakdown = row.get("cost_breakdown_stage")
+            if isinstance(cost_breakdown, dict) and "api_cost_total_usd_raw" in cost_breakdown:
+                cost_breakdown["api_cost_total_usd_raw"] = round(
+                    float(cost_breakdown["api_cost_total_usd_raw"]) * multiplier,
+                    6,
+                )
+
+    def _prefix_dedup_behavior_context(self, path: list[str]) -> JsonDict | None:
+        if (
+            self.family_kind != "shared_basin_strong_prefix_dedup"
+            or self.current_instance is None
+            or self.family_agent_map is None
+        ):
+            return None
+
+        metadata = dict(self.current_instance.get("metadata", {}) or {})
+        schedule_meta = dict(metadata.get("psagent_schedule", {}) or {})
+        schedule_phase = str(schedule_meta.get("schedule_phase", "stationary") or "stationary")
+        task_bucket = str(schedule_meta.get("task_bucket", "") or "")
+        is_specialist_task = bool(schedule_meta.get("is_specialist_task", False))
+
+        family_agents = [self.family_agent_map[agent_id] for agent_id in path]
+        base_aliases = [self._prefix_dedup_base_alias(agent_id) for agent_id in path]
+        route_labels = [str(getattr(agent, "route_label", "")) for agent in family_agents]
+        node_semantics = [str(getattr(agent, "node_semantic", "")) for agent in family_agents]
+        safe_prefix = node_semantics[0] == "safe_core"
+        trap_like_path = base_aliases[0] == "stage1_n4" or route_labels[0] == "mixed_stage1_intake"
+        target_safe_subtree = (
+            safe_prefix
+            and route_labels[3] in {"public_stage4_core", "public_stage4_verify"}
+            and route_labels[4] in {"public_stage5_verify", "public_stage5_decision"}
+        )
+        exact_target_good = (
+            target_safe_subtree
+            and route_labels[3] == "public_stage4_verify"
+            and route_labels[4] == "public_stage5_verify"
+        )
+        decoy_path = (
+            base_aliases[0] in {"stage1_n2", "stage1_n3", "stage1_n5"}
+            and (
+                route_labels[3] == "mixed_stage4_lane"
+                or route_labels[4] in {"mixed_stage5_transfer", "private_stage5_edge"}
+            )
+        )
+
+        is_trap_task = schedule_phase == "trap_pre_switch" or task_bucket == "trap_favoring"
+        is_target_task = (
+            schedule_phase == "target_post_switch" or task_bucket == "target_favoring"
+        )
+
+        archetype = "neutral"
+        if is_trap_task and trap_like_path:
+            archetype = "trap_like_good"
+        elif is_target_task and trap_like_path:
+            archetype = "trap_like_bad"
+        elif is_target_task and exact_target_good and is_specialist_task:
+            archetype = "target_safe_specialist_good"
+        elif is_target_task and decoy_path:
+            archetype = "target_decoy_medium"
+        elif is_target_task and target_safe_subtree:
+            archetype = "target_safe_majority_bad"
+        elif is_trap_task and target_safe_subtree:
+            archetype = "trap_safe_overcautious"
+
+        return {
+            "archetype": archetype,
+            "schedule_phase": schedule_phase,
+            "task_bucket": task_bucket,
+            "is_specialist_task": is_specialist_task,
+            "base_aliases": list(base_aliases),
+            "route_labels": list(route_labels),
+            "node_semantics": list(node_semantics),
+            "trap_like_path": trap_like_path,
+            "target_safe_subtree": target_safe_subtree,
+            "exact_target_good": exact_target_good,
+            "decoy_path": decoy_path,
+            "oracle_stage5": self._normalize_stage5_blocker_output(
+                self.current_instance.get("stage5", {}).get("oracle_output", {})
+            ),
+        }
+
+    def _prefix_dedup_reasoning_stage_multiplier(
+        self,
+        archetype: str,
+        stage_name: str,
+    ) -> float:
+        if archetype in {"trap_like_good", "target_safe_specialist_good"}:
+            return 0.92 if stage_name in {"stage3", "stage4", "stage5"} else 0.97
+        if archetype == "trap_like_bad":
+            return 1.18 if stage_name in {"stage3", "stage4", "stage5"} else 1.08
+        if archetype == "target_safe_majority_bad":
+            return 1.12 if stage_name in {"stage4", "stage5"} else 1.05
+        if archetype in {"target_decoy_medium", "trap_safe_overcautious"}:
+            return 1.05 if stage_name in {"stage3", "stage4", "stage5"} else 1.0
+        return 1.0
+
+    def _behavioral_stage5_output(self, behavior_context: JsonDict) -> JsonDict:
+        oracle_output = deepcopy(behavior_context["oracle_stage5"])
+        archetype = str(behavior_context["archetype"])
+        if archetype in {"trap_like_good", "target_safe_specialist_good", "neutral"}:
+            return oracle_output
+        if archetype in {"target_decoy_medium", "trap_safe_overcautious"}:
+            if len(oracle_output["selected_blocker_ids"]) <= 1:
+                return oracle_output
+            return self._downgrade_stage5_output(
+                oracle_output,
+                drop_count=1,
+                force_transfer=False,
+            )
+        if archetype == "target_safe_majority_bad":
+            selected_count = len(oracle_output["selected_blocker_ids"])
+            if selected_count <= 1:
+                return self._downgrade_stage5_output(
+                    oracle_output,
+                    drop_count=selected_count,
+                    force_transfer=selected_count > 0,
+                )
+            return self._downgrade_stage5_output(
+                oracle_output,
+                drop_count=max(1, selected_count // 2),
+                force_transfer=False,
+            )
+        if archetype == "trap_like_bad":
+            return self._downgrade_stage5_output(
+                oracle_output,
+                drop_count=len(oracle_output["selected_blocker_ids"]),
+                force_transfer=True,
+            )
+        return oracle_output
+
+    def _downgrade_stage5_output(
+        self,
+        oracle_output: JsonDict,
+        *,
+        drop_count: int,
+        force_transfer: bool,
+    ) -> JsonDict:
+        selected = list(oracle_output["selected_blocker_ids"])
+        deferred = list(oracle_output["deferred_blocker_ids"])
+        if force_transfer:
+            return self._normalize_stage5_blocker_output(
+                {
+                    "final_action": "transfer",
+                    "selected_blocker_ids": [],
+                    "deferred_blocker_ids": self._dedup_preserve_order(
+                        [*selected, *deferred]
+                    ),
+                }
+            )
+        if not selected or drop_count <= 0:
+            return deepcopy(oracle_output)
+        if drop_count >= len(selected):
+            moved = list(selected)
+            selected = []
+        else:
+            moved = selected[-drop_count:]
+            selected = selected[:-drop_count]
+        return self._normalize_stage5_blocker_output(
+            {
+                "selected_blocker_ids": selected,
+                "deferred_blocker_ids": self._dedup_preserve_order([*deferred, *moved]),
+            }
+        )
+
+    def _normalize_stage5_blocker_output(self, output: Mapping[str, Any]) -> JsonDict:
+        selected = self._dedup_preserve_order(
+            output.get("selected_blocker_ids")
+            or output.get("cancelled_reservation_ids")
+            or []
+        )
+        deferred = self._dedup_preserve_order(
+            output.get("deferred_blocker_ids")
+            or output.get("refused_reservation_ids")
+            or []
+        )
+        final_action = str(
+            output.get("final_action")
+            or self._infer_stage5_action_from_blockers(selected, deferred)
+        )
+        return {
+            "final_action": final_action,
+            "selected_blocker_ids": list(selected),
+            "deferred_blocker_ids": list(deferred),
+            "cancelled_reservation_ids": list(selected),
+            "refused_reservation_ids": list(deferred),
+        }
+
+    def _infer_stage5_action_from_blockers(
+        self,
+        selected_blocker_ids: Sequence[str],
+        deferred_blocker_ids: Sequence[str],
+    ) -> str:
+        if selected_blocker_ids and deferred_blocker_ids:
+            return "repair_subset"
+        if selected_blocker_ids:
+            return "repair_all"
+        return "transfer"
+
+    def _dedup_preserve_order(self, values: Sequence[Any]) -> list[str]:
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for value in values:
+            value_str = str(value)
+            if not value_str or value_str in seen:
+                continue
+            seen.add(value_str)
+            ordered.append(value_str)
+        return ordered
+
+    def _prefix_dedup_base_alias(self, agent_id: str) -> str:
+        parts = agent_id.split("__from__", 1)
+        return parts[0] if parts else agent_id
 
     def _ensure_family_executor_for_instance(self, instance: JsonDict) -> None:
         if self.family_kind is None or self._family_stages is None:

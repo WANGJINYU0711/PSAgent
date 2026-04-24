@@ -37,13 +37,16 @@ from fixed_tree_env import (  # noqa: E402
     leaf_starts_shared_upload,
 )
 from direct_multistage_exp3 import DirectMultiStageExp3Policy  # noqa: E402
+from direct_multistage_exp3_local import DirectMultiStageExp3LocalPolicy  # noqa: E402
 from epsilon_exp3 import EpsilonExp3Policy  # noqa: E402
 from naive_mixed import NaiveMixedPolicy  # noqa: E402
+from naive_mixed_avg import NaiveMixedAveragePolicy  # noqa: E402
 from random_path import RandomPathPolicy  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
 from risky_ps_old import RiskyPSOldPolicy  # noqa: E402
 from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
 from risky_ps_direct_cost import RiskyPSDirectCostPolicy  # noqa: E402
+from risky_ps_linear import RiskyPSLinearPolicy  # noqa: E402
 from risky_ps_safe_conditional import (  # noqa: E402
     RiskyPSSafeConditionalIXPolicy,
     RiskyPSSafeConditionalPolicy,
@@ -53,11 +56,14 @@ from risky_ps_safe_conditional import (  # noqa: E402
 METHODS = {
     "risky_ps_old": RiskyPSOldPolicy,
     "risky_ps": RiskyPSPolicy,
+    "risky_ps_linear": RiskyPSLinearPolicy,
     "risky_ps_ix": RiskyPSIXPolicy,
     "direct_multistage_exp3": DirectMultiStageExp3Policy,
+    "direct_multistage_exp3_local": DirectMultiStageExp3LocalPolicy,
     "epsilon_exp3": EpsilonExp3Policy,
     "random_path": RandomPathPolicy,
     "naive_mixed": NaiveMixedPolicy,
+    "naive_mixed_avg": NaiveMixedAveragePolicy,
     "risky_ps_safe_conditional": RiskyPSSafeConditionalPolicy,
     "risky_ps_safe_conditional_ix": RiskyPSSafeConditionalIXPolicy,
     "risky_ps_direct_cost": RiskyPSDirectCostPolicy,
@@ -65,9 +71,11 @@ METHODS = {
 COMMON_ETA_METHODS = frozenset(
     {
         "direct_multistage_exp3",
+        "direct_multistage_exp3_local",
         "epsilon_exp3",
         "risky_ps_old",
         "risky_ps",
+        "risky_ps_linear",
         "risky_ps_ix",
         "risky_ps_safe_conditional",
         "risky_ps_safe_conditional_ix",
@@ -79,6 +87,7 @@ COMMON_EPSILON_METHODS = frozenset(
         "epsilon_exp3",
         "risky_ps_old",
         "risky_ps",
+        "risky_ps_linear",
         "risky_ps_ix",
         "risky_ps_safe_conditional",
         "risky_ps_safe_conditional_ix",
@@ -662,6 +671,7 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         specialist_fraction: float,
         tree_spec_role_mode: str = "spec_or_agent_id",
         tree_spec_cost_mode: str = "default",
+        trap_switch_denominator: int | None = None,
     ) -> None:
         if tree_spec_cost_mode not in TREE_SPEC_COST_MODES:
             raise ValueError(f"Unknown tree-spec cost mode: {tree_spec_cost_mode}")
@@ -670,6 +680,11 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         self.spec = spec
         self.tree_spec_role_mode = tree_spec_role_mode
         self.tree_spec_cost_mode = tree_spec_cost_mode
+        self.trap_switch_denominator = (
+            int(trap_switch_denominator) if trap_switch_denominator is not None else 3
+        )
+        if self.trap_switch_denominator <= 0:
+            raise ValueError("trap_switch_denominator must be positive")
         self.setting_name = str(spec.get("tree_name", spec_path.stem))
         self.variant = str(spec.get("tree_name", spec_path.stem))
         self.depth = int(spec["depth"])
@@ -752,6 +767,10 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         self.path_profiles = self._build_path_profiles()
         self.num_paths = len(self.path_profiles)
         self.current_instance: dict[str, Any] | None = None
+
+    def _ps_favored_trap_switch_episode(self, horizon: int | None) -> int:
+        effective_horizon = int(horizon or self.depth or 1)
+        return max(1, effective_horizon // self.trap_switch_denominator)
 
     def _build_allowed_children_from_spec(
         self,
@@ -1030,14 +1049,24 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         if cached is not None:
             return cached
         candidate_paths = list(self._ps_favored_candidate_safe_subtree_paths())
-        selected = sorted(
-            candidate_paths,
+        if not candidate_paths:
+            cached = frozenset()
+            self._ps_favored_selected_good_leaf_paths_cache = cached
+            return cached
+        lexicographic_first_path = min(candidate_paths)
+        eligible_paths = [
+            path for path in candidate_paths
+            if path != lexicographic_first_path
+        ]
+        ranked_paths = sorted(
+            eligible_paths,
             key=lambda group_key: stable_unit_interval(
                 "ps_favored_v7_target_good_rank",
                 self.setting_name,
                 *group_key,
             ),
-        )[: min(4, len(candidate_paths))]
+        )
+        selected = ranked_paths[: min(2, len(ranked_paths))]
         cached = frozenset(selected)
         self._ps_favored_selected_good_leaf_paths_cache = cached
         return cached
@@ -1390,9 +1419,10 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         episode_index: int | None,
         horizon: int | None,
     ) -> tuple[float, str]:
+        switch_episode = self._ps_favored_trap_switch_episode(horizon)
+        is_pre_switch = episode_index is not None and episode_index < switch_episode
         if self._is_ps_favored_trap_basin(base_aliases):
-            switch_episode = max(1, int((horizon or 3) / 3))
-            if episode_index is not None and episode_index < switch_episode:
+            if is_pre_switch:
                 probability = 0.002 + stable_positive_hash_noise(
                     0.006,
                     "ps_favored_trap_basin_pre_switch",
@@ -1404,16 +1434,34 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
             probability = 0.995
             return clamp01(probability), "ps_favored_trap_basin_post_switch"
         if self._is_ps_favored_exact_best(visible_path):
-            return 0.025, "ps_favored_exact_best_hash_selected"
+            if is_pre_switch:
+                probability = 0.18 + stable_positive_hash_noise(
+                    0.04,
+                    "ps_favored_exact_best_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_exact_best_pre_switch"
+            return 0.025, "ps_favored_exact_best_post_switch"
         if self._is_ps_favored_near_best_good(visible_path, base_aliases, gates):
+            if is_pre_switch:
+                probability = 0.22 + stable_positive_hash_noise(
+                    0.04,
+                    "ps_favored_v10_target_good_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_v10_target_good_pre_switch"
             probability = 0.015 + stable_positive_hash_noise(
                 0.02,
-                "ps_favored_v7_target_good",
+                "ps_favored_v10_target_good_post_switch",
                 self.setting_name,
                 *base_aliases,
                 *visible_path,
             )
-            return clamp01(probability), "ps_favored_v7_target_good"
+            return clamp01(probability), "ps_favored_v10_target_good_post_switch"
         if self._is_ps_favored_candidate_safe_subtree(base_aliases, gates):
             probability = 0.80 + stable_positive_hash_noise(
                 0.08,
@@ -1433,8 +1481,7 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
             )
             return clamp01(probability), "ps_favored_v9_balancing_candidate_base"
         if self._is_ps_favored_local_decoy(visible_path, base_aliases, gates):
-            switch_episode = max(1, int((horizon or 3) / 3))
-            if episode_index is not None and episode_index < switch_episode:
+            if is_pre_switch:
                 return 0.02, "ps_favored_v7_local_decoy_early"
             return 0.55, "ps_favored_v7_local_decoy_late"
         if self._is_ps_favored_decoy_branch(base_aliases, gates):
@@ -1761,6 +1808,7 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         )[:10]
         oracle_path = tuple(oracle["true_best_leaf"])
         oracle_profile = self.path_profiles[oracle_path]
+        trap_switch_episode = self._ps_favored_trap_switch_episode(horizon)
         return {
             "tree_spec_cost_mode": self.tree_spec_cost_mode,
             "cost_landscape_design": "v9_targeted_marginal_calibration",
@@ -1774,7 +1822,8 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
             "exact_trap_path_visible": (
                 list(exact_trap_profiles[0].visible_path) if exact_trap_profiles else None
             ),
-            "trap_switch_episode": max(1, horizon // 3),
+            "trap_switch_denominator": self.trap_switch_denominator,
+            "trap_switch_episode": trap_switch_episode,
             "safe_basin_definition": {
                 "b3": sorted(PS_FAVORED_SAFE_SUFFIX_STAGE3),
                 "b4": PS_FAVORED_SAFE_SUFFIX_STAGE4,
@@ -1915,6 +1964,7 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
             "seed": self.seed,
             "tree_spec_role_mode": self.tree_spec_role_mode,
             "tree_spec_cost_mode": self.tree_spec_cost_mode,
+            "trap_switch_denominator": self.trap_switch_denominator,
             "cost_role_source_counts": dict(self.cost_role_source_counts),
             "stages": self.role_permutation_by_stage,
         }
@@ -2019,7 +2069,14 @@ def run_one(
     episode_costs: list[float] = []
     oracle_episode_costs = [float(value) for value in oracle["oracle_episode_costs"]]
     tail_window_size = min(TAIL_WINDOW_SIZE_DEFAULT, horizon)
-    post_switch_start_index = horizon // 3
+    trap_switch_denominator = getattr(env, "trap_switch_denominator", None)
+    trap_switch_episode = (
+        env._ps_favored_trap_switch_episode(horizon)
+        if getattr(env, "tree_spec_cost_mode", "default") == "ps_favored_trap"
+        and hasattr(env, "_ps_favored_trap_switch_episode")
+        else max(1, horizon // 3)
+    )
+    post_switch_start_index = min(max(trap_switch_episode, 1), horizon)
     post_switch_start_episode = post_switch_start_index + 1
 
     for episode_index, instance in enumerate(instances):
@@ -2124,6 +2181,8 @@ def run_one(
                     "epsilon": actual_epsilon,
                     "common_eta_override": common_eta_override,
                     "common_epsilon_override": common_epsilon_override,
+                    "trap_switch_denominator": trap_switch_denominator,
+                    "trap_switch_episode": trap_switch_episode,
                     "direct_eta_override": direct_eta_override,
                     "seed": seed,
                     "cumulative_cost": cumulative_cost,
@@ -2173,6 +2232,8 @@ def run_one(
         "topology": env.topology,
         "sharing_scheme": env.sharing_scheme,
         "tree_spec_cost_mode": getattr(env, "tree_spec_cost_mode", "default"),
+        "trap_switch_denominator": trap_switch_denominator,
+        "trap_switch_episode": trap_switch_episode,
         "seed": seed,
         "method": method,
         "method_label": method_label,
@@ -2310,6 +2371,8 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             row["sharing_scheme"],
             row["method"],
             row.get("method_label", row["method"]),
+            row.get("trap_switch_denominator"),
+            row.get("trap_switch_episode"),
             row.get("eta"),
             row.get("eta_shared"),
             row.get("gamma_shared"),
@@ -2334,6 +2397,8 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             sharing_scheme,
             method,
             method_label,
+            trap_switch_denominator,
+            trap_switch_episode,
             eta,
             eta_shared,
             gamma_shared,
@@ -2357,6 +2422,8 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "tree_spec_cost_mode": group[0].get("tree_spec_cost_mode", "default"),
                 "method": method,
                 "method_label": method_label,
+                "trap_switch_denominator": trap_switch_denominator,
+                "trap_switch_episode": trap_switch_episode,
                 "eta": eta,
                 "eta_shared": eta_shared,
                 "gamma_shared": gamma_shared,
@@ -2554,6 +2621,7 @@ def write_ps_favored_trap_summary_markdown(
         f"- trap_basin_leaf_count: `{diagnostics.get('trap_basin_leaf_count')}`",
         f"- trap_path_base_aliases: `{diagnostics.get('trap_path_base_aliases')}`",
         f"- exact_trap_path_exists: `{diagnostics.get('exact_trap_path_exists')}`",
+        f"- trap_switch_denominator: `{diagnostics.get('trap_switch_denominator')}`",
         f"- trap_switch_episode: `{diagnostics.get('trap_switch_episode')}`",
         f"- safe_basin_definition: `{diagnostics.get('safe_basin_definition')}`",
         f"- cost_landscape_design: `{diagnostics.get('cost_landscape_design')}`",
@@ -4482,6 +4550,15 @@ def main() -> None:
             "methods. direct_multistage_exp3, naive_mixed, and random_path are unaffected."
         ),
     )
+    parser.add_argument(
+        "--trap-switch-denominator",
+        type=int,
+        default=None,
+        help=(
+            "Override the ps_favored_trap switch point to floor(T / denominator). "
+            "Other cost rules remain unchanged."
+        ),
+    )
     parser.add_argument("--ix-grid", action="store_true", help="Run the risky_ps_ix eta_shared/gamma_shared grid.")
     parser.add_argument(
         "--denominator-ablation",
@@ -4624,6 +4701,7 @@ def main() -> None:
                     specialist_fraction=args.specialist_fraction,
                     tree_spec_role_mode=args.tree_spec_role_mode,
                     tree_spec_cost_mode=args.tree_spec_cost_mode,
+                    trap_switch_denominator=args.trap_switch_denominator,
                 )
             else:
                 env = ControlledTreeEnv(
@@ -4687,6 +4765,7 @@ def main() -> None:
             specialist_fraction=args.specialist_fraction,
             tree_spec_role_mode=args.tree_spec_role_mode,
             tree_spec_cost_mode=args.tree_spec_cost_mode,
+            trap_switch_denominator=args.trap_switch_denominator,
         )
         findings = {
             "external_tree_spec": str(args.tree_spec),
@@ -4732,6 +4811,7 @@ def main() -> None:
             "tree_spec": str(args.tree_spec) if args.tree_spec else None,
             "tree_spec_role_mode": args.tree_spec_role_mode,
             "tree_spec_cost_mode": args.tree_spec_cost_mode,
+            "trap_switch_denominator": args.trap_switch_denominator,
             "common_eta_override": args.common_eta_override,
             "common_epsilon_override": args.common_epsilon_override,
             "direct_eta_override": args.direct_eta_override,

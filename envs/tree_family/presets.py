@@ -3,6 +3,19 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+SHARED_BASIN_PREFIX_DEDUP_SPEC_PATH = (
+    ROOT / "analysis" / "tree_specs" / "shared_basin_strong_4of5_prefix_dedup.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch.json"
+)
 
 
 def build_neutral_family_spec() -> dict:
@@ -446,6 +459,353 @@ def build_shared_basin_strong_family_spec() -> dict:
                 },
             ],
         },
+    }
+
+
+def build_shared_basin_strong_prefix_dedup_family_spec() -> dict:
+    config = deepcopy(build_shared_basin_strong_family_spec())
+    config["family_name"] = "shared_basin_strong_prefix_dedup"
+    config["generation_mode"] = "capability_shared_basin_prefix_dedup"
+    config["prefix_dedup_topology_spec_path"] = str(
+        SHARED_BASIN_PREFIX_DEDUP_SPEC_PATH
+    )
+    config["source_family_name"] = "shared_basin_strong"
+    return config
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_family_spec() -> dict:
+    return {
+        "family_name": "shared_basin_strong_prefix_dedup_profile_switch",
+        "generation_mode": "capability_shared_basin_prefix_dedup",
+        "stages": ["stage1", "stage2", "stage3", "stage4", "stage5"],
+        "profile_fields": {
+            "competence_level": "capability",
+            "scope_level": "capability",
+            "stability_level": "capability",
+        },
+        "cost_ranges": {
+            "uniform": (0.12, 0.16),
+        },
+        "semantic_skill_ranges": {
+            "general_shared": {
+                "anchor": (0.76, 0.86),
+                "support": (0.46, 0.60),
+                "background": (0.16, 0.28),
+                "focus_fallback": (0.34, 0.48),
+            },
+            "trap_lane": {
+                "anchor": (0.86, 0.94),
+                "support": (0.42, 0.56),
+                "background": (0.05, 0.16),
+                "focus_fallback": (0.18, 0.32),
+            },
+            "target_specialist": {
+                "anchor": (0.90, 0.98),
+                "support": (0.28, 0.42),
+                "background": (0.03, 0.10),
+                "focus_fallback": (0.10, 0.22),
+            },
+            "private_barrier": {
+                "anchor": (0.86, 0.94),
+                "support": (0.34, 0.50),
+                "background": (0.08, 0.18),
+                "focus_fallback": (0.28, 0.42),
+            },
+        },
+        "stage_profiles": {
+            "stage1": [
+                {
+                    "role": "general_shared_context_intake",
+                    "g": 0,
+                    "node_semantic": "general_shared",
+                    "profile_kind": "shared_basin",
+                    "route_label": "general_stage1_intake",
+                    "anchor_caps": ["user_grounding", "account_lookup"],
+                    "support_caps": ["line_resolution", "verification"],
+                    "deliberation_mode": "fast",
+                    "base_cost_range": (0.112, 0.132),
+                },
+                {
+                    "role": "general_shared_grounded_verify",
+                    "g": 0,
+                    "node_semantic": "general_shared",
+                    "profile_kind": "shared_basin",
+                    "route_label": "general_stage1_verify",
+                    "anchor_caps": ["user_grounding", "verification"],
+                    "support_caps": ["account_lookup", "line_resolution"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.116, 0.136),
+                },
+                {
+                    "role": "target_specialist_handoff",
+                    "g": 0,
+                    "node_semantic": "general_shared",
+                    "profile_kind": "shared_basin",
+                    "route_label": "target_stage1_handoff",
+                    "anchor_caps": ["user_grounding", "account_lookup"],
+                    "support_caps": ["verification"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.120, 0.145),
+                },
+                {
+                    "role": "trap_lane_fast_intake",
+                    "g": 0,
+                    "node_semantic": "trap_lane",
+                    "profile_kind": "shared_basin",
+                    "route_label": "trap_stage1_intake",
+                    "anchor_caps": ["user_grounding", "account_lookup", "line_resolution"],
+                    "anchor_boost": 0.03,
+                    "support_caps": ["permission_diagnosis"],
+                    "deliberation_mode": "fast",
+                    "base_cost_range": (0.090, 0.110),
+                },
+                {
+                    "role": "barrier_gate_intake",
+                    "g": 1,
+                    "node_semantic": "private_barrier",
+                    "profile_kind": "barrier",
+                    "route_label": "barrier_stage1_gate",
+                    "anchor_caps": ["user_grounding", "account_lookup"],
+                    "support_caps": ["verification"],
+                    "deliberation_mode": "fast",
+                    "base_cost_range": (0.145, 0.170),
+                },
+            ],
+            "stage2": [
+                {
+                    "role": "target_specialist_router",
+                    "g": 0,
+                    "node_semantic": "target_specialist",
+                    "profile_kind": "specialist",
+                    "route_label": "target_stage2_router",
+                    "anchor_caps": ["line_resolution", "roaming_diagnosis"],
+                    "support_caps": ["account_lookup", "verification"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.140, 0.160),
+                },
+                {
+                    "role": "general_shared_core",
+                    "g": 0,
+                    "node_semantic": "general_shared",
+                    "profile_kind": "shared_basin",
+                    "route_label": "general_stage2_core",
+                    "anchor_caps": ["line_resolution", "account_lookup"],
+                    "support_caps": ["roaming_diagnosis"],
+                    "deliberation_mode": "fast",
+                    "base_cost_range": (0.120, 0.140),
+                },
+                {
+                    "role": "trap_lane_router",
+                    "g": 0,
+                    "node_semantic": "trap_lane",
+                    "profile_kind": "shared_basin",
+                    "route_label": "trap_stage2_router",
+                    "anchor_caps": ["line_resolution", "account_lookup"],
+                    "support_caps": ["network_diagnosis"],
+                    "deliberation_mode": "fast",
+                    "base_cost_range": (0.095, 0.115),
+                },
+                {
+                    "role": "general_shared_roaming_lane",
+                    "g": 0,
+                    "node_semantic": "general_shared",
+                    "profile_kind": "shared_basin",
+                    "route_label": "general_stage2_roaming",
+                    "anchor_caps": ["roaming_diagnosis", "line_resolution"],
+                    "support_caps": ["account_lookup", "verification"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.125, 0.145),
+                },
+                {
+                    "role": "barrier_stage2_gate",
+                    "g": 1,
+                    "node_semantic": "private_barrier",
+                    "profile_kind": "barrier",
+                    "route_label": "barrier_stage2_gate",
+                    "anchor_caps": ["roaming_diagnosis", "line_resolution"],
+                    "support_caps": ["account_lookup"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.150, 0.180),
+                },
+            ],
+            "stage3": [
+                {
+                    "role": "target_specialist_apn",
+                    "g": 0,
+                    "node_semantic": "target_specialist",
+                    "profile_kind": "specialist",
+                    "route_label": "target_stage3_apn",
+                    "anchor_caps": ["apn_diagnosis", "roaming_diagnosis"],
+                    "support_caps": ["network_diagnosis", "verification"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.145, 0.175),
+                },
+                {
+                    "role": "target_specialist_roaming",
+                    "g": 0,
+                    "node_semantic": "target_specialist",
+                    "profile_kind": "specialist",
+                    "route_label": "target_stage3_roaming",
+                    "anchor_caps": ["apn_diagnosis", "roaming_diagnosis"],
+                    "support_caps": ["network_diagnosis", "verification"],
+                    "anchor_boost": 0.02,
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.145, 0.175),
+                },
+                {
+                    "role": "general_shared_network_core",
+                    "g": 0,
+                    "node_semantic": "general_shared",
+                    "profile_kind": "shared_basin",
+                    "route_label": "general_stage3_network",
+                    "anchor_caps": ["network_diagnosis", "permission_diagnosis"],
+                    "support_caps": ["verification"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.125, 0.145),
+                },
+                {
+                    "role": "trap_lane_network_fast",
+                    "g": 0,
+                    "node_semantic": "trap_lane",
+                    "profile_kind": "shared_basin",
+                    "route_label": "trap_stage3_network",
+                    "anchor_caps": ["network_diagnosis", "permission_diagnosis"],
+                    "support_caps": ["line_resolution"],
+                    "deliberation_mode": "fast",
+                    "base_cost_range": (0.100, 0.120),
+                },
+                {
+                    "role": "barrier_stage3_gate",
+                    "g": 1,
+                    "node_semantic": "private_barrier",
+                    "profile_kind": "barrier",
+                    "route_label": "barrier_stage3_gate",
+                    "anchor_caps": ["network_diagnosis", "apn_diagnosis", "roaming_diagnosis"],
+                    "support_caps": ["verification"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.155, 0.190),
+                },
+            ],
+            "stage4": [
+                {
+                    "role": "target_specialist_repair",
+                    "g": 0,
+                    "node_semantic": "target_specialist",
+                    "profile_kind": "specialist",
+                    "route_label": "target_stage4_repair",
+                    "anchor_caps": ["repair_execution", "apn_diagnosis"],
+                    "anchor_boost": 0.03,
+                    "support_caps": ["verification", "roaming_diagnosis", "terminal_decision"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.150, 0.180),
+                },
+                {
+                    "role": "general_shared_repair",
+                    "g": 0,
+                    "node_semantic": "general_shared",
+                    "profile_kind": "shared_basin",
+                    "route_label": "general_stage4_repair",
+                    "anchor_caps": ["repair_execution", "network_diagnosis"],
+                    "support_caps": ["verification", "terminal_decision"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.130, 0.150),
+                },
+                {
+                    "role": "general_shared_verify_decide",
+                    "g": 0,
+                    "node_semantic": "general_shared",
+                    "profile_kind": "shared_basin",
+                    "route_label": "general_stage4_verify",
+                    "anchor_caps": ["repair_execution", "verification", "terminal_decision"],
+                    "support_caps": ["permission_diagnosis", "apn_diagnosis"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.130, 0.150),
+                },
+                {
+                    "role": "trap_lane_execute_fast",
+                    "g": 0,
+                    "node_semantic": "trap_lane",
+                    "profile_kind": "shared_basin",
+                    "route_label": "trap_stage4_execute",
+                    "anchor_caps": ["network_diagnosis", "permission_diagnosis"],
+                    "support_caps": ["terminal_decision", "line_resolution", "repair_execution"],
+                    "deliberation_mode": "fast",
+                    "base_cost_range": (0.098, 0.118),
+                },
+                {
+                    "role": "barrier_stage4_gate",
+                    "g": 1,
+                    "node_semantic": "private_barrier",
+                    "profile_kind": "barrier",
+                    "route_label": "barrier_stage4_gate",
+                    "anchor_caps": ["repair_execution", "terminal_decision", "apn_diagnosis"],
+                    "support_caps": ["verification", "roaming_diagnosis"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.160, 0.200),
+                },
+            ],
+            "stage5": [
+                {
+                    "role": "target_specialist_verify",
+                    "g": 0,
+                    "node_semantic": "target_specialist",
+                    "profile_kind": "specialist",
+                    "route_label": "target_stage5_verify",
+                    "anchor_caps": ["verification", "repair_execution"],
+                    "support_caps": ["terminal_decision"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.145, 0.175),
+                },
+                {
+                    "role": "target_specialist_decision",
+                    "g": 0,
+                    "node_semantic": "target_specialist",
+                    "profile_kind": "specialist",
+                    "route_label": "target_stage5_decision",
+                    "anchor_caps": ["terminal_decision", "verification"],
+                    "support_caps": ["repair_execution"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.145, 0.175),
+                },
+                {
+                    "role": "general_shared_verify",
+                    "g": 0,
+                    "node_semantic": "general_shared",
+                    "profile_kind": "shared_basin",
+                    "route_label": "general_stage5_verify",
+                    "anchor_caps": ["verification", "repair_execution"],
+                    "support_caps": ["terminal_decision"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.125, 0.145),
+                },
+                {
+                    "role": "trap_lane_terminal",
+                    "g": 0,
+                    "node_semantic": "trap_lane",
+                    "profile_kind": "shared_basin",
+                    "route_label": "trap_stage5_terminal",
+                    "anchor_caps": ["terminal_decision"],
+                    "support_caps": ["repair_execution", "verification"],
+                    "deliberation_mode": "fast",
+                    "base_cost_range": (0.098, 0.118),
+                },
+                {
+                    "role": "barrier_stage5_transfer",
+                    "g": 1,
+                    "node_semantic": "private_barrier",
+                    "profile_kind": "barrier",
+                    "route_label": "barrier_stage5_transfer",
+                    "anchor_caps": ["terminal_decision", "verification"],
+                    "support_caps": ["repair_execution"],
+                    "deliberation_mode": "deep",
+                    "base_cost_range": (0.160, 0.200),
+                },
+            ],
+        },
+        "prefix_dedup_topology_spec_path": str(
+            SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_SPEC_PATH
+        ),
+        "source_family_name": "shared_basin_strong_prefix_dedup",
     }
 
 

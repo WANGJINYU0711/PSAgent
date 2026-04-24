@@ -121,7 +121,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             allowed_tools=["get_customer_by_phone", "get_details_by_id"],
-            max_rounds=min(3, self._max_rounds(agent, task, "stage1")),
+            max_rounds=self._max_rounds(agent, task, "stage1"),
         )
         output = self._normalize_stage1_output(
             final_output=result.get("final_output"),
@@ -133,7 +133,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "stage_name": "stage1",
             "agent_id": agent_id,
             "agent_g": agent.g,
-            "prompt_summary": self._stage1_prompt_summary(agent),
+            "prompt_summary": self._stage1_prompt_summary(agent, task),
             "llm_raw_output": deepcopy(result.get("llm_messages", [])),
             "planned_tool_calls": deepcopy(result.get("executed_tool_calls", [])),
             "executed_tool_calls": deepcopy(result.get("executed_tool_calls", [])),
@@ -189,7 +189,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "stage_name": "stage2",
             "agent_id": agent_id,
             "agent_g": agent.g,
-            "prompt_summary": self._stage2_prompt_summary(agent),
+            "prompt_summary": self._stage2_prompt_summary(agent, task),
             "llm_raw_output": deepcopy(result.get("llm_messages", [])),
             "planned_tool_calls": deepcopy(result.get("executed_tool_calls", [])),
             "executed_tool_calls": deepcopy(result.get("executed_tool_calls", [])),
@@ -262,7 +262,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "stage_name": "stage3",
             "agent_id": agent_id,
             "agent_g": agent.g,
-            "prompt_summary": self._stage3_prompt_summary(agent),
+            "prompt_summary": self._stage3_prompt_summary(agent, task),
             "llm_raw_output": deepcopy(result.get("llm_messages", [])),
             "planned_tool_calls": deepcopy(result.get("executed_tool_calls", [])),
             "executed_tool_calls": deepcopy(result.get("executed_tool_calls", [])),
@@ -318,7 +318,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             allowed_tools=list(STAGE4_REPAIR_TOOLS),
-            max_rounds=max(4, min(6, self._max_rounds(agent, task, "stage4") + 1)),
+            max_rounds=self._max_rounds(agent, task, "stage4"),
         )
         execution_result = self._execute_stage4_canonical_plan(
             raw_instance=raw_instance,
@@ -340,7 +340,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "stage_name": "stage4",
             "agent_id": agent_id,
             "agent_g": agent.g,
-            "prompt_summary": self._stage4_prompt_summary(agent),
+            "prompt_summary": self._stage4_prompt_summary(agent, task),
             "llm_raw_output": deepcopy(result.get("llm_messages", [])),
             "planned_tool_calls": deepcopy(result.get("executed_tool_calls", [])),
             "executed_tool_calls": deepcopy(execution_result.get("executed_tool_calls", [])),
@@ -396,7 +396,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             allowed_tools=list(STAGE5_VERIFICATION_TOOLS),
-            max_rounds=max(3, min(5, self._max_rounds(agent, task, "stage5") + 1)),
+            max_rounds=self._max_rounds(agent, task, "stage5"),
             replay_tool_calls=replay_tool_calls,
         )
         verification_fallback = self._maybe_fetch_stage5_verification_fallback(
@@ -419,7 +419,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "stage_name": "stage5",
             "agent_id": agent_id,
             "agent_g": agent.g,
-            "prompt_summary": self._stage5_prompt_summary(agent),
+            "prompt_summary": self._stage5_prompt_summary(agent, task),
             "llm_raw_output": deepcopy(result.get("llm_messages", [])),
             "planned_tool_calls": deepcopy(result.get("executed_tool_calls", [])),
             "executed_tool_calls": deepcopy(result.get("executed_tool_calls", [])),
@@ -657,35 +657,55 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         task: TaskDescriptor | None = None,
         stage_name: str | None = None,
     ) -> int:
-        rounds = 3 if getattr(agent, "deliberation_mode", "deep") == "fast" else 5
+        mode = getattr(agent, "deliberation_mode", "deep")
+        if mode == "fast":
+            rounds_by_stage = {
+                "stage1": 2,
+                "stage2": 2,
+                "stage3": 2,
+                "stage4": 2,
+                "stage5": 2,
+            }
+        else:
+            rounds_by_stage = {
+                "stage1": 4,
+                "stage2": 5,
+                "stage3": 6,
+                "stage4": 6,
+                "stage5": 7,
+            }
+        rounds = rounds_by_stage.get(stage_name or "stage3", 2 if mode == "fast" else 5)
         if task is not None and stage_name is not None:
             requirement = self._stage_deliberation_requirement(task, stage_name)
             if requirement == "deep":
-                rounds += 1
-            elif requirement == "fast" and getattr(agent, "deliberation_mode", "deep") == "deep":
+                if mode == "deep":
+                    rounds += 1
+                else:
+                    rounds = min(3, rounds + 1)
+            elif requirement == "fast" and mode == "deep":
                 rounds -= 1
-        return max(2, rounds)
+        return max(2, min(8, rounds))
 
     def _agent_behavior_guidance(self, agent: AgentSpec) -> str:
         competence = (
-            "Be careful, verify facts, and prefer explicit tool evidence."
+            "Prefer explicit tool evidence and do not commit on unverified high-risk fields."
             if agent.competence_level == "high"
-            else "Keep the investigation lightweight and stop after sufficient evidence."
+            else "Keep the investigation compact and stop once the stage output is sufficiently supported."
         )
         scope = (
-            "Search broadly when customer or line resolution may be ambiguous."
+            "Broaden the search only when customer or line resolution is genuinely ambiguous."
             if agent.scope_level == "broad"
-            else "Focus on the most explicit phone-number path first."
+            else "Stay on the most explicit phone-number path first and avoid low-yield branches."
         )
         stability = (
-            "Avoid redundant calls because the round budget is tight."
+            "Do not spend rounds on redundant checks because the round budget is tight."
             if agent.stability_level == "unstable"
-            else "You may use the full round budget to double-check key facts."
+            else "Use the available round budget on the highest-risk facts only."
         )
         deliberation = (
-            "This agent is fast: prioritize short evidence chains, avoid redundant calls, and make compact decisions."
+            "This agent is fast: prioritize the shortest valid evidence chain, avoid redundant calls, and do not add second-pass verification unless the stage requires deep reasoning."
             if getattr(agent, "deliberation_mode", "deep") == "fast"
-            else "This agent is deep: spend budget on careful verification when the stage requires detailed reasoning."
+            else "This agent is deep: spend budget on careful verification of high-risk facts and do not finalize stage3-stage5 outputs before decisive evidence is checked."
         )
         return " ".join([competence, scope, stability, deliberation])
 
@@ -701,11 +721,15 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         return "deep" if task.stage_difficulty.get(stage_name, 0.0) >= 0.42 else "fast"
 
     def _build_agent_capability_profile(self, agent: AgentSpec) -> dict[str, Any]:
-        ranked = sorted(agent.attribute_skill.items(), key=lambda item: (item[1], item[0]), reverse=True)
+        ranked = sorted(
+            agent.attribute_skill.items(),
+            key=lambda item: (item[1], item[0]),
+            reverse=True,
+        )
         low_ranked = sorted(agent.attribute_skill.items(), key=lambda item: (item[1], item[0]))
         return {
-            "strengths": [[name, round(float(score), 3)] for name, score in ranked[:3]],
-            "weaknesses": [[name, round(float(score), 3)] for name, score in low_ranked[:3]],
+            "strengths": [[name, round(float(score), 3)] for name, score in ranked[:5]],
+            "weaknesses": [[name, round(float(score), 3)] for name, score in low_ranked[:5]],
         }
 
     def _build_agent_deliberation_profile(self, agent: AgentSpec) -> dict[str, Any]:
@@ -713,16 +737,16 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         return {
             "mode": mode,
             "style_guidance": (
-                "Prefer short, high-yield evidence chains and avoid low-value extra tool calls."
+                "Use the shortest valid evidence chain, avoid low-value extra tool calls, and only do second-pass verification when the stage explicitly requires it."
                 if mode == "fast"
-                else "Prefer careful cross-checking on high-risk fields before committing to a decision."
+                else "Use extra rounds on the highest-risk fields, cross-check decisive evidence, and do not rush stage3-stage5 decisions."
             ),
         }
 
     def _build_stage_requirement_summary(self, task: TaskDescriptor, stage_name: str) -> list[list[Any]]:
         requirement = self._stage_requirement_map(task, stage_name)
         ranked = sorted(requirement.items(), key=lambda item: (item[1], item[0]), reverse=True)
-        return [[name, round(float(score), 3)] for name, score in ranked[:3] if score > 0.0]
+        return [[name, round(float(score), 3)] for name, score in ranked[:4] if score > 0.0]
 
     def _build_capability_match_summary(
         self,
@@ -730,18 +754,38 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         stage_name: str,
         agent: AgentSpec,
     ) -> dict[str, Any]:
-        required = [name for name, _ in self._build_stage_requirement_summary(task, stage_name)]
-        strengths = {
-            name
-            for name, _ in sorted(agent.attribute_skill.items(), key=lambda item: (item[1], item[0]), reverse=True)[:3]
-        }
-        weaknesses = {
-            name
-            for name, _ in sorted(agent.attribute_skill.items(), key=lambda item: (item[1], item[0]))[:3]
-        }
+        requirement = self._stage_requirement_map(task, stage_name)
+        weighted_rows: list[dict[str, Any]] = []
+        for capability_name, weight in sorted(
+            requirement.items(),
+            key=lambda item: (item[1], item[0]),
+            reverse=True,
+        ):
+            if float(weight) <= 0.0:
+                continue
+            skill_score = float(agent.attribute_skill.get(capability_name, 0.0))
+            if skill_score >= 0.75:
+                priority_bucket = "focus"
+            elif skill_score <= 0.4:
+                priority_bucket = "avoid"
+            else:
+                priority_bucket = "secondary"
+            weighted_rows.append(
+                {
+                    "capability": capability_name,
+                    "requirement_weight": round(float(weight), 3),
+                    "agent_skill": round(skill_score, 3),
+                    "priority_bucket": priority_bucket,
+                }
+            )
         return {
-            "aligned_strengths": [name for name in required if name in strengths],
-            "caution_areas": [name for name in required if name in weaknesses],
+            "required_capability_table": weighted_rows[:5],
+            "focus_capabilities": [
+                row["capability"] for row in weighted_rows if row["priority_bucket"] == "focus"
+            ][:3],
+            "avoid_capabilities": [
+                row["capability"] for row in weighted_rows if row["priority_bucket"] == "avoid"
+            ][:3],
         }
 
     def _build_stage_deliberation_summary(
@@ -780,6 +824,306 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "round_budget_hint": self._max_rounds(agent, task, stage_name),
         }
 
+    def _stage_execution_search_policy(
+        self,
+        stage_name: str,
+        *,
+        mode: str,
+        stage_requirement: str,
+    ) -> list[str]:
+        if mode == "fast":
+            policy = [
+                "Use the shortest valid evidence chain that supports the required structured output.",
+                "Do not do secondary verification unless the stage explicitly requires deep reasoning or the current fact is decisive for the output.",
+                "If a required capability is weak for this agent, do only the minimum confirmation needed to stay coherent and move on.",
+            ]
+        else:
+            policy = [
+                "Cross-check the highest-risk facts before finalizing the structured output.",
+                "Spend extra rounds on the top required capabilities first, not on broad low-yield exploration.",
+                "Do not finalize stage3-stage5 outputs before the key risk-bearing evidence is verified.",
+            ]
+
+        if stage_name == "stage3":
+            if mode == "fast":
+                policy.append(
+                    "Keep diagnosis compact: concentrate on the highest-yield 1-2 blocker families rather than exhaustively branching."
+                )
+                policy.append(
+                    "If a high-priority blocker family lacks decisive evidence, keep it open rather than aggressively eliminating it."
+                )
+            else:
+                policy.append(
+                    "Cross-confirm the most important blocker families before you lock in the observed_state."
+                )
+                policy.append(
+                    "Use extra rounds on decisive blocker-family evidence, not on long-tail families with weak support."
+                )
+        elif stage_name == "stage4":
+            if mode == "fast":
+                policy.append(
+                    "Do not expand into long repair chains; prefer only clear, high-confidence repair execution."
+                )
+                policy.append(
+                    "If blocker-family evidence is still ambiguous, prefer narrow or deferred repair over a broad repair bundle."
+                )
+            else:
+                policy.append(
+                    "Before repair execution, confirm the key preconditions for the blocker families you are acting on."
+                )
+                policy.append(
+                    "Do not treat a common repair as a default. Repair only when blocker-specific evidence keeps that family plausibly active."
+                )
+        elif stage_name == "stage5":
+            if mode == "fast":
+                policy.append(
+                    "Once the minimum verification floor is met, close quickly instead of exploring extra verification branches."
+                )
+                policy.append(
+                    "If the minimum verification floor is not met, prefer a conservative terminal action over an under-verified strong action."
+                )
+            else:
+                policy.append(
+                    "Verify the decisive evidence for the final action before returning a terminal decision."
+                )
+                policy.append(
+                    "Do not use transfer or repair_all as a fallback while the decisive blocker-family evidence remains materially ambiguous."
+                )
+
+        if stage_requirement == "deep" and mode == "fast":
+            policy.append(
+                "This is a deep-reasoning stage with a fast agent: narrow scope aggressively, but do not finalize a high-confidence blocker conclusion or terminal action until the decisive evidence is checked."
+            )
+        elif stage_requirement == "fast" and mode == "deep":
+            policy.append(
+                "This is a fast stage with a deep agent: once the minimum evidence floor is met, stop. Depth is not permission to broaden into low-yield verification."
+            )
+        return policy
+
+    def _capability_mismatch_policy(
+        self,
+        stage_name: str,
+        *,
+        mode: str,
+        stage_requirement: str,
+    ) -> str:
+        del stage_name
+        if stage_requirement == "deep" and mode == "fast":
+            return (
+                "Deep-required mismatch rule: this is a fast agent on a deep stage. Narrow the scope aggressively to the highest-yield evidence path, "
+                "but you may not finalize a high-confidence blocker conclusion, repair decision, or terminal action unless the decisive evidence for that decision has been checked. "
+                "If deep verification is required but cannot fit in budget, return a more conservative intermediate or terminal decision instead of an under-verified confident action."
+            )
+        if stage_requirement == "fast" and mode == "deep":
+            return (
+                "Fast-required mismatch rule: this is a deep agent on a fast stage. Use the shortest high-yield evidence chain first. "
+                "Once the minimum evidence floor is met, you must stop and may not use depth as a reason to broaden into extra low-yield verification."
+            )
+        return (
+            "If a required capability is weak for this agent, do the minimum confirmation needed on that axis and spend the remaining budget on stronger relevant axes."
+        )
+
+    def _stage3_blocker_decision_rules(self, *, mode: str) -> list[str]:
+        rules = [
+            "Treat blocker-family selection and elimination as a hard decision boundary, not a descriptive summary.",
+            "Do not exclude a high-priority blocker family unless the observed-state evidence actively argues against it.",
+            "Lack of evidence is not sufficient grounds to eliminate a stage-relevant blocker family.",
+            "Be especially conservative about eliminating APN, roaming, permission, and network blocker families when the task profile makes them high-priority.",
+        ]
+        if mode == "fast":
+            return rules + [
+                "Only compactly validate the top 1-2 blocker families.",
+                "Do not widen into long-tail blocker families after a plausible high-yield family is sufficiently supported.",
+                "Do not confirm multiple blocker families on weak evidence.",
+            ]
+        return rules + [
+            "Keep a wider candidate set if needed, but cross-check the decisive evidence for the top blocker family before finalizing observed_state.",
+            "Do not finalize observed_state while the top blocker family's decisive evidence remains unchecked.",
+            "Do not eliminate APN or roaming style specialist families without explicit contradictory evidence when they are high-priority for the task profile.",
+        ]
+
+    def _stage4_repair_precondition_rules(self, *, mode: str) -> list[str]:
+        rules = [
+            "Do not execute a repair for a blocker family unless the evidence confirms that family is still plausibly active.",
+            "APN repairs require APN-side evidence. Roaming repairs require roaming-side evidence. Permission and network repairs require matching blocker evidence.",
+            "A repair cannot be justified only because it is common or convenient.",
+        ]
+        if mode == "fast":
+            return rules + [
+                "Only execute clear, high-confidence, low-branching repairs.",
+                "Do not initiate multi-step repair chains.",
+                "Do not execute specialist repairs without direct blocker evidence.",
+            ]
+        return rules + [
+            "Before repair, confirm the decisive preconditions for the blocker family being acted on.",
+            "If the blocker family remains ambiguous, prefer a narrower or deferred action over a broad repair bundle.",
+            "Do not repair through ambiguity just because more budget is available.",
+        ]
+
+    def _stage5_terminal_decision_rules(self, *, mode: str) -> list[str]:
+        rules = [
+            "Transfer is allowed only when decisive evidence is still missing and cannot be obtained within the current stage budget, or when the blocker family clearly requires external or manual handling.",
+            "Do not use transfer only because the evidence feels incomplete.",
+            "repair_all is allowed only when the main blocker family is sufficiently supported and the selected repairs align with the observed evidence.",
+            "Do not use repair_all as a fallback when blocker-family evidence remains materially ambiguous.",
+        ]
+        if mode == "fast":
+            return rules + [
+                "Use the minimum verification floor required for a defensible final action.",
+                "If that floor is not met, prefer a conservative terminal decision over an under-verified strong action.",
+            ]
+        return rules + [
+            "Do not transfer or close until the decisive evidence behind the terminal action is verified.",
+            "Do not finalize a strong terminal action while key post-repair evidence remains unchecked.",
+        ]
+
+    def _build_agent_execution_contract(
+        self,
+        task: TaskDescriptor,
+        stage_name: str,
+        agent: AgentSpec,
+    ) -> dict[str, Any]:
+        requirement = self._stage_requirement_map(task, stage_name)
+        top_required = [
+            name
+            for name, weight in sorted(
+                requirement.items(),
+                key=lambda item: (item[1], item[0]),
+                reverse=True,
+            )
+            if float(weight) > 0.0
+        ][:4]
+        agent_scores = {
+            name: round(float(agent.attribute_skill.get(name, 0.0)), 3)
+            for name in top_required
+        }
+        strong = [name for name in top_required if float(agent.attribute_skill.get(name, 0.0)) >= 0.75]
+        weak = [name for name in top_required if float(agent.attribute_skill.get(name, 0.0)) <= 0.4]
+        mode = getattr(agent, "deliberation_mode", "deep")
+        stage_requirement = self._stage_deliberation_requirement(task, stage_name)
+        required_rows = [
+            {
+                "capability": name,
+                "requirement_weight": round(float(requirement.get(name, 0.0)), 3),
+                "agent_skill": round(float(agent.attribute_skill.get(name, 0.0)), 3),
+                "match_band": (
+                    "strong"
+                    if float(agent.attribute_skill.get(name, 0.0)) >= 0.75
+                    else "weak"
+                    if float(agent.attribute_skill.get(name, 0.0)) <= 0.4
+                    else "medium"
+                ),
+            }
+            for name in top_required
+        ]
+        must_focus_on = strong[:2] if strong else top_required[:2]
+        must_not_overinvest_in = weak[:2]
+        if not must_not_overinvest_in and len(top_required) > len(must_focus_on):
+            must_not_overinvest_in = top_required[-1:]
+        stop_policy = (
+            "Close once the minimum verification floor is met and the structured output is supported."
+            if mode == "fast"
+            else "Do not close until decisive evidence for the high-risk fields has been checked."
+        )
+        evidence_policy = (
+            "Prefer explicit tool evidence; do not rely on broad speculative branching."
+            if mode == "fast"
+            else "Prefer explicit tool evidence and cross-check the decisive evidence path before committing."
+        )
+        return {
+            "contract_version": "telecom_agent_execution_contract_v3",
+            "top_required_capabilities": top_required,
+            "required_capability_table": required_rows,
+            "agent_scores_on_required_capabilities": agent_scores,
+            "capability_strengths_for_this_stage": strong,
+            "capability_weaknesses_for_this_stage": weak,
+            "must_focus_on": must_focus_on,
+            "must_not_overinvest_in": must_not_overinvest_in,
+            "deliberation_mode": mode,
+            "stage_deliberation_requirement": stage_requirement,
+            "round_budget_hint": self._max_rounds(agent, task, stage_name),
+            "round_budget_band": "2-3" if mode == "fast" else "5-8",
+            "evidence_policy": evidence_policy,
+            "stop_policy": stop_policy,
+            "capability_mismatch_policy": self._capability_mismatch_policy(
+                stage_name,
+                mode=mode,
+                stage_requirement=stage_requirement,
+            ),
+            "search_policy": self._stage_execution_search_policy(
+                stage_name,
+                mode=mode,
+                stage_requirement=stage_requirement,
+            ),
+            "stage_specific_hard_constraints": self._stage_execution_hard_constraints(
+                stage_name,
+                mode=mode,
+                stage_requirement=stage_requirement,
+            ),
+        }
+
+    def _stage_execution_hard_constraints(
+        self,
+        stage_name: str,
+        *,
+        mode: str,
+        stage_requirement: str,
+    ) -> list[str]:
+        common_rules = [
+            "Treat the execution contract as binding. If the contract conflicts with a broad search instinct, follow the contract.",
+            "Do not spend rounds outside the stage goal and output contract.",
+        ]
+        if stage_requirement == "deep" and mode == "fast":
+            common_rules.append(
+                "Fast-on-deep mismatch: you may narrow scope, but you may not skip decisive verification and still return a high-confidence blocker, repair, or terminal conclusion."
+            )
+        elif stage_requirement == "fast" and mode == "deep":
+            common_rules.append(
+                "Deep-on-fast mismatch: once the minimum evidence floor is met, you must stop instead of broadening into low-yield verification."
+            )
+        if stage_name == "stage3":
+            return common_rules + self._stage3_blocker_decision_rules(mode=mode)
+        if stage_name == "stage4":
+            return common_rules + self._stage4_repair_precondition_rules(mode=mode)
+        if stage_name == "stage5":
+            return common_rules + self._stage5_terminal_decision_rules(mode=mode)
+        return common_rules
+
+    def _execution_contract_system_rules(self, stage_name: str) -> str:
+        stage_specific_rules = {
+            "stage1": (
+                "Stage 1 rule: ground identity and target line minimally. Do not spend rounds on diagnosis or blocker inference."
+            ),
+            "stage2": (
+                "Stage 2 rule: resolve the customer and line only. Stop once the resolved line is stable enough for downstream stages."
+            ),
+            "stage3": (
+                "Stage 3 rule: fast agents may only compactly validate the highest-yield blocker families; deep agents must cross-check key blocker families before returning."
+            ),
+            "stage4": (
+                "Stage 4 rule: fast agents must avoid multi-step repair chains; deep agents must confirm key execution preconditions before acting."
+            ),
+            "stage5": (
+                "Stage 5 rule: fast agents may close quickly after the minimum verification floor; deep agents must verify the decisive evidence behind the final action."
+            ),
+        }
+        return "\n".join(
+            [
+                "You must follow the agent execution contract exactly.",
+                "The execution contract is binding. Treat it as an operating contract, not advisory guidance.",
+                "1. Focus first on the capabilities listed in must_focus_on.",
+                "2. Do not spend rounds broadly on capabilities listed in must_not_overinvest_in unless they are unavoidable for the stage goal.",
+                "3. search_policy is binding: it defines how wide or narrow your search may be.",
+                "4. stop_policy is binding: it defines when you must stop and when you may not stop yet.",
+                "5. capability_mismatch_policy is binding: mismatch changes what you are allowed to finalize, not just how many rounds you get.",
+                "6. stage_specific_hard_constraints are binding: do not override them with general agent preference or broad search instincts.",
+                "7. If the contract says the agent is fast, use the shortest valid evidence chain, avoid redundant verification, and do not do second-pass checking unless the stage requirement or decisive evidence forces it.",
+                "8. If the contract says the agent is deep, spend extra rounds on the highest-risk evidence and do not finalize a high-risk output before decisive evidence is verified.",
+                "9. Stay within the round_budget_hint implied by the contract.",
+                f"10. {stage_specific_rules[stage_name]}",
+            ]
+        )
+
     def _build_stage2_prompts(
         self,
         task: TaskDescriptor,
@@ -787,11 +1131,13 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         raw_instance: dict[str, Any],
         stage1_output: dict[str, Any],
     ) -> tuple[str, str]:
+        execution_contract = self._build_agent_execution_contract(task, "stage2", agent)
         system_prompt = (
             "You are performing Stage 2: customer and line resolution for a telecom support case.\n"
             "Goal: identify the customer, resolve the target line, and extract a minimal account snapshot.\n"
             "You are given an agent capability profile, current stage capability requirements, the agent deliberation mode, and the current stage deliberation requirement.\n"
-            "Use capability information to focus what evidence matters. Use deliberation information to control how much search to spend: fast agents should keep the search compact, while deep agents may spend more rounds when the stage requires careful reasoning.\n"
+            + self._execution_contract_system_rules("stage2")
+            + "\n"
             "Use only the allowed tools.\n"
             "Do not do diagnosis. Do not talk about blockers. Do not produce prose.\n"
             "Return only JSON with keys: candidate_customers, resolved_customer_id, candidate_line_ids, "
@@ -813,6 +1159,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage2"),
                 "capability_match_summary": self._build_capability_match_summary(task, "stage2", agent),
                 "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage2", agent),
+                "agent_execution_contract": execution_contract,
                 "stage_goal": "Resolve the customer and telecom line only.",
                 "stage1_output": stage1_output,
                 "user_context": raw_instance.get("user_context", {}),
@@ -828,11 +1175,13 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         agent: AgentSpec,
         raw_instance: dict[str, Any],
     ) -> tuple[str, str]:
+        execution_contract = self._build_agent_execution_contract(task, "stage1", agent)
         system_prompt = (
             "You are performing Stage 1: user grounding for a telecom MMS troubleshooting case.\n"
             "Your goal is to transform the user request into a stable structured Stage 1 output.\n"
             "You are given an agent capability profile, current stage capability requirements, the agent deliberation mode, and the current stage deliberation requirement.\n"
-            "Use capability information to decide what to ground. Use deliberation information to decide whether to keep the grounding quick or to spend more effort resolving ambiguity.\n"
+            + self._execution_contract_system_rules("stage1")
+            + "\n"
             "You may use the allowed tools only when needed to confirm customer identity, phone grounding, or line grounding.\n"
             "Keep tool use minimal.\n"
             "Do NOT do diagnosis.\n"
@@ -863,6 +1212,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage1"),
                 "capability_match_summary": self._build_capability_match_summary(task, "stage1", agent),
                 "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage1", agent),
+                "agent_execution_contract": execution_contract,
                 "stage_goal": "Ground the user, phone number, and target telecom line at a minimal level only.",
                 "policy_mode": "grounding_only_minimal_lookup",
                 "user_context": raw_instance.get("user_context", {}),
@@ -899,14 +1249,22 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         stage1_output: dict[str, Any],
         stage2_output: dict[str, Any],
     ) -> tuple[str, str]:
+        execution_contract = self._build_agent_execution_contract(task, "stage3", agent)
         system_prompt = (
             "You are performing Stage 3: observed-state extraction for a telecom MMS troubleshooting case.\n"
             "Goal: collect factual observed state only. Do not decide terminal actions.\n"
             "You are given an agent capability profile, current stage capability requirements, the agent deliberation mode, and the current stage deliberation requirement.\n"
-            "Use capability information to focus diagnostic coverage and be cautious where the agent is weak. Use deliberation information to decide whether to keep diagnosis compact or to spend more effort on careful cross-checking.\n"
+            + self._execution_contract_system_rules("stage3")
+            + "\n"
             "Use only the allowed tools. Prefer explicit tool evidence over guesses.\n"
-            "For MMS diagnosis, permission / APN / network-mode coverage is high priority.\n"
-            "Before returning JSON, make sure you have checked messaging app permissions, APN MMS settings, and network mode preference unless the tool results are already present.\n"
+            "For MMS diagnosis, permission / APN / network-mode checks are usually the highest-yield starting points, but the execution contract decides where this agent should focus first.\n"
+            "Do not branch into exhaustive low-yield diagnostics when the execution contract says to stay compact.\n"
+            "Hard blocker rules:\n"
+            "- Blocker-family inclusion and exclusion must be evidence-backed.\n"
+            "- Do not exclude a high-priority blocker family unless the observed-state evidence actively argues against it.\n"
+            "- Lack of evidence is not enough to eliminate APN, roaming, permission, or network blocker families when they are stage-relevant.\n"
+            "- Fast agents may only compactly validate the top 1-2 blocker families.\n"
+            "- Deep agents must cross-check the decisive evidence for the top blocker family before finalizing observed_state.\n"
             "Return only JSON with key observed_state.\n"
             "observed_state must contain exactly these keys: can_send_mms, service_status, mobile_data_working, "
             "internet_speed_desc, is_abroad, roaming_enabled_on_device, roaming_enabled_on_account, airplane_mode, "
@@ -929,6 +1287,10 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage3"),
                 "capability_match_summary": self._build_capability_match_summary(task, "stage3", agent),
                 "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage3", agent),
+                "agent_execution_contract": execution_contract,
+                "stage3_blocker_decision_rules": self._stage3_blocker_decision_rules(
+                    mode=getattr(agent, "deliberation_mode", "deep")
+                ),
                 "stage_goal": "Produce only factual observed state for the resolved telecom line.",
                 "tool_use_checklist": [
                     "check_network_status",
@@ -956,10 +1318,12 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         stage3_output: dict[str, Any],
     ) -> tuple[str, str]:
         del stage1_output
+        execution_contract = self._build_agent_execution_contract(task, "stage4", agent)
         system_prompt = (
             "You are performing Stage 4: blocker adjudication and repair execution for a telecom MMS troubleshooting case.\n"
             "You are given an agent capability profile, current stage capability requirements, the agent deliberation mode, and the current stage deliberation requirement.\n"
-            "Use capability information to judge which blockers this agent can handle safely. Use deliberation information to decide whether to make a quick execution plan or to slow down around higher-risk adjudication boundaries.\n"
+            + self._execution_contract_system_rules("stage4")
+            + "\n"
             "First decide, for each blocker, whether it should be repaired automatically, deferred, or transferred.\n"
             "Then execute canonical repair steps only for blockers with should_repair=true.\n"
             "Use only the allowed repair tools.\n"
@@ -977,6 +1341,11 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "- After adjudication, execute canonical_repair_steps in repair_order order for blockers with should_repair=true.\n"
             "- Do not execute repair steps for blockers with should_repair=false.\n"
             "- Do not use tools to override the frozen transfer/defer boundary.\n"
+            "Hard repair rules:\n"
+            "- Do not execute a repair unless the blocker-family evidence keeps that family plausibly active.\n"
+            "- APN repairs require APN evidence. Roaming repairs require roaming-side evidence. Permission and network repairs require matching blocker evidence.\n"
+            "- Fast agents may only execute clear, low-branching repairs and may not initiate multi-step repair chains.\n"
+            "- Deep agents must confirm decisive preconditions before repair and should prefer narrower or deferred action over a broad repair bundle when the blocker family remains ambiguous.\n"
             "If transfer is required, provide a non-null short snake_case transfer_reason. Otherwise use null.\n"
             "Output JSON only. No markdown. No explanation outside the JSON."
         )
@@ -1016,6 +1385,10 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage4"),
                 "capability_match_summary": self._build_capability_match_summary(task, "stage4", agent),
                 "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage4", agent),
+                "agent_execution_contract": execution_contract,
+                "stage4_repair_precondition_rules": self._stage4_repair_precondition_rules(
+                    mode=getattr(agent, "deliberation_mode", "deep")
+                ),
                 "stage_goal": "Adjudicate blockers under frozen first-pass semantics, then execute canonical repair steps for selected blockers.",
                 "policy_mode": "repair_execution_with_env_mutation",
                 "output_contract": {
@@ -1066,15 +1439,17 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         stage2_output: dict[str, Any],
         stage4_output: dict[str, Any],
     ) -> tuple[str, str]:
+        execution_contract = self._build_agent_execution_contract(task, "stage5", agent)
         system_prompt = (
             "You are performing Stage 5: post-repair verification and terminal decision for a telecom MMS troubleshooting case.\n"
             "Your job is to verify the current post-repair telecom state using verification tools, then choose the final structured terminal action.\n"
             "You are given an agent capability profile, current stage capability requirements, the agent deliberation mode, and the current stage deliberation requirement.\n"
-            "Use capability information to decide where verification and terminal-decision caution matter most. Use deliberation information to balance quick closure against careful post-repair validation.\n"
+            + self._execution_contract_system_rules("stage5")
+            + "\n"
             "Do not execute repair tools or perform additional repair mutation.\n"
             "Replay has already been applied before your verification step.\n"
             "You must verify after replay before returning JSON.\n"
-            "Minimum rule: use can_send_mms plus blocker-matched verification tools when blockers were repaired or selected.\n"
+            "Minimum rule: use can_send_mms plus blocker-matched verification tools when blockers were repaired or selected, but keep the search compact when the execution contract says to close quickly.\n"
             "Do not produce customer-facing prose.\n"
             "Return JSON only.\n"
             "The only allowed final_action values are: repair_all, repair_subset, transfer.\n"
@@ -1082,6 +1457,13 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "- repair_all means all blockers must be selected and deferred must be empty.\n"
             "- repair_subset means selected and deferred must form a partition of the input blocker ids.\n"
             "- transfer means selected must be empty and all blockers must be deferred.\n"
+            "Hard terminal rules:\n"
+            "- transfer is allowed only when decisive evidence is still missing and cannot be obtained within the current stage budget, or when the blocker family clearly requires external/manual handling.\n"
+            "- Do not use transfer only because the evidence feels incomplete.\n"
+            "- repair_all is allowed only when the main blocker family is sufficiently supported and the selected repairs align with the observed evidence.\n"
+            "- Do not use repair_all as a fallback when blocker-family evidence remains materially ambiguous.\n"
+            "- Fast agents may close quickly only after the minimum verification floor is met; otherwise they must choose a more conservative terminal decision.\n"
+            "- Deep agents may not transfer or close until the decisive evidence behind the terminal action is verified.\n"
             "Output must be a JSON object with at least these top-level keys: "
             "final_action, selected_blocker_ids, deferred_blocker_ids, response_mode, verification_plan, "
             "transfer_reason, cancelled_reservation_ids, refused_reservation_ids.\n"
@@ -1103,6 +1485,10 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage5"),
                 "capability_match_summary": self._build_capability_match_summary(task, "stage5", agent),
                 "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage5", agent),
+                "agent_execution_contract": execution_contract,
+                "stage5_terminal_decision_rules": self._stage5_terminal_decision_rules(
+                    mode=getattr(agent, "deliberation_mode", "deep")
+                ),
                 "stage_goal": "Verify the post-repair env state and then choose the final terminal decision.",
                 "policy_mode": "verification_then_terminal_decision",
                 "stage2_context": {
@@ -2485,37 +2871,42 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             return True
         return None
 
-    def _stage1_prompt_summary(self, agent: AgentSpec) -> str:
+    def _stage1_prompt_summary(self, agent: AgentSpec, task: TaskDescriptor | None = None) -> str:
         return (
             f"telecom stage1 user grounding; competence={agent.competence_level}; "
             f"scope={agent.scope_level}; stability={agent.stability_level}; "
-            f"max_rounds={min(3, self._max_rounds(agent))}"
+            f"mode={getattr(agent, 'deliberation_mode', 'deep')}; "
+            f"max_rounds={self._max_rounds(agent, task, 'stage1')}"
         )
 
-    def _stage2_prompt_summary(self, agent: AgentSpec) -> str:
+    def _stage2_prompt_summary(self, agent: AgentSpec, task: TaskDescriptor | None = None) -> str:
         return (
             f"telecom stage2 resolution; competence={agent.competence_level}; "
             f"scope={agent.scope_level}; stability={agent.stability_level}; "
-            f"max_rounds={self._max_rounds(agent)}"
+            f"mode={getattr(agent, 'deliberation_mode', 'deep')}; "
+            f"max_rounds={self._max_rounds(agent, task, 'stage2')}"
         )
 
-    def _stage3_prompt_summary(self, agent: AgentSpec) -> str:
+    def _stage3_prompt_summary(self, agent: AgentSpec, task: TaskDescriptor | None = None) -> str:
         return (
             f"telecom stage3 observed-state extraction; competence={agent.competence_level}; "
             f"scope={agent.scope_level}; stability={agent.stability_level}; "
-            f"max_rounds={self._max_rounds(agent)}"
+            f"mode={getattr(agent, 'deliberation_mode', 'deep')}; "
+            f"max_rounds={self._max_rounds(agent, task, 'stage3')}"
         )
 
-    def _stage4_prompt_summary(self, agent: AgentSpec) -> str:
+    def _stage4_prompt_summary(self, agent: AgentSpec, task: TaskDescriptor | None = None) -> str:
         return (
             f"telecom stage4 repair execution; competence={agent.competence_level}; "
             f"scope={agent.scope_level}; stability={agent.stability_level}; "
-            f"max_rounds={max(4, min(6, self._max_rounds(agent) + 1))}"
+            f"mode={getattr(agent, 'deliberation_mode', 'deep')}; "
+            f"max_rounds={self._max_rounds(agent, task, 'stage4')}"
         )
 
-    def _stage5_prompt_summary(self, agent: AgentSpec) -> str:
+    def _stage5_prompt_summary(self, agent: AgentSpec, task: TaskDescriptor | None = None) -> str:
         return (
             f"telecom stage5 verification and terminal decision; competence={agent.competence_level}; "
             f"scope={agent.scope_level}; stability={agent.stability_level}; "
-            f"max_rounds={max(3, min(5, self._max_rounds(agent) + 1))}"
+            f"mode={getattr(agent, 'deliberation_mode', 'deep')}; "
+            f"max_rounds={self._max_rounds(agent, task, 'stage5')}"
         )

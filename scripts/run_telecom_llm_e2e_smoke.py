@@ -25,6 +25,7 @@ for extra in (
 
 from fixed_tree_env import FixedTreeEnvironment  # noqa: E402
 from direct_multistage_exp3 import DirectMultiStageExp3Policy  # noqa: E402
+from direct_multistage_exp3_local import DirectMultiStageExp3LocalPolicy  # noqa: E402
 from epsilon_exp3 import EpsilonExp3Policy  # noqa: E402
 from full_unshare import FullUnsharePolicy  # noqa: E402
 from naive_mixed import NaiveMixedPolicy  # noqa: E402
@@ -32,6 +33,7 @@ from oracle_eval import find_best_stationary_path  # noqa: E402
 from random_path import RandomPathPolicy  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
 from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
+from risky_ps_linear import RiskyPSLinearPolicy  # noqa: E402
 
 
 def mean(values: list[float]) -> float:
@@ -40,8 +42,10 @@ def mean(values: list[float]) -> float:
 
 POLICY_REGISTRY = {
     "risky_ps": RiskyPSPolicy,
+    "risky_ps_linear": RiskyPSLinearPolicy,
     "risky_ps_ix": RiskyPSIXPolicy,
     "direct_multistage_exp3": DirectMultiStageExp3Policy,
+    "direct_multistage_exp3_local": DirectMultiStageExp3LocalPolicy,
     "epsilon_exp3": EpsilonExp3Policy,
     "full_unshare": FullUnsharePolicy,
     "naive_mixed": NaiveMixedPolicy,
