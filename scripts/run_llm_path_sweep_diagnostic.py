@@ -7,6 +7,7 @@ import os
 import statistics
 import sys
 from collections import Counter, defaultdict
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -83,6 +84,10 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def json_ready(value: Any) -> Any:
+    return json.loads(json.dumps(value, ensure_ascii=False, default=str))
 
 
 def index_rows_by_task_id(rows: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -343,6 +348,10 @@ def flatten_record_for_csv(record: dict[str, Any]) -> dict[str, Any]:
         "api_cost_total_usd_raw": record["api_cost_total_usd_raw"],
         "tool_call_count": record["tool_call_count"],
         "final_action": record["final_action"],
+        "stage4_repairability": record.get("stage4_repairability"),
+        "stage4_transfer_reason": record.get("stage4_transfer_reason"),
+        "stage4_should_repair_true_count": record.get("stage4_should_repair_true_count"),
+        "stage5_raw_action_hint": record.get("stage5_raw_action_hint"),
         "selected_blocker_ids": json.dumps(record["selected_blocker_ids"], ensure_ascii=False),
         "deferred_blocker_ids": json.dumps(record["deferred_blocker_ids"], ensure_ascii=False),
         "exact_match": record["exact_match"],
@@ -514,6 +523,33 @@ def main() -> None:
                 if isinstance(result.stage_outputs.get("stage5"), dict)
                 else {}
             )
+            stage3_output = (
+                result.stage_outputs.get("stage3", {}).get("output", {})
+                if isinstance(result.stage_outputs.get("stage3"), dict)
+                else {}
+            )
+            stage4_output = (
+                result.stage_outputs.get("stage4", {}).get("output", {})
+                if isinstance(result.stage_outputs.get("stage4"), dict)
+                else {}
+            )
+            stage5_stage_trace = stage_trace.get("stage5", {})
+            stage4_per_blocker = []
+            for blocker_row in stage4_output.get("per_blocker", []) if isinstance(stage4_output, dict) else []:
+                if not isinstance(blocker_row, dict):
+                    continue
+                stage4_per_blocker.append(
+                    {
+                        "blocker_id": blocker_row.get("blocker_id"),
+                        "should_repair": blocker_row.get("should_repair"),
+                        "repairability": blocker_row.get("repairability"),
+                        "evidence": json_ready(blocker_row.get("evidence")),
+                        "repair_order": blocker_row.get("repair_order"),
+                        "execution_attempted": blocker_row.get("execution_attempted"),
+                        "execution_succeeded": blocker_row.get("execution_succeeded"),
+                        "executed_step_count": blocker_row.get("executed_step_count"),
+                    }
+                )
             tool_call_count = sum(
                 len(stage_row.get("executed_tool_calls", []) or [])
                 for stage_row in stage_trace.values()
@@ -541,6 +577,19 @@ def main() -> None:
                 "oracle_action": result.oracle_action,
                 "selected_blocker_ids": list(stage5_output.get("selected_blocker_ids", [])),
                 "deferred_blocker_ids": list(stage5_output.get("deferred_blocker_ids", [])),
+                "stage3_output": json_ready(stage3_output),
+                "stage4_output": json_ready(stage4_output),
+                "stage5_output": json_ready(stage5_output),
+                "stage4_repairability": stage4_output.get("repairability"),
+                "stage4_transfer_reason": stage4_output.get("transfer_reason"),
+                "stage4_per_blocker": stage4_per_blocker,
+                "stage4_should_repair_true_count": sum(
+                    1 for blocker_row in stage4_per_blocker if blocker_row.get("should_repair") is True
+                ),
+                "stage5_raw_action_hint": stage5_stage_trace.get("raw_output", {}).get("final_action")
+                if isinstance(stage5_stage_trace.get("raw_output"), dict)
+                else None,
+                "stage5_llm_raw_output": json_ready(stage5_stage_trace.get("llm_raw_output", [])),
                 "exact_match": bool(result.success),
                 "stage_resource_summary": flatten_stage_resource_summary(stage_trace),
                 "first_private_barrier_stage": episode_log.get("first_private_barrier_stage"),

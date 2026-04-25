@@ -1049,24 +1049,14 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         if cached is not None:
             return cached
         candidate_paths = list(self._ps_favored_candidate_safe_subtree_paths())
-        if not candidate_paths:
-            cached = frozenset()
-            self._ps_favored_selected_good_leaf_paths_cache = cached
-            return cached
-        lexicographic_first_path = min(candidate_paths)
-        eligible_paths = [
-            path for path in candidate_paths
-            if path != lexicographic_first_path
-        ]
-        ranked_paths = sorted(
-            eligible_paths,
+        selected = sorted(
+            candidate_paths,
             key=lambda group_key: stable_unit_interval(
                 "ps_favored_v7_target_good_rank",
                 self.setting_name,
                 *group_key,
             ),
-        )
-        selected = ranked_paths[: min(2, len(ranked_paths))]
+        )[: min(4, len(candidate_paths))]
         cached = frozenset(selected)
         self._ps_favored_selected_good_leaf_paths_cache = cached
         return cached
@@ -1434,34 +1424,16 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
             probability = 0.995
             return clamp01(probability), "ps_favored_trap_basin_post_switch"
         if self._is_ps_favored_exact_best(visible_path):
-            if is_pre_switch:
-                probability = 0.18 + stable_positive_hash_noise(
-                    0.04,
-                    "ps_favored_exact_best_pre_switch",
-                    self.setting_name,
-                    *base_aliases,
-                    *visible_path,
-                )
-                return clamp01(probability), "ps_favored_exact_best_pre_switch"
-            return 0.025, "ps_favored_exact_best_post_switch"
+            return 0.025, "ps_favored_exact_best_hash_selected"
         if self._is_ps_favored_near_best_good(visible_path, base_aliases, gates):
-            if is_pre_switch:
-                probability = 0.22 + stable_positive_hash_noise(
-                    0.04,
-                    "ps_favored_v10_target_good_pre_switch",
-                    self.setting_name,
-                    *base_aliases,
-                    *visible_path,
-                )
-                return clamp01(probability), "ps_favored_v10_target_good_pre_switch"
             probability = 0.015 + stable_positive_hash_noise(
                 0.02,
-                "ps_favored_v10_target_good_post_switch",
+                "ps_favored_v7_target_good",
                 self.setting_name,
                 *base_aliases,
                 *visible_path,
             )
-            return clamp01(probability), "ps_favored_v10_target_good_post_switch"
+            return clamp01(probability), "ps_favored_v7_target_good"
         if self._is_ps_favored_candidate_safe_subtree(base_aliases, gates):
             probability = 0.80 + stable_positive_hash_noise(
                 0.08,

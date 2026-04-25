@@ -880,14 +880,14 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     "Once the minimum verification floor is met, close quickly instead of exploring extra verification branches."
                 )
                 policy.append(
-                    "If the minimum verification floor is not met, prefer a conservative terminal action over an under-verified strong action."
+                    "If the minimum verification floor is not met, prefer a narrow repair_subset or defer uncertain blockers; use transfer only for explicit external/manual handling."
                 )
             else:
                 policy.append(
-                    "Verify the decisive evidence for the final action before returning a terminal decision."
+                    "Use the larger budget to resolve terminal ambiguity with verification, then commit to the evidence-supported repair_all or repair_subset action."
                 )
                 policy.append(
-                    "Do not use transfer or repair_all as a fallback while the decisive blocker-family evidence remains materially ambiguous."
+                    "Do not use transfer as a substitute for verification; reserve transfer for explicit external/manual handling or a stage4 transfer_required plan."
                 )
 
         if stage_requirement == "deep" and mode == "fast":
@@ -912,7 +912,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             return (
                 "Deep-required mismatch rule: this is a fast agent on a deep stage. Narrow the scope aggressively to the highest-yield evidence path, "
                 "but you may not finalize a high-confidence blocker conclusion, repair decision, or terminal action unless the decisive evidence for that decision has been checked. "
-                "If deep verification is required but cannot fit in budget, return a more conservative intermediate or terminal decision instead of an under-verified confident action."
+                "If deep verification is required but cannot fit in budget, return a narrower repair_subset or defer ambiguous blockers instead of an under-verified confident action; transfer still requires explicit external/manual need."
             )
         if stage_requirement == "fast" and mode == "deep":
             return (
@@ -947,6 +947,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "Do not execute a repair for a blocker family unless the evidence confirms that family is still plausibly active.",
             "APN repairs require APN-side evidence. Roaming repairs require roaming-side evidence. Permission and network repairs require matching blocker evidence.",
             "A repair cannot be justified only because it is common or convenient.",
+            "If APN, roaming, SIM, or permission evidence is affirmative, mark that blocker repairable instead of defaulting the whole case to transfer.",
         ]
         if mode == "fast":
             return rules + [
@@ -956,26 +957,44 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             ]
         return rules + [
             "Before repair, confirm the decisive preconditions for the blocker family being acted on.",
+            "When APN, roaming, SIM, or related specialist evidence is affirmative, use the deeper budget to satisfy the last missing preconditions and mark the supported blocker should_repair=true.",
             "If the blocker family remains ambiguous, prefer a narrower or deferred action over a broad repair bundle.",
+            "Do not convert the whole case to transfer_required merely because one blocker remains ambiguous if a safe repairable subset is supported.",
             "Do not repair through ambiguity just because more budget is available.",
         ]
 
     def _stage5_terminal_decision_rules(self, *, mode: str) -> list[str]:
         rules = [
-            "Transfer is allowed only when decisive evidence is still missing and cannot be obtained within the current stage budget, or when the blocker family clearly requires external or manual handling.",
-            "Do not use transfer only because the evidence feels incomplete.",
-            "repair_all is allowed only when the main blocker family is sufficiently supported and the selected repairs align with the observed evidence.",
-            "Do not use repair_all as a fallback when blocker-family evidence remains materially ambiguous.",
+            "Choose the terminal action from blocker-specific evidence and the stage4 repairability plan.",
+            "Transfer is not the default uncertainty action; it requires explicit external/manual handling, stage4 transfer_required, or verified local repair impossibility.",
+            "repair_all and repair_subset are normal evidence-supported actions, not fallback actions.",
         ]
         if mode == "fast":
             return rules + [
                 "Use the minimum verification floor required for a defensible final action.",
-                "If that floor is not met, prefer a conservative terminal decision over an under-verified strong action.",
+                "If that floor is not met, choose repair_subset for supported blockers and defer ambiguous blockers rather than using broad repair_all.",
+                "Use transfer only when the evidence or stage4 plan explicitly says local repair is not appropriate.",
             ]
         return rules + [
-            "Do not transfer or close until the decisive evidence behind the terminal action is verified.",
-            "Do not finalize a strong terminal action while key post-repair evidence remains unchecked.",
+            "Use the deeper budget to verify decisive evidence, then commit to the supported repair_all or repair_subset action.",
+            "Do not use transfer as a substitute for resolving ambiguity through verification.",
+            "If stage4 marks blockers repairable and verification does not contradict repair, prefer repair_all or repair_subset over transfer.",
         ]
+
+    def _stage5_system_terminal_rules(self, *, mode: str) -> str:
+        if mode == "fast":
+            mode_rules = [
+                "Fast terminal policy: close quickly after the minimum verification floor.",
+                "Fast terminal policy: when evidence is partial, prefer repair_subset plus deferred blockers over a broad repair_all.",
+                "Fast terminal policy: transfer only when the evidence or stage4 plan explicitly requires external/manual handling.",
+            ]
+        else:
+            mode_rules = [
+                "Deep terminal policy: use verification budget to resolve ambiguity, then commit to the evidence-supported repair_all or repair_subset action.",
+                "Deep terminal policy: transfer is reserved for explicit external/manual handling, stage4 transfer_required, or verified local repair impossibility.",
+                "Deep terminal policy: do not choose transfer simply because the case is complex or verification took more rounds.",
+            ]
+        return "\n".join(f"- {rule}" for rule in mode_rules)
 
     def _build_agent_execution_contract(
         self,
@@ -1333,19 +1352,20 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "Your output must be a JSON object with top-level keys: per_blocker, repairability, transfer_reason, decision_policy_version.\n"
             "per_blocker must include every input blocker_id exactly once and each row must contain blocker_id and should_repair.\n"
             "Allowed repairability values: repairable, partially_repairable, transfer_required.\n"
-            "Frozen-policy bias:\n"
-            "- If any blocker is marked as hybrid-required, choose transfer_required.\n"
+            "Stage4 policy bias:\n"
+            "- Do not choose transfer_required for the whole case only because one blocker is hybrid-required.\n"
+            "- If at least one blocker has affirmative evidence and a safe local repair path, mark that blocker should_repair=true and use partially_repairable when other blockers must remain deferred.\n"
             "- If a blocker is assistant-side-required but can be safely deferred, it may be marked should_repair=false under partially_repairable.\n"
-            "- Otherwise prefer should_repair=true for safe auto-repair blockers.\n"
+            "- Use transfer_required only when no safe local repair subset exists or the remaining blockers explicitly require external/manual handling.\n"
             "Execution rules:\n"
             "- After adjudication, execute canonical_repair_steps in repair_order order for blockers with should_repair=true.\n"
             "- Do not execute repair steps for blockers with should_repair=false.\n"
-            "- Do not use tools to override the frozen transfer/defer boundary.\n"
+            "- Do not use tools to fabricate evidence, but do use the stage4 contract to separate repairable blockers from deferred blockers.\n"
             "Hard repair rules:\n"
             "- Do not execute a repair unless the blocker-family evidence keeps that family plausibly active.\n"
             "- APN repairs require APN evidence. Roaming repairs require roaming-side evidence. Permission and network repairs require matching blocker evidence.\n"
             "- Fast agents may only execute clear, low-branching repairs and may not initiate multi-step repair chains.\n"
-            "- Deep agents must confirm decisive preconditions before repair and should prefer narrower or deferred action over a broad repair bundle when the blocker family remains ambiguous.\n"
+            "- Deep agents must confirm decisive preconditions before repair, should use budget to unlock supported specialist repairs, and should prefer a repairable subset over blanket transfer when evidence supports local action.\n"
             "If transfer is required, provide a non-null short snake_case transfer_reason. Otherwise use null.\n"
             "Output JSON only. No markdown. No explanation outside the JSON."
         )
@@ -1425,6 +1445,8 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     "Do not invent blockers that are not in the input per_blocker list",
                     "Execute canonical repair steps only for blockers marked should_repair=true",
                     "Do not execute deferred or transfer-required blocker repairs",
+                    "Use partially_repairable when at least one blocker is supported for local repair and at least one blocker remains deferred",
+                    "Do not output transfer_required for the whole case if a supported local repair subset exists",
                 ],
             },
             ensure_ascii=False,
@@ -1440,6 +1462,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         stage4_output: dict[str, Any],
     ) -> tuple[str, str]:
         execution_contract = self._build_agent_execution_contract(task, "stage5", agent)
+        deliberation_mode = getattr(agent, "deliberation_mode", "deep")
         system_prompt = (
             "You are performing Stage 5: post-repair verification and terminal decision for a telecom MMS troubleshooting case.\n"
             "Your job is to verify the current post-repair telecom state using verification tools, then choose the final structured terminal action.\n"
@@ -1458,12 +1481,11 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "- repair_subset means selected and deferred must form a partition of the input blocker ids.\n"
             "- transfer means selected must be empty and all blockers must be deferred.\n"
             "Hard terminal rules:\n"
-            "- transfer is allowed only when decisive evidence is still missing and cannot be obtained within the current stage budget, or when the blocker family clearly requires external/manual handling.\n"
-            "- Do not use transfer only because the evidence feels incomplete.\n"
-            "- repair_all is allowed only when the main blocker family is sufficiently supported and the selected repairs align with the observed evidence.\n"
-            "- Do not use repair_all as a fallback when blocker-family evidence remains materially ambiguous.\n"
-            "- Fast agents may close quickly only after the minimum verification floor is met; otherwise they must choose a more conservative terminal decision.\n"
-            "- Deep agents may not transfer or close until the decisive evidence behind the terminal action is verified.\n"
+            "- Choose the final action from stage4 repairability plus post-repair verification evidence.\n"
+            "- transfer is not the default action for incomplete evidence; it requires explicit external/manual handling, stage4 transfer_required, or verified local repair impossibility.\n"
+            "- repair_all and repair_subset are normal evidence-supported terminal actions.\n"
+            + self._stage5_system_terminal_rules(mode=deliberation_mode)
+            + "\n"
             "Output must be a JSON object with at least these top-level keys: "
             "final_action, selected_blocker_ids, deferred_blocker_ids, response_mode, verification_plan, "
             "transfer_reason, cancelled_reservation_ids, refused_reservation_ids.\n"
@@ -1487,7 +1509,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage5", agent),
                 "agent_execution_contract": execution_contract,
                 "stage5_terminal_decision_rules": self._stage5_terminal_decision_rules(
-                    mode=getattr(agent, "deliberation_mode", "deep")
+                    mode=deliberation_mode
                 ),
                 "stage_goal": "Verify the post-repair env state and then choose the final terminal decision.",
                 "policy_mode": "verification_then_terminal_decision",
@@ -1523,6 +1545,8 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     "If final_action is transfer, selected_blocker_ids must be empty",
                     "If final_action is repair_all, all blockers must be selected",
                     "If final_action is repair_subset, selected and deferred must partition the blocker ids",
+                    "When in doubt, use stage4_output.repairability and stage4_output.per_blocker as the default terminal plan",
+                    "Do not choose transfer unless stage4_output.repairability is transfer_required, transfer_reason is explicit, or verification proves local repair is inappropriate",
                     "Use verification tools to inspect the current post-repair state before deciding",
                     "If any blocker was replayed or selected, verification should usually include can_send_mms",
                     "Do not execute repair tools in Stage 5",
@@ -1871,10 +1895,26 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             llm_row = llm_row_map.get(blocker_id, {})
             normalized = deepcopy(fallback_row)
             llm_should_repair = llm_row.get("should_repair")
-            if llm_should_repair == fallback_row["should_repair"]:
-                llm_repair_order = llm_row.get("repair_order")
-                if isinstance(llm_repair_order, int) and llm_repair_order > 0:
-                    normalized["repair_order"] = llm_repair_order
+            if isinstance(llm_should_repair, bool):
+                normalized["should_repair"] = llm_should_repair
+                normalized["oracle_execute_decision"] = "repair" if llm_should_repair else "defer"
+                normalized["adjudication_label"] = (
+                    fallback_row["adjudication_label"]
+                    if llm_should_repair == fallback_row["should_repair"]
+                    else (
+                        fallback_row["adjudication_label"].replace("transfer_", "repair_").replace("defer_", "repair_")
+                        if llm_should_repair
+                        else fallback_row["adjudication_label"].replace("repair_", "defer_").replace("transfer_", "defer_")
+                    )
+                )
+                normalized["refusal_code"] = None if llm_should_repair else (
+                    llm_row.get("transfer_reason")
+                    if isinstance(llm_row.get("transfer_reason"), str) and llm_row.get("transfer_reason")
+                    else fallback_row.get("refusal_code")
+                )
+            llm_repair_order = llm_row.get("repair_order")
+            if isinstance(llm_repair_order, int) and llm_repair_order > 0:
+                normalized["repair_order"] = llm_repair_order
             normalized_rows.append(normalized)
 
         normalized_rows.sort(
@@ -1887,13 +1927,31 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         for index, row in enumerate(normalized_rows, start=1):
             row["repair_order"] = index
 
-        repairability = (
-            final_output.get("repairability")
-            if isinstance(final_output, dict)
-            and final_output.get("repairability") == decision["repairability"]
-            else decision["repairability"]
-        )
-        transfer_reason = decision["transfer_reason"] if repairability == "transfer_required" else None
+        selected_blocker_ids = [
+            row["blocker_id"] for row in normalized_rows if row.get("should_repair") is True
+        ]
+        deferred_blocker_ids = [
+            row["blocker_id"] for row in normalized_rows if row.get("blocker_id") not in selected_blocker_ids
+        ]
+        if selected_blocker_ids and deferred_blocker_ids:
+            repairability = "partially_repairable"
+        elif selected_blocker_ids:
+            repairability = "repairable"
+        else:
+            repairability = "transfer_required"
+
+        transfer_reason = None
+        if repairability == "transfer_required":
+            llm_transfer_reason = (
+                final_output.get("transfer_reason")
+                if isinstance(final_output, dict) and isinstance(final_output.get("transfer_reason"), str)
+                else None
+            )
+            transfer_reason = (
+                llm_transfer_reason
+                or decision.get("transfer_reason")
+                or "no_safe_local_repair_subset_v2"
+            )
         return normalized_rows, repairability, transfer_reason
 
     def _execute_stage4_canonical_plan(
@@ -1948,6 +2006,17 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             if isinstance(row, dict) and row.get("blocker_id")
         ]
         blocker_id_set = set(blocker_ids)
+        stage4_repairability = str(stage4_output.get("repairability", "")).strip().lower()
+        stage4_transfer_reason = self._normalize_optional_short_text(stage4_output.get("transfer_reason"))
+        stage4_selected = [
+            row.get("blocker_id")
+            for row in stage4_output.get("per_blocker", [])
+            if isinstance(row, dict)
+            and row.get("blocker_id") in blocker_id_set
+            and bool(row.get("should_repair"))
+        ]
+        stage4_selected = [bid for bid in blocker_ids if bid in set(stage4_selected)]
+        stage4_deferred = [bid for bid in blocker_ids if bid not in set(stage4_selected)]
         verification_summary = self._stage5_verification_summary(
             raw_instance=raw_instance,
             stage2_output=stage2_output,
@@ -1969,15 +2038,25 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         ]
 
         raw_action = str(data.get("final_action", "")).strip().lower()
+
+        def stage4_inferred_terminal_action() -> tuple[str, list[str], list[str]]:
+            if stage4_repairability == "transfer_required":
+                return "transfer", [], list(blocker_ids)
+            if stage4_selected:
+                if set(stage4_selected) == blocker_id_set:
+                    return "repair_all", list(blocker_ids), []
+                return "repair_subset", list(stage4_selected), list(stage4_deferred)
+            if blocker_ids:
+                return "transfer", [], list(blocker_ids)
+            return "repair_all", [], []
+
         if raw_action not in {"repair_all", "repair_subset", "transfer"}:
             if selected_clean and deferred_clean:
                 final_action = "repair_subset"
             elif selected_clean and not deferred_clean:
                 final_action = "repair_all" if set(selected_clean) == blocker_id_set else "repair_subset"
-            elif blocker_ids:
-                final_action = "transfer"
             else:
-                final_action = "repair_all"
+                final_action, selected_clean, deferred_clean = stage4_inferred_terminal_action()
         else:
             final_action = raw_action
 
@@ -1985,15 +2064,21 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             selected_blocker_ids = list(blocker_ids)
             deferred_blocker_ids: list[str] = []
         elif final_action == "transfer":
-            selected_blocker_ids = []
-            deferred_blocker_ids = list(blocker_ids)
+            explicit_transfer_reason = self._normalize_optional_short_text(data.get("transfer_reason"))
+            if (
+                stage4_repairability in {"repairable", "partially_repairable"}
+                and explicit_transfer_reason is None
+                and stage4_transfer_reason is None
+            ):
+                final_action, selected_blocker_ids, deferred_blocker_ids = stage4_inferred_terminal_action()
+            else:
+                selected_blocker_ids = []
+                deferred_blocker_ids = list(blocker_ids)
         else:
             if not selected_clean and deferred_clean:
                 selected_clean = [bid for bid in blocker_ids if bid not in deferred_clean]
             if not selected_clean:
-                final_action = "transfer"
-                selected_blocker_ids = []
-                deferred_blocker_ids = list(blocker_ids)
+                final_action, selected_blocker_ids, deferred_blocker_ids = stage4_inferred_terminal_action()
             else:
                 selected_blocker_ids = [bid for bid in blocker_ids if bid in set(selected_clean)]
                 deferred_blocker_ids = [bid for bid in blocker_ids if bid not in set(selected_blocker_ids)]
@@ -2007,7 +2092,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         if final_action == "transfer":
             transfer_reason = self._normalize_optional_short_text(data.get("transfer_reason"))
             if transfer_reason is None:
-                transfer_reason = self._normalize_optional_short_text(stage4_output.get("transfer_reason"))
+                transfer_reason = stage4_transfer_reason
         else:
             transfer_reason = None
 
