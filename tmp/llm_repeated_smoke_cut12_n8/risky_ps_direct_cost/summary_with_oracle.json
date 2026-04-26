@@ -1,0 +1,157 @@
+{
+  "test_name": "risky_ps_direct_cost_repeated_trap_switch_x8_shared_basin_strong_prefix_dedup_profile_switch_full_llm",
+  "dataset": "data\\derived\\telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch\\tasks.json",
+  "dataset_indices": [
+    0,
+    1,
+    8,
+    9,
+    10,
+    11,
+    14,
+    17,
+    18,
+    20,
+    25,
+    26,
+    27,
+    29,
+    35,
+    36,
+    37,
+    38,
+    44,
+    51,
+    53,
+    54,
+    61,
+    68,
+    69,
+    70,
+    77,
+    84,
+    85,
+    87,
+    92,
+    98
+  ],
+  "repeats": 8,
+  "episodes": 128,
+  "method": "risky_ps_direct_cost",
+  "mechanism": "algorithm_direct",
+  "executor_name": "llm_bench",
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch",
+  "schedule_mode": "trap_switch",
+  "seed": 0,
+  "model": "gpt-4o-mini",
+  "stationary_oracle_path": [
+    "stage1_n5__from__root__c05",
+    "stage2_n5__from__n0005__c03",
+    "stage3_n5__from__n0022__c03",
+    "stage4_n5__from__n0073__c04",
+    "stage5_n5__from__n0215__c03"
+  ],
+  "exact_match_mean": 0.4140625,
+  "terminal_penalty_mean": 7.8359375,
+  "raw_outcome_penalty_mean": 6.2109375,
+  "raw_policy_penalty_mean": 1.625,
+  "raw_terminal_penalty_mean": 7.8359375,
+  "total_cost_mean": 0.37549553857687085,
+  "raw_total_cost_mean": 12.4439221484375,
+  "raw_total_cost_api_mean": 8.482840375,
+  "raw_total_cost_token_mean": 12.4439221484375,
+  "reasoning_cost_mean": 4.5365112109375,
+  "raw_reasoning_cost_component_mean": 4.5365112109375,
+  "raw_reasoning_cost_component_api_mean": 0.5754294375,
+  "raw_reasoning_cost_component_token_mean": 4.5365112109375,
+  "raw_path_cost_component_mean": 0.0714734375,
+  "algorithm_cumulative_total_cost": 48.06342893783947,
+  "raw_algorithm_cumulative_total_cost": 1592.822035,
+  "oracle_stationary_total_cost": 14.762776101388052,
+  "raw_oracle_stationary_total_cost": 489.23840000000007,
+  "raw_outcome_penalty_cumulative": 795.0,
+  "raw_policy_penalty_cumulative": 208.0,
+  "raw_terminal_penalty_cumulative": 1003.0,
+  "raw_path_cost_component_cumulative": 9.1486,
+  "raw_reasoning_cost_component_cumulative": 580.673435,
+  "mean_llm_call_count": 11.1328125,
+  "mean_prompt_tokens": 41848.3359375,
+  "mean_completion_tokens": 1262.46875,
+  "mean_total_tokens": 43110.8046875,
+  "cumulative_total_tokens": 5518183.0,
+  "mean_api_cost_usd_raw": 0.005965844140625,
+  "cumulative_api_cost_usd_raw": 0.76362805,
+  "mean_generation_time_seconds": 32.46410815076524,
+  "p50_generation_time_seconds": 31.895232799928635,
+  "p90_generation_time_seconds": 37.00515452022664,
+  "mean_llm_round_trip_seconds": 32.488133372673474,
+  "mean_episode_wall_clock_seconds": 35.14608563436923,
+  "p50_episode_wall_clock_seconds": 34.460872849449515,
+  "p90_episode_wall_clock_seconds": 39.35780763039365,
+  "mean_tool_wall_clock_seconds": 0.005221119648922468,
+  "policy_action_violation_rate": 0.8125,
+  "policy_communication_violation_rate": 0.0,
+  "policy_nl_assertion_failure_rate": 0.0,
+  "mean_policy_violation_count": 0.8125,
+  "subset_mismatch_count": 75,
+  "episodes_with_stage5_verification_tools": 128,
+  "shared_path_fraction": 0.9296875,
+  "unshared_path_fraction": 0.0703125,
+  "mean_barrier_stop_depth": 2.4878048780487805,
+  "first_private_barrier_stage_distribution": {
+    "none": {
+      "count": 78,
+      "fraction": 0.609375
+    },
+    "stage1": {
+      "count": 29,
+      "fraction": 0.2265625
+    },
+    "stage2": {
+      "count": 3,
+      "fraction": 0.0234375
+    },
+    "stage3": {
+      "count": 16,
+      "fraction": 0.125
+    },
+    "stage4": {
+      "count": 2,
+      "fraction": 0.015625
+    }
+  },
+  "mean_candidate_count_per_stage": [
+    5.0,
+    3.40625,
+    2.8984375,
+    2.390625,
+    2.734375
+  ],
+  "mean_legal_child_count_per_stage": [
+    5.0,
+    3.40625,
+    2.8984375,
+    2.390625,
+    2.734375
+  ],
+  "specialist_task_count": 91,
+  "specialist_task_unshared_fraction": 0.054945054945054944,
+  "stage_source_summary": {
+    "stage1": {
+      "llm_bench": 128
+    },
+    "stage2": {
+      "llm_bench": 128
+    },
+    "stage3": {
+      "llm_bench": 128
+    },
+    "stage4": {
+      "llm_bench": 128
+    },
+    "stage5": {
+      "llm_bench": 128
+    }
+  },
+  "reasoning_cost_mode_default": "token"
+}
