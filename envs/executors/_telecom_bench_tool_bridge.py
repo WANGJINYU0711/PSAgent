@@ -3,13 +3,21 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
 
+JSON_STDOUT = sys.stdout
+# Keep the stdout protocol clean for the parent subprocess caller. Tool/env logs
+# should go to stderr; only the final JSON result is written to JSON_STDOUT.
+sys.stdout = sys.stderr
+
 ROOT = Path(__file__).resolve().parents[2]
+TAU2_ROOT = ROOT / "tau2-bench"
 TAU2_SRC = ROOT / "tau2-bench" / "src"
+os.chdir(TAU2_ROOT)
 if str(TAU2_SRC) not in sys.path:
     sys.path.insert(0, str(TAU2_SRC))
 
@@ -74,7 +82,7 @@ def main() -> None:
         "db_hash_after": env.get_db_hash(),
         "responses": responses,
     }
-    json.dump(result, sys.stdout, ensure_ascii=False)
+    json.dump(result, JSON_STDOUT, ensure_ascii=False, separators=(",", ":"))
 
 
 if __name__ == "__main__":

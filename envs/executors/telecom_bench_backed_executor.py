@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -43,11 +45,24 @@ class TelecomBenchBackedExecutor(BaseExecutor):
         super().__init__(stages=stages, seed=seed)
         self.score_helper = SimulatedExecutor(stages=stages, seed=seed)
         self.root = Path(__file__).resolve().parents[2]
-        self.venv_python = self.root / "tau2-bench" / ".venv" / "bin" / "python"
+        self.venv_python = self._resolve_tau2_python()
         self.bridge_script = Path(__file__).with_name("_telecom_bench_tool_bridge.py")
         self.policy_eval_bridge_script = Path(__file__).with_name(
             "_telecom_policy_eval_bridge.py"
         )
+
+    def _resolve_tau2_python(self) -> Path:
+        manual_python = os.environ.get("PSAGENT_TAU2_PYTHON")
+        candidates = [
+            Path(manual_python).expanduser() if manual_python else None,
+            self.root / "tau2-bench" / ".venv" / "Scripts" / "python.exe",
+            self.root / "tau2-bench" / ".venv" / "bin" / "python",
+            Path(sys.executable).resolve(),
+        ]
+        for candidate in candidates:
+            if candidate is not None and candidate.exists():
+                return candidate
+        return Path(sys.executable)
 
     def _evaluate_policy_compliance(
         self,
@@ -58,13 +73,19 @@ class TelecomBenchBackedExecutor(BaseExecutor):
             "raw_instance": raw_instance,
             "stage_trace": stage_trace,
         }
+        child_env = os.environ.copy()
+        child_env.setdefault("PYTHONUTF8", "1")
+        child_env.setdefault("PYTHONIOENCODING", "utf-8")
         proc = subprocess.run(
             [str(self.venv_python), str(self.policy_eval_bridge_script)],
             input=json.dumps(payload, ensure_ascii=False),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
             cwd=str(self.root / "tau2-bench"),
+            env=child_env,
         )
         if proc.returncode != 0:
             raise RuntimeError(
@@ -619,12 +640,18 @@ class TelecomBenchBackedExecutor(BaseExecutor):
             "original_task_id": raw_instance.get("original_task_id"),
             "tool_calls": tool_calls,
         }
+        child_env = os.environ.copy()
+        child_env.setdefault("PYTHONUTF8", "1")
+        child_env.setdefault("PYTHONIOENCODING", "utf-8")
         proc = subprocess.run(
             [str(self.venv_python), str(self.bridge_script)],
             input=json.dumps(payload, ensure_ascii=False),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
+            env=child_env,
         )
         if proc.returncode != 0:
             raise RuntimeError(

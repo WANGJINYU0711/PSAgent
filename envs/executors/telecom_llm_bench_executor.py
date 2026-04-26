@@ -77,6 +77,174 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         self.llm_args = llm_args or {"temperature": 0.0}
         self.llm_bridge_script = Path(__file__).with_name("_telecom_llm_bench_bridge.py")
         self.tau2_root = self.root / "tau2-bench"
+        self.attribute_weakening_level = self._attribute_weakening_level_from_env()
+
+    def _attribute_weakening_level_from_env(self) -> int:
+        raw = str(os.environ.get("PSAGENT_ATTRIBUTE_WEAKENING_LEVEL", "0")).strip()
+        try:
+            level = int(raw)
+        except ValueError:
+            return 0
+        return min(max(level, 0), 4)
+
+    def _attribute_guidance_enabled(self) -> bool:
+        return self.attribute_weakening_level > 0
+
+    def _attribute_weak_skip_enabled(self) -> bool:
+        return self._attribute_guidance_enabled() and self.attribute_weakening_level < 2
+
+    def _attribute_verification_priority_enabled(self) -> bool:
+        return self._attribute_guidance_enabled() and self.attribute_weakening_level < 3
+
+    def _attribute_prompt_context_sentence(self) -> str:
+        if not self._attribute_guidance_enabled():
+            return (
+                "You are given the agent deliberation mode and the current stage deliberation requirement.\n"
+            )
+        return (
+            "You are given a soft agent attribute profile, current stage capability requirements, "
+            "the agent deliberation mode, and the current stage deliberation requirement.\n"
+            "Attribute cues are weak hints only. They must not override stage evidence, hard rules, or the execution contract.\n"
+        )
+
+    def _attribute_prompt_fields(
+        self,
+        task: TaskDescriptor,
+        stage_name: str,
+        agent: AgentSpec,
+    ) -> dict[str, Any]:
+        if not self._attribute_guidance_enabled():
+            return {}
+        return {
+            "agent_capability_profile": self._build_agent_capability_profile(agent),
+            "current_stage_capability_requirements": self._build_stage_requirement_summary(
+                task, stage_name
+            ),
+            "capability_match_summary": self._build_capability_match_summary(
+                task, stage_name, agent
+            ),
+            "attribute_guidance_mode": (
+                "weak_hint_with_verification_priority"
+                if self._attribute_verification_priority_enabled()
+                else "weak_hint_only"
+            ),
+            "attribute_guidance_note": (
+                "Attribute summaries are non-binding hints. Do not treat focus/avoid buckets as mandatory routing rules."
+            ),
+        }
+
+    def _blocker_spec_safe(self, blocker_id: str) -> dict[str, Any]:
+        try:
+            return get_blocker_spec(blocker_id)
+        except Exception:
+            return {}
+
+    def _is_shallow_upstream_blocker(self, blocker_id: str) -> bool:
+        spec = self._blocker_spec_safe(blocker_id)
+        if not spec:
+            return False
+        return (
+            str(spec.get("blocker_layer", "")) in {"service", "data"}
+            and int(spec.get("default_priority", 10**6) or 10**6) <= 30
+            and not bool(spec.get("assistant_side_required"))
+            and not bool(spec.get("hybrid_required"))
+        )
+
+    def _is_core_downstream_blocker(self, blocker_id: str) -> bool:
+        spec = self._blocker_spec_safe(blocker_id)
+        if not spec:
+            return False
+        return (
+            str(spec.get("blocker_layer", "")) == "mms_app"
+            or int(spec.get("default_priority", 0) or 0) >= 37
+            or bool(spec.get("assistant_side_required"))
+            or bool(spec.get("hybrid_required"))
+        )
+
+    def _is_shallow_subset_with_core_deferred(
+        self,
+        selected_blocker_ids: list[str],
+        deferred_blocker_ids: list[str],
+    ) -> bool:
+        if not selected_blocker_ids or not deferred_blocker_ids:
+            return False
+        if any(not self._is_shallow_upstream_blocker(bid) for bid in selected_blocker_ids):
+            return False
+        return any(self._is_core_downstream_blocker(bid) for bid in deferred_blocker_ids)
+
+    def _coerce_stage4_rows_to_transfer_required(
+        self,
+        normalized_rows: list[dict[str, Any]],
+        *,
+        refusal_code: str,
+    ) -> None:
+        for row in normalized_rows:
+            row["should_repair"] = False
+            row["oracle_execute_decision"] = "transfer"
+            row["adjudication_label"] = (
+                str(row.get("adjudication_label", "transfer_unspecified_blocker"))
+                .replace("repair_", "transfer_")
+                .replace("defer_", "transfer_")
+            )
+            row["refusal_code"] = refusal_code
+
+    def _stage5_verification_tools_for_blocker_ids(
+        self,
+        blocker_ids: list[str],
+    ) -> list[str]:
+        checklist: list[str] = []
+        if any(
+            blocker_id in {
+                "airplane_mode_on",
+                "data_mode_off",
+                "data_usage_exceeded",
+                "user_abroad_roaming_disabled_on",
+                "user_abroad_roaming_enabled_off",
+                "user_abroad_roaming_disabled_off",
+            }
+            for blocker_id in blocker_ids
+        ):
+            checklist.append("check_network_status")
+        if "unseat_sim_card" in blocker_ids:
+            checklist.append("check_sim_status")
+        if "bad_network_preference" in blocker_ids:
+            checklist.append("check_network_mode_preference")
+        if "break_apn_mms_setting" in blocker_ids:
+            checklist.append("check_apn_settings")
+        if "bad_wifi_calling" in blocker_ids:
+            checklist.append("check_wifi_calling_status")
+        if any(
+            blocker_id in {
+                "break_app_sms_permission",
+                "break_app_storage_permission",
+                "break_app_both_permissions",
+            }
+            for blocker_id in blocker_ids
+        ):
+            checklist.append("check_app_permissions")
+        if blocker_ids:
+            checklist.append("can_send_mms")
+        return list(dict.fromkeys(checklist))
+
+    def _stage5_verification_floor_met(
+        self,
+        *,
+        selected_blocker_ids: list[str],
+        deferred_blocker_ids: list[str],
+        verification_evidence: list[str],
+    ) -> bool:
+        if not self._is_shallow_subset_with_core_deferred(
+            selected_blocker_ids, deferred_blocker_ids
+        ):
+            return True
+        evidence_set = set(verification_evidence)
+        if not evidence_set:
+            return False
+        expected_tools = set(
+            self._stage5_verification_tools_for_blocker_ids(selected_blocker_ids)
+        )
+        blocker_matched_tools = expected_tools - {"can_send_mms"}
+        return "can_send_mms" in evidence_set and bool(blocker_matched_tools & evidence_set)
 
     def _llm_stage_resource_trace_fields(self, result: dict[str, Any]) -> dict[str, Any]:
         usage = dict(result.get("resource_usage", {}) or {})
@@ -478,13 +646,19 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "replay_tool_calls": replay_tool_calls or [],
         }
         cmd = [str(self.venv_python), str(self.llm_bridge_script)]
+        child_env = os.environ.copy()
+        child_env.setdefault("PYTHONUTF8", "1")
+        child_env.setdefault("PYTHONIOENCODING", "utf-8")
         proc = subprocess.run(
             cmd,
             input=json.dumps(payload, ensure_ascii=False),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
             cwd=str(self.tau2_root),
+            env=child_env,
         )
         if proc.returncode != 0:
             raise RuntimeError(
@@ -835,14 +1009,22 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             policy = [
                 "Use the shortest valid evidence chain that supports the required structured output.",
                 "Do not do secondary verification unless the stage explicitly requires deep reasoning or the current fact is decisive for the output.",
-                "If a required capability is weak for this agent, do only the minimum confirmation needed to stay coherent and move on.",
+                "Keep the search compact and avoid broad speculative branching.",
             ]
+            if self._attribute_weak_skip_enabled():
+                policy.append(
+                    "If a capability axis appears to be a relative weak spot for this route, do only the minimum confirmation needed there before returning to higher-yield evidence."
+                )
         else:
             policy = [
                 "Cross-check the highest-risk facts before finalizing the structured output.",
-                "Spend extra rounds on the top required capabilities first, not on broad low-yield exploration.",
+                "Spend extra rounds on the highest-risk evidence first, not on broad low-yield exploration.",
                 "Do not finalize stage3-stage5 outputs before the key risk-bearing evidence is verified.",
             ]
+            if self._attribute_verification_priority_enabled():
+                policy.append(
+                    "If multiple evidence branches remain equally plausible, capability priorities may break ties weakly, but only after risk and stage-goal needs are considered."
+                )
 
         if stage_name == "stage3":
             if mode == "fast":
@@ -919,9 +1101,12 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "Fast-required mismatch rule: this is a deep agent on a fast stage. Use the shortest high-yield evidence chain first. "
                 "Once the minimum evidence floor is met, you must stop and may not use depth as a reason to broaden into extra low-yield verification."
             )
-        return (
-            "If a required capability is weak for this agent, do the minimum confirmation needed on that axis and spend the remaining budget on stronger relevant axes."
-        )
+        if self._attribute_weak_skip_enabled():
+            return (
+                "Deliberation is aligned with the stage requirement. Attribute cues may weakly suggest where this route is relatively strong or weak, "
+                "but they are not binding and do not justify skipping decisive evidence."
+            )
+        return "Deliberation is aligned with the stage requirement. Stay within the stage goal, evidence floor, and round budget."
 
     def _stage3_blocker_decision_rules(self, *, mode: str) -> list[str]:
         rules = [
@@ -968,6 +1153,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "Choose the terminal action from blocker-specific evidence and the stage4 repairability plan.",
             "Transfer is not the default uncertainty action; it requires explicit external/manual handling, stage4 transfer_required, or verified local repair impossibility.",
             "repair_all and repair_subset are normal evidence-supported actions, not fallback actions.",
+            "Deferred blockers can block repair_all, but when stage4 already supports a local repair subset they are not, by themselves, sufficient reason to choose transfer.",
         ]
         if mode == "fast":
             return rules + [
@@ -986,11 +1172,13 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             mode_rules = [
                 "Fast terminal policy: close quickly after the minimum verification floor.",
                 "Fast terminal policy: when evidence is partial, prefer repair_subset plus deferred blockers over a broad repair_all.",
+                "Fast terminal policy: deferred blockers can stop repair_all, but if stage4 already supports a local subset they do not alone force transfer.",
                 "Fast terminal policy: transfer only when the evidence or stage4 plan explicitly requires external/manual handling.",
             ]
         else:
             mode_rules = [
                 "Deep terminal policy: use verification budget to resolve ambiguity, then commit to the evidence-supported repair_all or repair_subset action.",
+                "Deep terminal policy: deferred blockers can stop repair_all, but if stage4 already supports a local subset they do not alone force transfer.",
                 "Deep terminal policy: transfer is reserved for explicit external/manual handling, stage4 transfer_required, or verified local repair impossibility.",
                 "Deep terminal policy: do not choose transfer simply because the case is complex or verification took more rounds.",
             ]
@@ -1002,43 +1190,8 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         stage_name: str,
         agent: AgentSpec,
     ) -> dict[str, Any]:
-        requirement = self._stage_requirement_map(task, stage_name)
-        top_required = [
-            name
-            for name, weight in sorted(
-                requirement.items(),
-                key=lambda item: (item[1], item[0]),
-                reverse=True,
-            )
-            if float(weight) > 0.0
-        ][:4]
-        agent_scores = {
-            name: round(float(agent.attribute_skill.get(name, 0.0)), 3)
-            for name in top_required
-        }
-        strong = [name for name in top_required if float(agent.attribute_skill.get(name, 0.0)) >= 0.75]
-        weak = [name for name in top_required if float(agent.attribute_skill.get(name, 0.0)) <= 0.4]
         mode = getattr(agent, "deliberation_mode", "deep")
         stage_requirement = self._stage_deliberation_requirement(task, stage_name)
-        required_rows = [
-            {
-                "capability": name,
-                "requirement_weight": round(float(requirement.get(name, 0.0)), 3),
-                "agent_skill": round(float(agent.attribute_skill.get(name, 0.0)), 3),
-                "match_band": (
-                    "strong"
-                    if float(agent.attribute_skill.get(name, 0.0)) >= 0.75
-                    else "weak"
-                    if float(agent.attribute_skill.get(name, 0.0)) <= 0.4
-                    else "medium"
-                ),
-            }
-            for name in top_required
-        ]
-        must_focus_on = strong[:2] if strong else top_required[:2]
-        must_not_overinvest_in = weak[:2]
-        if not must_not_overinvest_in and len(top_required) > len(must_focus_on):
-            must_not_overinvest_in = top_required[-1:]
         stop_policy = (
             "Close once the minimum verification floor is met and the structured output is supported."
             if mode == "fast"
@@ -1050,14 +1203,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             else "Prefer explicit tool evidence and cross-check the decisive evidence path before committing."
         )
         return {
-            "contract_version": "telecom_agent_execution_contract_v3",
-            "top_required_capabilities": top_required,
-            "required_capability_table": required_rows,
-            "agent_scores_on_required_capabilities": agent_scores,
-            "capability_strengths_for_this_stage": strong,
-            "capability_weaknesses_for_this_stage": weak,
-            "must_focus_on": must_focus_on,
-            "must_not_overinvest_in": must_not_overinvest_in,
+            "contract_version": "telecom_agent_execution_contract_reasoning_only_v1",
             "deliberation_mode": mode,
             "stage_deliberation_requirement": stage_requirement,
             "round_budget_hint": self._max_rounds(agent, task, stage_name),
@@ -1078,6 +1224,18 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 stage_name,
                 mode=mode,
                 stage_requirement=stage_requirement,
+            ),
+            "attribute_guidance_mode": (
+                "disabled"
+                if not self._attribute_guidance_enabled()
+                else "weak_hint_with_verification_priority"
+                if self._attribute_verification_priority_enabled()
+                else "weak_hint_only"
+            ),
+            "attribute_guidance_note": (
+                "Attribute summaries are non-binding hints only. They may shape tie-breaks when evidence is otherwise equal, but they must not dictate search scope, stopping, or terminal action."
+                if self._attribute_guidance_enabled()
+                else "Attribute guidance disabled."
             ),
         }
 
@@ -1130,16 +1288,19 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             [
                 "You must follow the agent execution contract exactly.",
                 "The execution contract is binding. Treat it as an operating contract, not advisory guidance.",
-                "1. Focus first on the capabilities listed in must_focus_on.",
-                "2. Do not spend rounds broadly on capabilities listed in must_not_overinvest_in unless they are unavoidable for the stage goal.",
-                "3. search_policy is binding: it defines how wide or narrow your search may be.",
-                "4. stop_policy is binding: it defines when you must stop and when you may not stop yet.",
-                "5. capability_mismatch_policy is binding: mismatch changes what you are allowed to finalize, not just how many rounds you get.",
-                "6. stage_specific_hard_constraints are binding: do not override them with general agent preference or broad search instincts.",
-                "7. If the contract says the agent is fast, use the shortest valid evidence chain, avoid redundant verification, and do not do second-pass checking unless the stage requirement or decisive evidence forces it.",
-                "8. If the contract says the agent is deep, spend extra rounds on the highest-risk evidence and do not finalize a high-risk output before decisive evidence is verified.",
-                "9. Stay within the round_budget_hint implied by the contract.",
-                f"10. {stage_specific_rules[stage_name]}",
+                "1. search_policy is binding: it defines how wide or narrow your search may be.",
+                "2. stop_policy is binding: it defines when you must stop and when you may not stop yet.",
+                "3. capability_mismatch_policy is binding: mismatch changes what you are allowed to finalize, not just how many rounds you get.",
+                "4. stage_specific_hard_constraints are binding: do not override them with broad search instincts.",
+                "5. If the contract says the agent is fast, use the shortest valid evidence chain, avoid redundant verification, and do not do second-pass checking unless the stage requirement or decisive evidence forces it.",
+                "6. If the contract says the agent is deep, spend extra rounds on the highest-risk evidence and do not finalize a high-risk output before decisive evidence is verified.",
+                "7. Stay within the round_budget_hint implied by the contract.",
+                f"8. {stage_specific_rules[stage_name]}",
+                (
+                    "9. Attribute summaries, when present, are weak hints only. Do not treat them as mandatory focus/avoid rules or as justification to skip decisive evidence."
+                    if self._attribute_guidance_enabled()
+                    else "9. No attribute routing rules are active in this run."
+                ),
             ]
         )
 
@@ -1154,7 +1315,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         system_prompt = (
             "You are performing Stage 2: customer and line resolution for a telecom support case.\n"
             "Goal: identify the customer, resolve the target line, and extract a minimal account snapshot.\n"
-            "You are given an agent capability profile, current stage capability requirements, the agent deliberation mode, and the current stage deliberation requirement.\n"
+            + self._attribute_prompt_context_sentence()
             + self._execution_contract_system_rules("stage2")
             + "\n"
             "Use only the allowed tools.\n"
@@ -1172,11 +1333,9 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     "stability_level": agent.stability_level,
                     "guidance": self._agent_behavior_guidance(agent),
                 },
-                "agent_capability_profile": self._build_agent_capability_profile(agent),
+                **self._attribute_prompt_fields(task, "stage2", agent),
                 "agent_deliberation_profile": self._build_agent_deliberation_profile(agent),
-                "current_stage_capability_requirements": self._build_stage_requirement_summary(task, "stage2"),
                 "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage2"),
-                "capability_match_summary": self._build_capability_match_summary(task, "stage2", agent),
                 "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage2", agent),
                 "agent_execution_contract": execution_contract,
                 "stage_goal": "Resolve the customer and telecom line only.",
@@ -1198,7 +1357,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         system_prompt = (
             "You are performing Stage 1: user grounding for a telecom MMS troubleshooting case.\n"
             "Your goal is to transform the user request into a stable structured Stage 1 output.\n"
-            "You are given an agent capability profile, current stage capability requirements, the agent deliberation mode, and the current stage deliberation requirement.\n"
+            + self._attribute_prompt_context_sentence()
             + self._execution_contract_system_rules("stage1")
             + "\n"
             "You may use the allowed tools only when needed to confirm customer identity, phone grounding, or line grounding.\n"
@@ -1225,11 +1384,9 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     "stability_level": agent.stability_level,
                     "guidance": self._agent_behavior_guidance(agent),
                 },
-                "agent_capability_profile": self._build_agent_capability_profile(agent),
+                **self._attribute_prompt_fields(task, "stage1", agent),
                 "agent_deliberation_profile": self._build_agent_deliberation_profile(agent),
-                "current_stage_capability_requirements": self._build_stage_requirement_summary(task, "stage1"),
                 "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage1"),
-                "capability_match_summary": self._build_capability_match_summary(task, "stage1", agent),
                 "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage1", agent),
                 "agent_execution_contract": execution_contract,
                 "stage_goal": "Ground the user, phone number, and target telecom line at a minimal level only.",
@@ -1272,7 +1429,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         system_prompt = (
             "You are performing Stage 3: observed-state extraction for a telecom MMS troubleshooting case.\n"
             "Goal: collect factual observed state only. Do not decide terminal actions.\n"
-            "You are given an agent capability profile, current stage capability requirements, the agent deliberation mode, and the current stage deliberation requirement.\n"
+            + self._attribute_prompt_context_sentence()
             + self._execution_contract_system_rules("stage3")
             + "\n"
             "Use only the allowed tools. Prefer explicit tool evidence over guesses.\n"
@@ -1300,11 +1457,9 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     "stability_level": agent.stability_level,
                     "guidance": self._agent_behavior_guidance(agent),
                 },
-                "agent_capability_profile": self._build_agent_capability_profile(agent),
+                **self._attribute_prompt_fields(task, "stage3", agent),
                 "agent_deliberation_profile": self._build_agent_deliberation_profile(agent),
-                "current_stage_capability_requirements": self._build_stage_requirement_summary(task, "stage3"),
                 "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage3"),
-                "capability_match_summary": self._build_capability_match_summary(task, "stage3", agent),
                 "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage3", agent),
                 "agent_execution_contract": execution_contract,
                 "stage3_blocker_decision_rules": self._stage3_blocker_decision_rules(
@@ -1340,7 +1495,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         execution_contract = self._build_agent_execution_contract(task, "stage4", agent)
         system_prompt = (
             "You are performing Stage 4: blocker adjudication and repair execution for a telecom MMS troubleshooting case.\n"
-            "You are given an agent capability profile, current stage capability requirements, the agent deliberation mode, and the current stage deliberation requirement.\n"
+            + self._attribute_prompt_context_sentence()
             + self._execution_contract_system_rules("stage4")
             + "\n"
             "First decide, for each blocker, whether it should be repaired automatically, deferred, or transferred.\n"
@@ -1399,11 +1554,9 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     "stability_level": agent.stability_level,
                     "guidance": self._agent_behavior_guidance(agent),
                 },
-                "agent_capability_profile": self._build_agent_capability_profile(agent),
+                **self._attribute_prompt_fields(task, "stage4", agent),
                 "agent_deliberation_profile": self._build_agent_deliberation_profile(agent),
-                "current_stage_capability_requirements": self._build_stage_requirement_summary(task, "stage4"),
                 "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage4"),
-                "capability_match_summary": self._build_capability_match_summary(task, "stage4", agent),
                 "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage4", agent),
                 "agent_execution_contract": execution_contract,
                 "stage4_repair_precondition_rules": self._stage4_repair_precondition_rules(
@@ -1466,7 +1619,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         system_prompt = (
             "You are performing Stage 5: post-repair verification and terminal decision for a telecom MMS troubleshooting case.\n"
             "Your job is to verify the current post-repair telecom state using verification tools, then choose the final structured terminal action.\n"
-            "You are given an agent capability profile, current stage capability requirements, the agent deliberation mode, and the current stage deliberation requirement.\n"
+            + self._attribute_prompt_context_sentence()
             + self._execution_contract_system_rules("stage5")
             + "\n"
             "Do not execute repair tools or perform additional repair mutation.\n"
@@ -1501,11 +1654,9 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     "stability_level": agent.stability_level,
                     "guidance": self._agent_behavior_guidance(agent),
                 },
-                "agent_capability_profile": self._build_agent_capability_profile(agent),
+                **self._attribute_prompt_fields(task, "stage5", agent),
                 "agent_deliberation_profile": self._build_agent_deliberation_profile(agent),
-                "current_stage_capability_requirements": self._build_stage_requirement_summary(task, "stage5"),
                 "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage5"),
-                "capability_match_summary": self._build_capability_match_summary(task, "stage5", agent),
                 "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage5", agent),
                 "agent_execution_contract": execution_contract,
                 "stage5_terminal_decision_rules": self._stage5_terminal_decision_rules(
@@ -1547,6 +1698,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     "If final_action is repair_subset, selected and deferred must partition the blocker ids",
                     "When in doubt, use stage4_output.repairability and stage4_output.per_blocker as the default terminal plan",
                     "Do not choose transfer unless stage4_output.repairability is transfer_required, transfer_reason is explicit, or verification proves local repair is inappropriate",
+                    "Deferred blockers can prevent repair_all, but if stage4_output already supports a local subset they are not by themselves enough to force transfer; prefer repair_subset unless transfer has a hard reason",
                     "Use verification tools to inspect the current post-repair state before deciding",
                     "If any blocker was replayed or selected, verification should usually include can_send_mms",
                     "Do not execute repair tools in Stage 5",
@@ -1808,6 +1960,10 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             observed_seed=observed_seed,
         )
         inferred_blocker_ids = infer_blocker_ids_from_observed_state(observed_state)
+        inferred_blocker_ids = self._augment_stage3_inferred_blockers(
+            observed_state=observed_state,
+            inferred_blocker_ids=inferred_blocker_ids,
+        )
         per_blocker = build_per_blocker_from_ids(inferred_blocker_ids)
         return {
             "observed_state": observed_state,
@@ -1933,6 +2089,23 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         deferred_blocker_ids = [
             row["blocker_id"] for row in normalized_rows if row.get("blocker_id") not in selected_blocker_ids
         ]
+        shallow_subset_requires_transfer = self._is_shallow_subset_with_core_deferred(
+            selected_blocker_ids, deferred_blocker_ids
+        )
+        if shallow_subset_requires_transfer:
+            transfer_reason = "shallow_subset_requires_downstream_unlock_v1"
+            self._coerce_stage4_rows_to_transfer_required(
+                normalized_rows,
+                refusal_code=transfer_reason,
+            )
+            selected_blocker_ids = []
+            deferred_blocker_ids = [
+                row["blocker_id"]
+                for row in normalized_rows
+                if row.get("blocker_id")
+            ]
+            repairability = "transfer_required"
+            return normalized_rows, repairability, transfer_reason
         if selected_blocker_ids and deferred_blocker_ids:
             repairability = "partially_repairable"
         elif selected_blocker_ids:
@@ -2023,6 +2196,9 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             executed_tool_calls=executed_tool_calls,
             tool_results=tool_results,
         )
+        verification_evidence = self._normalize_str_list(
+            verification_summary.get("verification_evidence")
+        )
 
         selected_from_output = self._normalize_str_list(
             data.get("selected_blocker_ids") or data.get("cancelled_reservation_ids")
@@ -2050,6 +2226,74 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 return "transfer", [], list(blocker_ids)
             return "repair_all", [], []
 
+        def hard_transfer_reason(reason: str | None) -> bool:
+            normalized_reason = self._normalize_optional_short_text(reason)
+            if normalized_reason is None:
+                return False
+            normalized_reason = normalized_reason.lower()
+
+            exact_hard_reasons = {
+                "hybrid_blocker_requires_transfer_v1",
+                "external_manual_handling_required",
+                "manual_handling_required",
+                "external_escalation_required",
+                "account_side_action_required",
+                "account_side_constraint_requires_transfer",
+                "policy_side_constraint_requires_transfer",
+                "non_local_constraint_requires_transfer",
+                "verified_local_repair_impossible",
+                "verification_proved_local_repair_inappropriate",
+                "verified_repair_path_failed",
+                "repair_failed_cannot_continue_safely",
+            }
+            if normalized_reason in exact_hard_reasons:
+                return True
+
+            # In the narrow partially_repairable subset case, reasons that only say
+            # deferred/specialist/remaining blockers still exist should not override
+            # the stage4-supported repair_subset plan.
+            soft_reason_groups = [
+                ("deferred",),
+                ("remaining",),
+                ("remain",),
+                ("unresolved",),
+                ("not_all",),
+                ("specialist",),
+                ("complex",),
+                ("incomplete",),
+                ("uncertain",),
+                ("ambiguous",),
+                ("pending",),
+            ]
+            if (
+                stage4_repairability == "partially_repairable"
+                and stage4_selected
+                and any(
+                    all(token in normalized_reason for token in group)
+                    for group in soft_reason_groups
+                )
+            ):
+                return False
+
+            hard_reason_groups = [
+                ("manual",),
+                ("external",),
+                ("account_side",),
+                ("policy_side",),
+                ("non_local",),
+                ("replay", "failed"),
+                ("repair", "failed"),
+                ("verification", "proved"),
+                ("verified", "impossible"),
+                ("verified", "inappropriate"),
+                ("cannot", "continue", "safely"),
+                ("unsafe", "continue"),
+            ]
+            return any(
+                all(token in normalized_reason for token in group)
+                for group in hard_reason_groups
+            )
+
         if raw_action not in {"repair_all", "repair_subset", "transfer"}:
             if selected_clean and deferred_clean:
                 final_action = "repair_subset"
@@ -2060,12 +2304,35 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         else:
             final_action = raw_action
 
+        if (
+            final_action == "repair_subset"
+            and stage4_selected
+            and set(selected_clean) != set(stage4_selected)
+            and not self._stage5_verification_floor_met(
+                selected_blocker_ids=selected_clean or stage4_selected,
+                deferred_blocker_ids=(
+                    [bid for bid in blocker_ids if bid not in set(selected_clean)]
+                    if selected_clean
+                    else stage4_deferred
+                ),
+                verification_evidence=verification_evidence,
+            )
+        ):
+            final_action, selected_clean, deferred_clean = stage4_inferred_terminal_action()
+
         if final_action == "repair_all":
             selected_blocker_ids = list(blocker_ids)
             deferred_blocker_ids: list[str] = []
         elif final_action == "transfer":
             explicit_transfer_reason = self._normalize_optional_short_text(data.get("transfer_reason"))
+            explicit_transfer_reason_is_hard = hard_transfer_reason(explicit_transfer_reason)
             if (
+                stage4_repairability == "partially_repairable"
+                and stage4_selected
+                and not explicit_transfer_reason_is_hard
+            ):
+                final_action, selected_blocker_ids, deferred_blocker_ids = stage4_inferred_terminal_action()
+            elif (
                 stage4_repairability in {"repairable", "partially_repairable"}
                 and explicit_transfer_reason is None
                 and stage4_transfer_reason is None
@@ -2089,9 +2356,25 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     final_action = "transfer"
                     deferred_blocker_ids = list(blocker_ids)
 
+        forced_transfer_reason: str | None = None
+        if (
+            final_action == "repair_subset"
+            and not self._stage5_verification_floor_met(
+                selected_blocker_ids=selected_blocker_ids,
+                deferred_blocker_ids=deferred_blocker_ids,
+                verification_evidence=verification_evidence,
+            )
+        ):
+            final_action = "transfer"
+            selected_blocker_ids = []
+            deferred_blocker_ids = list(blocker_ids)
+            forced_transfer_reason = "shallow_subset_verification_floor_not_met_v1"
+
         if final_action == "transfer":
             transfer_reason = self._normalize_optional_short_text(data.get("transfer_reason"))
-            if transfer_reason is None:
+            if forced_transfer_reason is not None:
+                transfer_reason = forced_transfer_reason
+            elif transfer_reason is None:
                 transfer_reason = stage4_transfer_reason
         else:
             transfer_reason = None
@@ -2135,9 +2418,13 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         }
         fallback_calls: list[dict[str, Any]] = []
         desired = [
+            ("check_network_status", {}),
+            ("check_sim_status", {}),
             ("check_network_mode_preference", {}),
             ("check_apn_settings", {}),
+            ("check_wifi_calling_status", {}),
             ("check_app_permissions", {"app_name": "messaging"}),
+            ("run_speed_test", {}),
         ]
         for name, arguments in desired:
             key = (name, json.dumps(arguments, ensure_ascii=False, sort_keys=True))
@@ -2608,17 +2895,21 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         data_used_gb = float(line_details.get("data_used_gb", 0.0) or 0.0)
         data_refueling_gb = float(line_details.get("data_refueling_gb", 0.0) or 0.0)
         data_limit_gb = float(plan_details.get("data_limit_gb", 0.0) or 0.0)
+        raw_sim_status = str(sim_status or network_lines.get("SIM Card Status", "") or "")
+        sim_status_value = self._normalize_sim_status(raw_sim_status)
+        mobile_data_enabled = self._parse_yes_no_flag(network_lines.get("Mobile Data Enabled"))
 
         return {
             "can_send_mms": "cannot" not in str(can_send_mms or "").lower(),
             "service_status": network_lines.get("Cellular Connection", "unknown"),
             "mobile_data_working": mobile_data_working,
+            "mobile_data_enabled": mobile_data_enabled,
             "internet_speed_desc": internet_speed_desc,
             "is_abroad": "abroad" in known_info_text.lower(),
             "roaming_enabled_on_device": network_lines.get("Data Roaming Enabled", "No") == "Yes",
             "roaming_enabled_on_account": bool(line_details.get("roaming_enabled")),
             "airplane_mode": network_lines.get("Airplane Mode", "OFF") == "ON",
-            "sim_status": self._normalize_sim_status(str(sim_status or "")),
+            "sim_status": sim_status_value,
             "network_mode_preference": str(mode_status or "").split(":", 1)[-1].strip(),
             "wifi_calling_enabled": "ON" in str(wifi_calling_status or ""),
             "apn_mms_ok": mmsc_url not in {"Not Set", ""},
@@ -2804,6 +3095,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         for key in (
             "can_send_mms",
             "mobile_data_working",
+            "mobile_data_enabled",
             "is_abroad",
             "roaming_enabled_on_device",
             "roaming_enabled_on_account",
@@ -2818,6 +3110,41 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 normalized[key] = self._normalize_optional_bool(normalized[key])
 
         return normalized
+
+    def _augment_stage3_inferred_blockers(
+        self,
+        *,
+        observed_state: dict[str, Any],
+        inferred_blocker_ids: list[str],
+    ) -> list[str]:
+        augmented = list(dict.fromkeys(self._normalize_str_list(inferred_blocker_ids)))
+
+        if (
+            observed_state.get("wifi_calling_enabled") is False
+            and "bad_wifi_calling" not in augmented
+        ):
+            augmented.append("bad_wifi_calling")
+
+        if (
+            observed_state.get("mobile_data_enabled") is False
+            and observed_state.get("mobile_data_working") is False
+            and "data_mode_off" not in augmented
+        ):
+            augmented.append("data_mode_off")
+
+        return augmented
+
+    def _parse_yes_no_flag(self, value: Any) -> bool | None:
+        if isinstance(value, bool):
+            return value
+        if not isinstance(value, str):
+            return None
+        lowered = value.strip().lower()
+        if lowered == "yes":
+            return True
+        if lowered == "no":
+            return False
+        return None
 
     def _normalize_optional_bool(self, value: Any) -> bool | None:
         if isinstance(value, bool):

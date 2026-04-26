@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import Any
 
 
+JSON_STDOUT = sys.stdout
+# Keep stdout reserved for the final JSON result; dependency/tool logs should go
+# to stderr so the parent process can parse stdout deterministically.
+sys.stdout = sys.stderr
+
 ROOT = Path(__file__).resolve().parents[2]
 TAU2_ROOT = ROOT / "tau2-bench"
 TAU2_SRC = TAU2_ROOT / "src"
@@ -250,7 +255,7 @@ def main() -> None:
         raw_instance=dict(payload.get("raw_instance", {}) or {}),
         stage_trace=list(payload.get("stage_trace", []) or []),
     )
-    json.dump(result, sys.stdout, ensure_ascii=False)
+    json.dump(result, JSON_STDOUT, ensure_ascii=False, separators=(",", ":"))
 
 
 if __name__ == "__main__":

@@ -43,6 +43,12 @@ from naive_mixed import NaiveMixedPolicy  # noqa: E402
 from naive_mixed_avg import NaiveMixedAveragePolicy  # noqa: E402
 from random_path import RandomPathPolicy  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
+from risky_ps_const_init import (  # noqa: E402
+    RiskyPSConstInitPolicy,
+    RiskyPSIXConstInitPolicy,
+    RiskyPSLinearConstInitPolicy,
+    RiskyPSOldConstInitPolicy,
+)
 from risky_ps_old import RiskyPSOldPolicy  # noqa: E402
 from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
 from risky_ps_direct_cost import RiskyPSDirectCostPolicy  # noqa: E402
@@ -55,9 +61,13 @@ from risky_ps_safe_conditional import (  # noqa: E402
 
 METHODS = {
     "risky_ps_old": RiskyPSOldPolicy,
+    "risky_ps_old_const_init": RiskyPSOldConstInitPolicy,
     "risky_ps": RiskyPSPolicy,
+    "risky_ps_const_init": RiskyPSConstInitPolicy,
     "risky_ps_linear": RiskyPSLinearPolicy,
+    "risky_ps_linear_const_init": RiskyPSLinearConstInitPolicy,
     "risky_ps_ix": RiskyPSIXPolicy,
+    "risky_ps_ix_const_init": RiskyPSIXConstInitPolicy,
     "direct_multistage_exp3": DirectMultiStageExp3Policy,
     "direct_multistage_exp3_local": DirectMultiStageExp3LocalPolicy,
     "epsilon_exp3": EpsilonExp3Policy,
@@ -74,9 +84,13 @@ COMMON_ETA_METHODS = frozenset(
         "direct_multistage_exp3_local",
         "epsilon_exp3",
         "risky_ps_old",
+        "risky_ps_old_const_init",
         "risky_ps",
+        "risky_ps_const_init",
         "risky_ps_linear",
+        "risky_ps_linear_const_init",
         "risky_ps_ix",
+        "risky_ps_ix_const_init",
         "risky_ps_safe_conditional",
         "risky_ps_safe_conditional_ix",
         "risky_ps_direct_cost",
@@ -86,9 +100,13 @@ COMMON_EPSILON_METHODS = frozenset(
     {
         "epsilon_exp3",
         "risky_ps_old",
+        "risky_ps_old_const_init",
         "risky_ps",
+        "risky_ps_const_init",
         "risky_ps_linear",
+        "risky_ps_linear_const_init",
         "risky_ps_ix",
+        "risky_ps_ix_const_init",
         "risky_ps_safe_conditional",
         "risky_ps_safe_conditional_ix",
         "risky_ps_direct_cost",
@@ -106,7 +124,17 @@ REFERENCE_METHODS = (
     "random_path",
 )
 TREE_SPEC_ROLE_MODES = ("spec_or_agent_id", "agent_id", "subtree_local", "base_alias")
-TREE_SPEC_COST_MODES = ("default", "ps_favored_trap")
+TREE_SPEC_COST_MODES = (
+    "default",
+    "ps_favored_trap",
+    "ps_favored_trap_v10_avg_baited",
+)
+PS_FAVORED_COST_MODES = frozenset(
+    {
+        "ps_favored_trap",
+        "ps_favored_trap_v10_avg_baited",
+    }
+)
 PS_FAVORED_TRAP_BASE_ALIASES = (
     "stage1_n4",
     "stage2_n5",
@@ -119,6 +147,8 @@ PS_FAVORED_TRAP_BASIN_STAGE2 = frozenset({"stage2_n4", "stage2_n5"})
 PS_FAVORED_SAFE_SUFFIX_STAGE3 = frozenset({"stage3_n1", "stage3_n2"})
 PS_FAVORED_SAFE_SUFFIX_STAGE4 = "stage4_n1"
 PS_FAVORED_SAFE_SUFFIX_STAGE5 = frozenset({"stage5_n1", "stage5_n2"})
+PS_FAVORED_V10_BAIT_STAGE1 = "stage1_n1"
+PS_FAVORED_V10_BAIT_STAGE2 = frozenset({"stage2_n1", "stage2_n2"})
 DEFAULT_IX_ETA_SHARED_VALUES = (0.005, 0.01, 0.02, 0.05)
 DEFAULT_IX_GAMMA_SHARED_VALUES = (0.0005, 0.001, 0.002, 0.005)
 DENOMINATOR_ABLATION_METHODS = (
@@ -237,7 +267,7 @@ def stable_permutation(items: Sequence[str], *parts: Any) -> list[str]:
 
 
 def default_shared_estimator_variant(method: str) -> str | None:
-    if method == "risky_ps_ix":
+    if method in {"risky_ps_ix", "risky_ps_ix_const_init"}:
         return "exp3_ix"
     if method == "risky_ps_direct_cost":
         return "direct_cost"
@@ -245,13 +275,18 @@ def default_shared_estimator_variant(method: str) -> str | None:
         return "safe_conditional"
     if method == "risky_ps_safe_conditional_ix":
         return "safe_conditional_ix"
-    if method in {"risky_ps", "risky_ps_old"}:
+    if method in {
+        "risky_ps",
+        "risky_ps_old",
+        "risky_ps_const_init",
+        "risky_ps_old_const_init",
+    }:
         return "path_importance_weighted"
     return None
 
 
 def default_shared_denominator_mode(method: str) -> str | None:
-    if method == "risky_ps_ix":
+    if method in {"risky_ps_ix", "risky_ps_ix_const_init"}:
         return "path_prob_plus_gamma"
     if method == "risky_ps_direct_cost":
         return "none_observed_cost"
@@ -259,7 +294,12 @@ def default_shared_denominator_mode(method: str) -> str | None:
         return "safe_subtree_conditional_prob"
     if method == "risky_ps_safe_conditional_ix":
         return "safe_subtree_conditional_prob_plus_gamma"
-    if method in {"risky_ps", "risky_ps_old"}:
+    if method in {
+        "risky_ps",
+        "risky_ps_old",
+        "risky_ps_const_init",
+        "risky_ps_old_const_init",
+    }:
         return "path_prob"
     return None
 
@@ -768,6 +808,12 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         self.num_paths = len(self.path_profiles)
         self.current_instance: dict[str, Any] | None = None
 
+    def _uses_ps_favored_landscape(self) -> bool:
+        return self.tree_spec_cost_mode in PS_FAVORED_COST_MODES
+
+    def _uses_ps_favored_v10_avg_baited(self) -> bool:
+        return self.tree_spec_cost_mode == "ps_favored_trap_v10_avg_baited"
+
     def _ps_favored_trap_switch_episode(self, horizon: int | None) -> int:
         effective_horizon = int(horizon or self.depth or 1)
         return max(1, effective_horizon // self.trap_switch_denominator)
@@ -804,7 +850,7 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
                 )
                 base_aliases = tuple(self.base_alias_by_agent[agent_id] for agent_id in prefix)
                 gates = tuple(int(self.agent_catalog[agent_id].g) for agent_id in prefix)
-                if self.tree_spec_cost_mode == "ps_favored_trap":
+                if self._uses_ps_favored_landscape():
                     family_label, normal_base, specialist_base = self._base_costs_ps_favored_trap(
                         tuple(prefix),
                         base_aliases,
@@ -823,7 +869,7 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
                         tuple(prefix),
                         latent_roles,
                     )
-                bias = 0.0 if self.tree_spec_cost_mode == "ps_favored_trap" else self._leaf_bias(tuple(prefix))
+                bias = 0.0 if self._uses_ps_favored_landscape() else self._leaf_bias(tuple(prefix))
                 profiles[tuple(prefix)] = PathProfile(
                     visible_path=tuple(prefix),
                     latent_roles=latent_roles,
@@ -1160,7 +1206,7 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         low, high = 0.49, 0.56
 
         def base_probability(profile: PathProfile) -> float:
-            return self._ps_favored_trap_base_probability(
+            return self._ps_favored_probability(
                 visible_path=profile.visible_path,
                 base_aliases=profile.base_aliases,
                 gates=profile.gates,
@@ -1385,13 +1431,26 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
     def _is_ps_favored_trap(self, base_aliases: tuple[str, ...]) -> bool:
         return base_aliases == PS_FAVORED_TRAP_BASE_ALIASES
 
+    def _is_ps_favored_v10_avg_bait_corridor(
+        self,
+        base_aliases: tuple[str, ...],
+        gates: tuple[int, ...],
+    ) -> bool:
+        return (
+            len(base_aliases) == 5
+            and len(gates) == 5
+            and base_aliases[0] == PS_FAVORED_V10_BAIT_STAGE1
+            and base_aliases[1] in PS_FAVORED_V10_BAIT_STAGE2
+            and all(int(gate) == 0 for gate in gates)
+        )
+
     def _base_costs_ps_favored_trap(
         self,
         visible_path: tuple[str, ...],
         base_aliases: tuple[str, ...],
         gates: tuple[int, ...],
     ) -> tuple[str, float, float]:
-        probability, label = self._ps_favored_trap_base_probability(
+        probability, label = self._ps_favored_probability(
             visible_path=visible_path,
             base_aliases=base_aliases,
             gates=gates,
@@ -1399,6 +1458,217 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
             horizon=None,
         )
         return label, probability, probability
+
+    def _ps_favored_trap_v10_avg_baited_probability(
+        self,
+        *,
+        visible_path: tuple[str, ...],
+        base_aliases: tuple[str, ...],
+        gates: tuple[int, ...],
+        episode_index: int | None,
+        horizon: int | None,
+    ) -> tuple[float, str]:
+        switch_episode = self._ps_favored_trap_switch_episode(horizon)
+        is_pre_switch = episode_index is not None and episode_index < switch_episode
+
+        if self._is_ps_favored_v10_avg_bait_corridor(base_aliases, gates):
+            if is_pre_switch:
+                probability = 0.001 + stable_positive_hash_noise(
+                    0.004,
+                    "ps_favored_v10_avg_baited_corridor_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_v10_avg_baited_corridor_pre_switch"
+            probability = 0.86 + stable_positive_hash_noise(
+                0.10,
+                "ps_favored_v10_avg_baited_corridor_post_switch",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v10_avg_baited_corridor_post_switch"
+
+        if self._is_ps_favored_trap_basin(base_aliases):
+            if is_pre_switch:
+                probability = 0.012 + stable_positive_hash_noise(
+                    0.010,
+                    "ps_favored_v10_trap_basin_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_v10_trap_basin_pre_switch"
+            probability = 0.992
+            return clamp01(probability), "ps_favored_v10_trap_basin_post_switch"
+
+        if self._is_ps_favored_exact_best(visible_path):
+            if is_pre_switch:
+                probability = 0.055 + stable_positive_hash_noise(
+                    0.010,
+                    "ps_favored_v10_exact_best_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_v10_exact_best_pre_switch"
+            return 0.010, "ps_favored_v10_exact_best_post_switch"
+
+        if self._is_ps_favored_near_best_good(visible_path, base_aliases, gates):
+            if is_pre_switch:
+                probability = 0.060 + stable_positive_hash_noise(
+                    0.025,
+                    "ps_favored_v10_target_good_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_v10_target_good_pre_switch"
+            probability = 0.015 + stable_positive_hash_noise(
+                0.015,
+                "ps_favored_v10_target_good_post_switch",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v10_target_good_post_switch"
+
+        if self._is_ps_favored_candidate_safe_subtree(base_aliases, gates):
+            if is_pre_switch:
+                probability = 0.38 + stable_positive_hash_noise(
+                    0.10,
+                    "ps_favored_v10_target_bad_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_v10_target_bad_pre_switch"
+            probability = 0.88 + stable_positive_hash_noise(
+                0.08,
+                "ps_favored_v10_target_bad_post_switch",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v10_target_bad_post_switch"
+
+        if self._is_ps_favored_balancing_decoy_candidate(base_aliases, gates):
+            if is_pre_switch:
+                probability = 0.18 + stable_positive_hash_noise(
+                    0.08,
+                    "ps_favored_v10_balancing_candidate_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_v10_balancing_candidate_pre_switch"
+            probability = 0.52 + stable_positive_hash_noise(
+                0.10,
+                "ps_favored_v10_balancing_candidate_post_switch",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v10_balancing_candidate_post_switch"
+
+        if self._is_ps_favored_local_decoy(visible_path, base_aliases, gates):
+            if is_pre_switch:
+                return 0.012, "ps_favored_v10_local_decoy_pre_switch"
+            return 0.62, "ps_favored_v10_local_decoy_post_switch"
+
+        if self._is_ps_favored_decoy_branch(base_aliases, gates):
+            if is_pre_switch:
+                probability = 0.28 + stable_positive_hash_noise(
+                    0.08,
+                    "ps_favored_v10_decoy_branch_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_v10_decoy_branch_pre_switch"
+            probability = 0.60 + stable_positive_hash_noise(
+                0.10,
+                "ps_favored_v10_decoy_branch_post_switch",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v10_decoy_branch_post_switch"
+
+        if self._is_ps_favored_safe_suffix(base_aliases, gates):
+            if is_pre_switch:
+                probability = 0.44 + stable_positive_hash_noise(
+                    0.10,
+                    "ps_favored_v10_ordinary_safe_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_v10_ordinary_safe_pre_switch"
+            probability = 0.68 + stable_positive_hash_noise(
+                0.10,
+                "ps_favored_v10_ordinary_safe_post_switch",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v10_ordinary_safe_post_switch"
+
+        barrier_count = sum(int(gate) == 1 for gate in gates)
+        if barrier_count == 0:
+            if is_pre_switch:
+                probability = 0.36 + stable_positive_hash_noise(
+                    0.10,
+                    "ps_favored_v10_non_safe_all_shared_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_v10_non_safe_all_shared_pre_switch"
+            probability = 0.58 + stable_positive_hash_noise(
+                0.10,
+                "ps_favored_v10_non_safe_all_shared_post_switch",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v10_non_safe_all_shared_post_switch"
+        if barrier_count == 1:
+            if is_pre_switch:
+                probability = 0.52 + stable_positive_hash_noise(
+                    0.10,
+                    "ps_favored_v10_one_barrier_pre_switch",
+                    self.setting_name,
+                    *base_aliases,
+                    *visible_path,
+                )
+                return clamp01(probability), "ps_favored_v10_one_barrier_pre_switch"
+            probability = 0.70 + stable_positive_hash_noise(
+                0.10,
+                "ps_favored_v10_one_barrier_post_switch",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v10_one_barrier_post_switch"
+        if is_pre_switch:
+            probability = 0.70 + stable_positive_hash_noise(
+                0.10,
+                "ps_favored_v10_multi_barrier_pre_switch",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v10_multi_barrier_pre_switch"
+        probability = 0.82 + stable_positive_hash_noise(
+            0.10,
+            "ps_favored_v10_multi_barrier_post_switch",
+            self.setting_name,
+            *base_aliases,
+            *visible_path,
+        )
+        return clamp01(probability), "ps_favored_v10_multi_barrier_post_switch"
 
     def _ps_favored_trap_base_probability(
         self,
@@ -1511,6 +1781,14 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         episode_index: int | None,
         horizon: int | None,
     ) -> tuple[float, str]:
+        if self._uses_ps_favored_v10_avg_baited():
+            return self._ps_favored_trap_v10_avg_baited_probability(
+                visible_path=visible_path,
+                base_aliases=base_aliases,
+                gates=gates,
+                episode_index=episode_index,
+                horizon=horizon,
+            )
         if self._is_ps_favored_trap_basin(base_aliases):
             return self._ps_favored_trap_base_probability(
                 visible_path=visible_path,
@@ -1561,12 +1839,29 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
             horizon=horizon,
         )
 
+    def _ps_favored_probability(
+        self,
+        *,
+        visible_path: tuple[str, ...],
+        base_aliases: tuple[str, ...],
+        gates: tuple[int, ...],
+        episode_index: int | None,
+        horizon: int | None,
+    ) -> tuple[float, str]:
+        return self._ps_favored_trap_probability(
+            visible_path=visible_path,
+            base_aliases=base_aliases,
+            gates=gates,
+            episode_index=episode_index,
+            horizon=horizon,
+        )
+
     def expected_cost(self, instance: dict[str, Any], path: Sequence[str]) -> float:
-        if self.tree_spec_cost_mode != "ps_favored_trap":
+        if not self._uses_ps_favored_landscape():
             return super().expected_cost(instance, path)
         visible_path = tuple(path)
         profile = self.path_profiles[visible_path]
-        probability, _label = self._ps_favored_trap_probability(
+        probability, _label = self._ps_favored_probability(
             visible_path=visible_path,
             base_aliases=profile.base_aliases,
             gates=profile.gates,
@@ -1582,7 +1877,7 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         episode_index: int,
         visible_path: tuple[str, ...],
     ) -> float:
-        if self.tree_spec_cost_mode != "ps_favored_trap":
+        if not self._uses_ps_favored_landscape():
             return super().observed_cost(
                 expected=expected,
                 episode_index=episode_index,
@@ -2044,7 +2339,7 @@ def run_one(
     trap_switch_denominator = getattr(env, "trap_switch_denominator", None)
     trap_switch_episode = (
         env._ps_favored_trap_switch_episode(horizon)
-        if getattr(env, "tree_spec_cost_mode", "default") == "ps_favored_trap"
+        if getattr(env, "tree_spec_cost_mode", "default") in PS_FAVORED_COST_MODES
         and hasattr(env, "_ps_favored_trap_switch_episode")
         else max(1, horizon // 3)
     )
@@ -2056,7 +2351,7 @@ def run_one(
         profile = getattr(env, "path_profiles", {}).get(tuple(path))
         if (
             profile is not None
-            and getattr(env, "tree_spec_cost_mode", "default") == "ps_favored_trap"
+            and getattr(env, "tree_spec_cost_mode", "default") in PS_FAVORED_COST_MODES
             and hasattr(env, "_is_ps_favored_trap_basin")
         ):
             ps_favored_trap_basin_count += int(
@@ -2545,7 +2840,7 @@ def build_ps_favored_trap_compare(
         and ordering["epsilon_exp3_better_than_direct_multistage_exp3"]
     )
     return {
-        "tree_spec_cost_mode": "ps_favored_trap",
+        "tree_spec_cost_mode": diagnostics.get("tree_spec_cost_mode", "ps_favored_trap"),
         "diagnostics": diagnostics,
         "current_tree": current_rows,
         "ordering_checks": ordering,
@@ -4492,7 +4787,9 @@ def main() -> None:
         help=(
             "Cost landscape for --tree-spec runs. The default preserves existing behavior; "
             "ps_favored_trap keeps the tree fixed and replaces only leaf costs with a "
-            "Bernoulli safe-corridor/trap landscape."
+            "Bernoulli safe-corridor/trap landscape; "
+            "ps_favored_trap_v10_avg_baited adds an early low-cost bait corridor and "
+            "delayed degradation to stress historical-average baselines."
         ),
     )
     parser.add_argument(
@@ -4697,7 +4994,7 @@ def main() -> None:
             oracle = env.oracle_reference(instances)
             if (
                 args.tree_spec
-                and args.tree_spec_cost_mode == "ps_favored_trap"
+                and args.tree_spec_cost_mode in PS_FAVORED_COST_MODES
                 and isinstance(env, SpecBackedControlledTreeEnv)
                 and ps_favored_trap_diagnostics is None
             ):
@@ -4821,8 +5118,8 @@ def main() -> None:
                 ),
                 "latent_role_permutation": not args.tree_spec,
                 "cost_landscape": (
-                    "external_tree_ps_favored_trap_bernoulli"
-                    if args.tree_spec and args.tree_spec_cost_mode == "ps_favored_trap"
+                    f"external_tree_{args.tree_spec_cost_mode}_bernoulli"
+                    if args.tree_spec and args.tree_spec_cost_mode in PS_FAVORED_COST_MODES
                     else (
                         "external_tree_base_alias_family"
                         if args.tree_spec and args.tree_spec_role_mode == "base_alias"
@@ -5038,7 +5335,7 @@ def main() -> None:
                 output_dir / "prefix_dedup_summary.md",
                 compare=prefix_dedup_compare,
             )
-        if args.tree_spec_cost_mode == "ps_favored_trap":
+        if args.tree_spec_cost_mode in PS_FAVORED_COST_MODES:
             if ps_favored_trap_diagnostics is None:
                 raise RuntimeError("Missing ps_favored_trap diagnostics for cost-mode run.")
             ps_favored_compare = build_ps_favored_trap_compare(

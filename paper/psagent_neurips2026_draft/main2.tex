@@ -1,0 +1,646 @@
+\documentclass{article}
+
+\PassOptionsToPackage{numbers,compress}{natbib}
+\usepackage{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{multirow}
+
+\title{BarrierShare: Barrier-Limited Partial Sharing for Multi-Stage Agent Workflows}
+
+\author{Anonymous Authors}
+
+\newcommand{\towrite}[1]{\noindent\textbf{What to write.} #1}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Hierarchical decision systems are a general learning setting in which a terminal outcome is determined by sequential decisions made across multiple stages or agents.
+However, prior work has largely focused on the end-to-end bandit regime, leaving hierarchical learning with partially propagated terminal feedback underexplored. 
+To address this gap, we propose BarrierShare, a distributed online learning framework for hierarchical decision systems with partially propagated terminal feedback.
+Our key insight is that partial propagation is a structural property of the hierarchy: terminal information can be aggregated within shared regions, but must switch to local bandit-style learning once a propagation barrier is reached. 
+Concretely, BarrierShare combines recursive aggregation over barrier-free shared regions, local bandit updates at risky nodes, and barrier-limited delta propagation that stops at the first structural barrier.
+Experiments on simulation and fixed-stage agent workflows evaluate whether these mechanisms improve regret, preserve the predicted long-safe-suffix and depth-scaling behavior, and remain practical under LLM-call, token, and latency costs.
+
+\end{abstract}
+
+\section{Introduction}
+
+Multi-stage agent workflows are becoming a common design pattern for practical language-agent systems~\citep{kulkarni2025agents,nandi2025sopbench}.
+Many deployed agents do not act as unconstrained planners, but instead operate through structured decision procedures with domain-specific tools, policy constraints, and workflow-like stages~\citep{kulkarni2025agents,yao2024tau}.
+For example, web agents have been studied through workflow-guided exploration, where demonstrations induce high-level workflows that constrain action choices over multi-step web tasks such as booking flights or replying to emails~\citep{liu2018workflow}.
+Recent tool-agent benchmarks such as $\tau$-bench further emphasize realistic customer-service interactions, in which agents must converse with users, use domain-specific API tools, and follow policy guidelines in airline and retail domains~\citep{yao2024tau}.
+These settings motivate viewing an agent run as a structured trajectory through stages such as user grounding, entity resolution, evidence retrieval, policy interpretation, adjudication, and final execution.
+In our abstraction, an externally specified feedback-sharing policy determines whether the update induced by a terminal observation is admissible for a shared prefix or must remain local to a branch.
+This distinction matters because treating all induced updates as local wastes reusable supervision, while treating all persistent updates as globally shared can expose provider-specific or specialist participation patterns.
+This raises a basic question for workflow-constrained agents: when can terminal feedback be reused as a shared learning signal across a hierarchy, and when should the information used for learning remain local?
+
+A natural formal lens for such systems is multi-stage online learning with terminal-only feedback, where a learner selects a full path through a hierarchy and observes only the realized terminal cost~\citep{hou2024distributed}.
+This end-to-end bandit formulation is a robust and conservative starting point: it assumes no more than the cost of the executed path and learns through local bandit estimates along the realized trajectory.
+However, it does not model when the same terminal observation may induce a persistent aggregate update that is reusable by other policies inside a feedback-admissible subtree, while being blocked at structural barriers.
+\textbf{L1: Structural flattening.}
+The realized terminal cost is used only through the sampled trajectory, without distinguishing whether its induced update is also valid for other complete policies sharing a safe prefix or subtree.
+\textbf{L2: Missing barrier-limited sharing.}
+Existing end-to-end bandit formulations do not capture the intermediate regime where the sampled cost can support local bandit learning, while the persistent shared update is allowed to propagate only inside a barrier-free region.
+
+\emph{When a terminal outcome is admissible for a prefix or subtree under a given feedback-sharing policy, how should a hierarchical learner reuse it without violating structural barriers?}
+Our key insight is that feedback reuse should be governed by structural admissibility.
+Conceptually, terminal feedback can be aggregated inside policy-admissible safe regions, but propagation must stop at privacy-policy, ownership, telemetry, provider, or specialist barriers.
+Algorithmically, BarrierShare realizes this principle through an exponential-weight delta.
+When a selected leaf is updated, its accumulated score changes, which induces a change in its exponential weight; this induced weight change defines a \emph{delta} that can be added to admissible ancestor aggregate weights.
+This shared delta differs from the current-round scalar cost used in a local bandit update: over time, accumulated deltas determine the subtree weights used by ancestor decisions, thereby forming a persistent statistical profile of downstream branches.
+When sharing is complete within a subtree, recursive aggregation makes the subtree behave like a single leaf-level adversarial bandit over its leaves, so the regret depends on the number of leaves in that safe subtree rather than accumulating an education penalty across every internal layer.
+When a structural barrier is encountered, the shared delta must stop, and the upstream decision must instead rely on local bandit-style estimation.
+
+Such barriers are natural in agent workflows with data-silo boundaries, provider boundaries, contractual constraints, or telemetry restrictions.
+A downstream module may return the current task output and scalar cost, while still prohibiting a globally visible long-run update trace.
+For example, cumulative shared deltas from a private retrieval specialist, clinical-data agent, enterprise knowledge module, or third-party provider may reveal the data domain, provider identity, task distribution, or specialization profile behind that branch.
+We do not aim to provide a formal privacy guarantee; rather, these examples motivate a learning model that respects an externally specified feedback-sharing policy while exploiting all feedback that is structurally admissible.
+The relevant regime is therefore neither ``share everything'' nor ``share nothing'': current terminal costs may remain usable through local bandit channels, while persistent shared deltas may propagate upward only until the first structural barrier.
+To address this setting, we propose \textbf{BarrierShare}, a hierarchical online learning algorithm that performs shared delta aggregation inside barrier-free regions and switches to local bandit learning at risky or barrier-limited interfaces.
+Figure~\ref{fig:overview} illustrates this progression from end-to-end bandit feedback to full-share propagation and finally to the barrier-limited regime studied in this paper.
+
+\textbf{Our contributions are summarized as follows.}
+\textbf{(1) Barrier-limited feedback sharing.}
+We formalize an intermediate feedback regime between end-to-end bandit feedback and unrestricted sharing, where current terminal costs can support local bandit learning, but persistent shared deltas can propagate only within structurally admissible regions of a hierarchy.
+\textbf{(2) BarrierShare algorithm.}
+We propose \textbf{BarrierShare}, which performs recursive exponential-weight aggregation inside safe subtrees and switches to local bandit updates at barrier-limited risky interfaces.
+\textbf{(3) Risky-depth regret and validation.}
+We prove regret bounds governed by the risky skeleton depth \(R\), showing how BarrierShare interpolates between fully shared safe aggregation and depth-dependent bandit learning.
+In particular, long safe suffixes reduce the effective depth in the leading bandit term from the full workflow depth \(L\) to the risky depth \(R\), up to safe-subtree aggregation terms.
+We validate these predictions through regret-aligned simulations, including long-safe-suffix and depth-scaling studies, and through fixed-stage agent workflow experiments.
+
+\section{Related Work}
+
+\towrite{Keep this section in the main paper because the paper sits between online learning theory and agent workflows. The section should be functional rather than catalog-like: each subsection should first state what role that literature plays in the paper, then summarize the closest work, and finally close with a different positioning sentence. The three roles are: theoretical starting point, feedback-structure bridge, and practical agent motivation.}
+
+\subsection{Multi-Stage Online Learning with End-to-End Bandit Feedback}
+
+\towrite{Opening function sentence: this line is the closest theoretical starting point for BarrierShare. Discuss multi-stage systems where a policy selects a sequence of decisions and observes only terminal loss, with Hou-style distributed no-regret learning as the primary reference. Explain that these works formalize the conservative bandit-only endpoint: the learner can update from the selected terminal cost but cannot reuse that feedback as prefix-level shared supervision. Closing positioning sentence: unlike this line of work, BarrierShare studies what changes when terminal feedback can propagate upward through part of the hierarchy before a barrier stops it.}
+
+\subsection{Structured Feedback in Hierarchical Online Learning}
+
+\towrite{Opening function sentence: this literature provides the feedback-structure perspective needed to interpret full-share as an idealized endpoint. Keep the boundary narrow: do not review all full-information learning. Focus on settings where feedback is reusable, structured, hierarchical, or informative for more than the sampled action. The key contrast is whether terminal feedback can be converted into a shared delta for common prefixes or safe subtrees. Closing positioning sentence: prior structured-feedback views do not isolate barrier-limited upward propagation as its own hierarchical learning regime, where shared aggregation is valid below some interfaces but invalid above them.}
+
+\subsection{Fixed-Stage Agent Workflows and Workflow-Constrained Agents}
+
+\towrite{Opening function sentence: this literature motivates why the barrier-limited feedback model is practically relevant for agents. Focus on fixed-stage, workflow-constrained, SOP-like, or tool-orchestrated agent systems; mention open-ended agent benchmarks only as contrast and keep benchmark discussion secondary. The point is that many deployed agents are not unconstrained planners: they pass through structured stages, organizational boundaries, restricted tools, and specialist modules. Closing positioning sentence: existing agent workflow and benchmark papers motivate selective feedback propagation, but they typically evaluate planning or execution quality rather than formulate and analyze the online learning problem created by barrier-limited terminal feedback.}
+
+\section{Problem Formulation}
+
+We study hierarchical online learning on a rooted decision tree under three feedback regimes: the conservative end-to-end bandit regime, an idealized full-share endpoint, and the barrier-limited sharing regime that is the focus of this paper. This section defines the game, the feedback semantics, and the regret objective, without introducing the BarrierShare algorithm itself.
+
+\paragraph{Notation.}
+Let $\mathcal{T}$ be a rooted tree with root $r$, leaf set $\mathcal{L}$, and child set $C_i$ for each non-leaf node $i$. For any node $i$, let $L(i) \subseteq \mathcal{L}$ denote the set of leaf descendants of $i$. At round $t$, the learner selects a root-to-leaf path $\ell_t \in \mathcal{L}$ by making sequential decisions along the tree. We write $p_t(j \mid i)$ for the probability of selecting child $j \in C_i$ at node $i$, and $\Pi_t(i)$ for the probability of reaching node $i$ under the round-$t$ decision rule. In particular, $\Pi_t(\ell)$ denotes the probability of selecting a leaf $\ell \in \mathcal{L}$. Each leaf $\ell$ incurs a terminal cost $c_t(\ell) \in [0,1]$. For any node $i$, let $Y_\eta[i,T]$ denote the cumulative expected loss of the learner over $T$ rounds starting from $i$, and let $Y_\ast[i,T]$ denote the cumulative loss of the optimal stationary policy starting from $i$.
+
+\subsection{Multi-Stage Tree Model and Regret Objective}
+
+We model a multi-stage decision system as a rooted tree $\mathcal{T}$ of depth $L$. Each internal node represents a decision point, and each leaf represents a complete root-to-leaf decision path. At each round $t = 1,\ldots,T$, the learner starts at the root and sequentially selects one child at each internal node until reaching a leaf $\ell_t \in \mathcal{L}$. Equivalently, the round-$t$ decision can be written as a path
+\[
+\ell_t = (a_{1,t}, \ldots, a_{L,t}),
+\]
+where $a_{k,t}$ is the stage-$k$ choice along the selected path.
+
+The decision rule is specified by local conditional probabilities $p_t(j \mid i)$ at internal nodes. The induced probability of reaching a node is defined recursively by
+\[
+\Pi_t(r) = 1,
+\qquad
+\Pi_t(j) = \Pi_t(i)\, p_t(j \mid i)
+\quad \text{for } j \in C_i.
+\]
+Hence, for a leaf $\ell$, $\Pi_t(\ell)$ is the probability of selecting the entire root-to-leaf path ending at $\ell$.
+
+After selecting $\ell_t$, the learner incurs and observes the terminal cost $c_t(\ell_t)$. We compare the learner against the best stationary policy that fixes, at every internal node, a single child choice throughout all rounds. Such a policy induces a fixed leaf in every subtree. Define recursively
+\[
+Y_\ast[i,T] =
+\begin{cases}
+\sum_{t=1}^T c_t(i), & i \in \mathcal{L},\\[4pt]
+\min_{j \in C_i} Y_\ast[j,T], & i \notin \mathcal{L}.
+\end{cases}
+\]
+The cumulative expected loss of the learner from node $i$ is
+\[
+Y_\eta[i,T] := \sum_{t=1}^T \mathbb{E}[y_\eta[i,t]],
+\]
+where $y_\eta[i,t]$ is the random loss incurred at round $t$ if the learner starts from $i$ and follows its round-$t$ decision rule thereafter. Our root regret objective is
+\[
+\mathrm{Reg}_T := Y_\eta[r,T] - Y_\ast[r,T].
+\]
+
+This formulation provides the formal backbone of multi-stage end-to-end learning before any additional feedback structure is introduced.
+
+\subsection{End-to-End Bandit Regime}
+
+We first consider the conservative regime in which the learner only observes the scalar terminal cost of the selected path. Formally, after choosing $\ell_t$, the learner observes only
+\[
+c_t(\ell_t),
+\]
+and receives no direct information about the terminal costs of unselected leaves or the intermediate stage-wise contributions along the hierarchy.
+
+Under this regime, terminal feedback is usable only through bandit-style estimators based on the sampling probability of the selected path or selected local decisions. This model is safe in the sense that it requires no assumption beyond observability of the realized end-to-end outcome. At the same time, it is conservative: even when part of the terminal signal could serve as reusable supervision for an upstream shared structure, the model treats the entire signal as path-local. Representative baselines in this regime include EXP3-type and $\epsilon$-EXP3-type methods, but this subsection defines only the feedback model rather than any particular algorithm.
+
+\subsection{Full-Share Delta Regime}
+
+We next define an idealized full-share endpoint in which terminal feedback from a selected leaf can be converted into a sharable delta and propagated upward through the hierarchy.
+
+Let $\mathcal{L}^{\mathrm{shr}} \subseteq \mathcal{L}$ denote the set of leaves whose terminal feedback is fully shareable with their ancestors. When a selected leaf $\ell_t \in \mathcal{L}^{\mathrm{shr}}$ is observed, its terminal feedback induces a sharable delta, denoted by $\Delta_t(\ell_t)$, which can be transmitted upward to all ancestors that fully observe the corresponding shared subtree.
+
+The only invariant we require from this regime is the aggregate-visibility property: for any node $i$ that fully observes a shared subtree, its aggregate shared weight equals the sum of the visible descendant shared leaf weights. That is, if $W_t[i]$ denotes the aggregate weight at node $i$, then
+\[
+W_t[i] = \sum_{\ell \in L(i) \cap \mathcal{L}^{\mathrm{shr}}} w_t(\ell),
+\]
+where $w_t(\ell)$ is the shared leaf weight associated with $\ell$. This full-share regime serves as an idealized endpoint that reveals the value of reusable hierarchical feedback, but it does not yet capture structural restrictions on how far such feedback may propagate.
+
+\subsection{Barrier-Limited Sharing Regime}
+
+We now define the barrier-limited regime studied in this paper. Each non-leaf node $i$ is equipped with a gate
+\[
+g(i) \in \{\mathrm{share}, \mathrm{unshare}\},
+\]
+which determines whether shared feedback may propagate upward through that node. As before, let $\mathcal{L}^{\mathrm{shr}} \subseteq \mathcal{L}$ denote the set of leaves whose terminal feedback is eligible to initiate shared upload.
+
+At round $t$, if the selected leaf $\ell_t$ belongs to $\mathcal{L}^{\mathrm{shr}}$, then its terminal feedback may initiate an upward shared upload. However, this propagation continues only until the first ancestor whose gate is $\mathrm{unshare}$. Such a node acts as a structural barrier, beyond which the shared delta cannot propagate.
+
+A non-leaf node $i$ is called \emph{safe} if the entire relevant subtree beneath $i$ is fully shareable and fully visible at $i$, namely if
+\[
+L(i) \subseteq \mathcal{L}^{\mathrm{shr}}
+\quad \text{and} \quad
+g(u)=\mathrm{share}, \ \forall \text{ non-leaf } u \in \mathrm{subtree}(i).
+\]
+Otherwise, $i$ is called \emph{risky}. Intuitively, a safe node sits above a barrier-free fully shared region, whereas a risky node lies on or above a region where upward propagation may be blocked.
+
+To quantify the amount of non-shareable structure, define the risky depth recursively by
+\[
+R(i)=
+\begin{cases}
+0, & \text{if } i \text{ is safe},\\
+1, & \text{if } i \text{ is risky and } C_i \subseteq \mathcal{L},\\
+1+\max_{j \in C_i} R(j), & \text{if } i \text{ is risky and } C_i \not\subseteq \mathcal{L}.
+\end{cases}
+\]
+The risky depth of the whole tree is then
+\[
+R := R(r).
+\]
+This quantity captures the maximum number of risky decision points encountered on any root-to-leaf path before entering a barrier-free fully shared suffix.
+
+\paragraph{Core question.}
+\emph{How can a learner achieve low regret when terminal feedback can be propagated upward only until structural barriers are encountered?}
+\section{BarrierShare}
+
+Figure~\ref{fig:overview} presents the story-level overview of our framework. In this section, we focus on the algorithmic mechanisms that make barrier-limited feedback sharing learnable. The key challenge is to unify two qualitatively different learning regimes within a single decision tree: recursive shared aggregation in regions where terminal feedback can be safely reused, and local bandit-style learning at decision points where structural barriers prevent such reuse. BarrierShare is designed precisely for this intermediate regime. Rather than treating full sharing and end-to-end bandit learning as unrelated baselines, it provides a single hierarchical learning rule that recovers both as special cases.
+
+\subsection{From Full-Share to Barrier-Limited Sharing}
+
+The design of BarrierShare starts from the observation that the two endpoint regimes each capture only part of the problem structure. On one extreme, the full-share delta regime is highly data-efficient: once a selected leaf can convert its terminal feedback into a sharable delta, every ancestor that fully observes the corresponding shared subtree can update through recursive aggregate weights rather than paying a fresh bandit cost at each stage. On the other extreme, the end-to-end bandit regime is maximally robust: it makes no assumption about reusability of terminal feedback, but therefore treats all supervision as path-local and fails to exploit safe shared structure.
+
+BarrierShare interpolates between these two endpoints. Whenever the hierarchy exposes a barrier-free shared region, the learner retains the full-share mechanism and updates the corresponding aggregate masses recursively. Whenever a structural barrier makes upward sharing incomplete, the learner falls back to a local bandit update at the affected decision point. In this sense, BarrierShare is not an ad hoc mixture of two algorithms, but a unified learning rule induced by the feedback structure of the tree itself.
+
+\subsection{Selection Rule}
+
+BarrierShare samples a root-to-leaf path by making local decisions at each internal node. The selection rule depends on whether the current node lies in a fully safe region or in a risky/mixed region.
+
+At a safe node $i$, all descendant feedback within the relevant subtree is fully shareable and visible at $i$. In this case, the learner selects a child $j \in C_i$ according to its shared aggregate mass,
+\[
+p_t(j \mid i) = \frac{W_t[j]}{W_t[i]},
+\]
+where $W_t[\cdot]$ denotes the recursively maintained shared aggregate defined in Section~\ref{sec:problem_formulation}.
+
+At a risky node, shared propagation is incomplete, so recursive aggregate masses no longer provide a valid public summary of descendant losses. The learner therefore uses a local bandit distribution over the children of that node. Concretely, BarrierShare employs a branch-conditioned bandit rule, instantiated in our experiments by a local $\epsilon$-EXP3-type distribution,
+\[
+p_t(j \mid i) = (1-\epsilon_i)\frac{\exp(\eta_i \theta_t[i,j])}{\sum_{k\in C_i}\exp(\eta_i \theta_t[i,k])}
+\;+\;
+\frac{\epsilon_i}{|C_i|},
+\qquad j \in C_i,
+\]
+where $\theta_t[i,j]$ is the local score for edge $(i,j)$.
+
+Although the decision rule is local, the probability of sampling a full path is global and factors along the tree. For any selected leaf $\ell_t$,
+\[
+\Pi_t(\ell_t)=\prod_{(i\to j)\in \mathrm{path}(r,\ell_t)} p_t(j\mid i).
+\]
+This factorization is crucial for both the update rule and the regret analysis, since all importance weighting is defined with respect to the conditional choices made along the sampled path.
+
+\subsection{Update Rule}
+
+The update rule is the core of BarrierShare. After observing the terminal cost $c_t(\ell_t)$, the algorithm performs two logically distinct operations: local bandit updates on risky decisions, and shared delta propagation on upload-reachable regions.
+
+\paragraph{Risky-edge updates.}
+For every risky node $u$ on the sampled path whose selected child is $v$, BarrierShare applies a bandit-style local update using the edge probability at that node:
+\[
+\theta_{t+1}[u,v]
+=
+\theta_t[u,v]
+-
+\frac{c_t(\ell_t)}{\Pi_t(u)\,p_t(v\mid u)}.
+\]
+This update is necessary because once a barrier blocks upward propagation, the terminal cost can no longer be interpreted as publicly reusable supervision above that point. The learner must therefore pay a local bandit cost at risky decision points.
+
+\paragraph{Shared leaf update and delta computation.}
+If the selected leaf $\ell_t$ is eligible to initiate shared upload, the learner also updates its shared leaf weight. Let
+\[
+w_t(\ell)=\exp(\eta_{\mathrm{shr}}\theta_t(\ell))
+\]
+denote the shared leaf weight. After observing $c_t(\ell_t)$, BarrierShare updates the leaf score using its path probability,
+\[
+\theta_{t+1}(\ell_t)
+=
+\theta_t(\ell_t)
+-
+\frac{c_t(\ell_t)}{\Pi_t(\ell_t)},
+\]
+and computes the induced delta
+\[
+\Delta_t(\ell_t)
+=
+w_{t+1}(\ell_t)-w_t(\ell_t).
+\]
+
+\paragraph{Barrier-limited upward propagation.}
+The shared delta is then propagated upward along upload-reachable edges. Specifically, BarrierShare adds $\Delta_t(\ell_t)$ to the aggregate mass of every ancestor on the selected path until reaching the first internal barrier. Propagation stops immediately at that barrier; no ancestor above it is allowed to reuse the delta.
+
+This stopping rule is essential: it prevents private or structurally blocked feedback from being misinterpreted as shared supervision outside the barrier-free region. Equally important, safe prefixes do not additionally receive risky local updates. A node is updated either through shared recursive aggregation or through bandit-style local learning, depending on the feedback semantics available at that node, but not both.
+
+\subsection{Endpoint Interpretation}
+
+BarrierShare explicitly unifies the two endpoint regimes.
+
+If all gates allow upload and every leaf is shared, then every internal node is safe. In this case, BarrierShare reduces to full-share recursive aggregation: selection is performed entirely through aggregate masses, and updates are carried only by leaf deltas propagated through the whole tree.
+
+If no useful shared upload exists, then every non-leaf node is risky. In that case, BarrierShare reduces to an end-to-end bandit-style regime in which learning proceeds only through local bandit updates along the sampled path.
+
+The contribution of this paper lies in the intermediate regime, where only part of the hierarchy can reuse terminal feedback as shared supervision. BarrierShare is precisely designed for this realistic setting.
+
+\subsection{Theoretical Guarantees}
+
+The theoretical benefit of BarrierShare comes from separating the cost of risky decisions from the cost of fully shared suffixes. Intuitively, full-share aggregation helps because once the learner enters a barrier-free shared region, it can update the whole visible subtree through recursive shared masses instead of repeatedly paying bandit cost layer by layer. The only remaining source of true bandit difficulty is the risky skeleton of the tree, namely the sequence of decision points at which upward reuse is structurally blocked.
+
+We now formalize this intuition in three steps: first, we show that a fully safe subtree behaves like an exponential-weights forecaster over its leaves; second, we characterize the local learning cost incurred at risky nodes; and third, we combine these pieces into a root regret bound governed by the risky depth $R$ rather than the total depth $L$.
+
+\subsubsection{Safe-Subtree Equivalence}
+
+The first key fact is that, inside a fully safe subtree, recursive aggregate sampling is equivalent to running exponential weights directly over the descendant leaves.
+
+\begin{lemma}[Safe-subtree equivalence]
+\label{lem:safe_equiv}
+Consider a safe node $i$ such that every descendant leaf is shared and every internal node in $\mathrm{subtree}(i)$ is barrier-free. Let the shared aggregate satisfy
+\[
+W_t[u] = \sum_{\ell \in L(u)} \exp(\eta_{\mathrm{shr}} \theta_t(\ell)),
+\qquad \forall u \in \mathrm{subtree}(i).
+\]
+Then the recursive selection rule
+\[
+p_t(j\mid u)=\frac{W_t[j]}{W_t[u]}
+\]
+induces, for every leaf $\ell \in L(i)$, the same sampling probability as exponential weights run directly over the leaf set $L(i)$:
+\[
+\Pr_t(\ell \mid i)
+=
+\frac{\exp(\eta_{\mathrm{shr}} \theta_t(\ell))}
+{\sum_{\ell' \in L(i)} \exp(\eta_{\mathrm{shr}} \theta_t(\ell'))}.
+\]
+\end{lemma}
+
+The proof is a telescoping argument on the product of conditional probabilities along the path from $i$ to $\ell$: all intermediate aggregate terms cancel, leaving exactly the normalized leaf weight. This lemma shows why full-share aggregation is powerful---inside a safe subtree, the hierarchy incurs no additional statistical price beyond learning directly over the leaves.
+
+\subsubsection{Local Cost of Risky Nodes}
+
+The second ingredient is the price paid at risky decision points. Whenever a barrier prevents shared deltas from being interpreted as public supervision above that barrier, BarrierShare must revert to local bandit learning. Each risky node therefore contributes a local regret term controlled by its own branching factor and learning rate.
+
+\begin{lemma}[Local cost of risky nodes]
+\label{lem:risky_local}
+For a risky node $i$, the branch-conditioned bandit update yields a local regret contribution of bandit order over the children of $i$. Summing these local contributions along a risky chain yields a cumulative excess term controlled by the risky depth rather than by the full tree depth.
+\end{lemma}
+
+The proof follows standard exponential-weights analysis with importance weighting, applied locally at each risky node. The role of the barrier is not merely technical: it changes the semantics of the feedback. Above the barrier, the terminal signal is no longer valid shared supervision, so the learner must pay local bandit cost there.
+
+\subsubsection{Root Regret Bound}
+
+We now combine the safe-subtree equivalence and the risky-node cost to obtain the main regret guarantee. Let $\Delta(i)$ denote the recursive excess term associated with node $i$: for safe nodes, $\Delta(i)$ is controlled by the exponential-weights rate over the visible shared subtree; for risky nodes, $\Delta(i)$ satisfies a one-step recursion that adds the local bandit cost at $i$ and then passes control to its children. The root regret is bounded by $\Delta(r)$.
+
+\begin{theorem}[BarrierShare root regret bound]
+\label{thm:barrier_main}
+Let $R$ denote the risky depth of the tree. Under the BarrierShare update rule, the regret at the root satisfies
+\[
+Y_\eta[r,T] - Y_\ast[r,T] \le \Delta(r),
+\]
+where $\Delta(r)$ is obtained recursively from the safe-subtree and risky-node contributions. In particular, the dominant sequential-learning term scales with the risky skeleton depth $R$, rather than with the total tree depth $L$. Consequently, whenever the tree contains a long barrier-free safe suffix, BarrierShare improves over the worst-case end-to-end bandit exponent by replacing depth dependence on $L$ with depth dependence on $R$.
+\end{theorem}
+
+The theorem should be read structurally: the hard part of learning is not the full depth of the hierarchy, but the portion in which structural barriers prevent terminal feedback from being reused. Detailed constants, recursive definitions, and full derivations are deferred to Appendix~\ref{app:theory}.
+
+\subsubsection{Structural Corollaries}
+
+The theorem immediately yields the three cases that matter for interpretation and experiments.
+
+\paragraph{All-share endpoint.}
+If all gates allow upload and all leaves are shared, then $R=0$ and every subtree is safe. BarrierShare reduces to full-share recursive aggregation, and the regret is governed by the safe-subtree exponential-weights rate rather than by sequential bandit depth.
+
+\paragraph{All-unshare endpoint.}
+If no useful shared upload exists, then every non-leaf node is risky and $R=L$. BarrierShare reduces to the worst-case multi-stage bandit regime, recovering the same qualitative depth dependence as end-to-end bandit learning.
+
+\paragraph{Long safe suffixes.}
+If the upper part of the tree is risky but the lower part forms a long barrier-free safe suffix, then $R<L$. In this case, BarrierShare predicts strictly improved depth dependence relative to the all-unshare regime. This is the structural advantage tested in our long-safe-suffix and depth experiments.
+\section{Experiments}
+
+We organize the experiments around six research questions that directly test the claims of BarrierShare. 
+\textbf{Q1:} Does BarrierShare improve performance in fixed-stage LLM-backed workflows? 
+\textbf{Q2:} Does the algorithmic signal survive the interface to an agent selector? 
+\textbf{Q3:} Does BarrierShare remain effective as the candidate set per stage grows? 
+\textbf{Q4:} In clean simulation, does BarrierShare outperform bandit and heuristic baselines in regret-aligned comparison? 
+\textbf{Q5:} Does a longer safe suffix reduce the empirical learning difficulty in the way predicted by theory? 
+\textbf{Q6:} How does the method scale with hierarchy depth? 
+Together, these experiments evaluate not only whether BarrierShare performs better, but also why it helps, when it helps, how it scales, and whether the predicted structural effect persists in a fixed-stage agent instantiation.
+
+\subsection{Fixed-Stage Agent Workflow Instantiation}
+
+We instantiate BarrierShare in a fixed-stage agent workflow that serves as a bridge from the abstract tree model to practical evaluation. The purpose of this instantiation is not to introduce a separate application method, but to test whether the feedback-sharing structure analyzed in theory remains meaningful when decisions are mediated through staged agent workflows.
+
+\paragraph{Workflow-to-Tree Instantiation.}
+We map a fixed-stage workflow to the rooted tree model by treating each stage as a decision layer and each candidate agent or policy at that stage as a child choice. For the telecom MMS track, we use a five-stage workflow:
+(1) user grounding,
+(2) customer-line resolution,
+(3) observed feature extraction,
+(4) blocker adjudication and repair planning, and
+(5) terminal execution decision.
+A leaf therefore corresponds to a complete workflow policy, i.e., a root-to-leaf selection of stage-wise agents or policies.
+
+\paragraph{Delta Semantics and Barriers.}
+The key modeling question is when terminal feedback can be treated as reusable shared supervision and when it should remain private to a branch. In our workflow setting, feedback about a common prefix, routing quality, or generic diagnosis may legitimately update shared ancestors, whereas provider-specific state, specialist internals, or private branch details should not be broadcast above the relevant barrier. Practical examples include privacy boundaries, restricted telemetry, organizational ownership, vendor-specific tools, specialist knowledge leakage, and policy constraints. We emphasize that a barrier is a structural feedback-sharing constraint in the learning model, rather than a formal legal privacy guarantee.
+
+\paragraph{Evaluation Protocol.}
+All methods are evaluated on the same fixed workflow family, the same path space, the same evaluator, and the same decision space. The executor is not treated as the main experimental variable. For LLM-backed runs, the primary application metrics are end-to-end total cost and task success, while token usage, API cost, and latency are reported as supporting deployment metrics rather than as formal regret baselines.
+
+\subsection{Experimental Setup}
+
+We evaluate BarrierShare in both LLM-backed fixed-stage workflows and simulation. The LLM-backed experiments test whether the structural benefit survives realistic staged execution, while the simulation experiments provide the clean regret-aligned comparison directly tied to the theorem.
+
+\paragraph{Baselines.}
+We compare against BarrierShare, full-share, full-unshare, EXP3, $\epsilon$-EXP3, Random, and Naive. When available, we also report a stationary oracle as a reference point. Full-share and full-unshare are treated as endpoint interpretations of the feedback model, while EXP3-type and heuristic baselines represent conservative bandit or non-structured alternatives.
+
+\paragraph{Metrics.}
+For simulation, the primary metrics are cumulative regret $\mathrm{Reg}_T$ and normalized regret $\mathrm{Reg}_T/T$. For LLM-backed experiments, the primary metrics are average total cost and success rate. We additionally report efficiency and deployment metrics including LLM calls, input tokens, output tokens, total tokens, estimated API cost, average latency, and optionally p95 latency.
+
+\paragraph{Instrumentation.}
+To understand how BarrierShare behaves online, we log the selected path, path probability, safe/risky prefix usage, shared-upload fraction, barrier stop depth, LLM calls, token consumption, and wall-clock or API cost. These signals are used to support the mechanism-level interpretation of the results. Bulky executor details, prompt templates, and full configuration tables are deferred to the appendix.
+
+\subsection{Main LLM Results}
+
+We first answer \textbf{Q1} by evaluating BarrierShare in the fixed-stage LLM-backed workflow setting. Since this setting serves as an application testbed rather than a formal regret benchmark, we sort methods primarily by average total cost and success rate rather than regret. We compare BarrierShare under all-share, partial-share, and all-unshare settings against bandit and heuristic baselines. The goal is to test whether the intermediate barrier-limited regime produces better workflow-level behavior than either endpoint or purely bandit-style learning.
+
+\begin{table}[t]
+    \centering
+    \small
+    \caption{Main LLM-backed results on fixed-stage workflows. Lower cost is better and higher success is better.}
+    \label{tab:llm_main}
+    \begin{tabular}{llccccc}
+        \toprule
+        Setting & Method & Share Ratio & Avg. Cost $\downarrow$ & Success $\uparrow$ & LLM Calls $\downarrow$ & Tokens $\downarrow$ \\
+        \midrule
+        Fixed-stage & BarrierShare & all-share & -- & -- & -- & -- \\
+        Fixed-stage & BarrierShare & 4/5-share & -- & -- & -- & -- \\
+        Fixed-stage & BarrierShare & 2/5-share & -- & -- & -- & -- \\
+        Fixed-stage & BarrierShare & all-unshare & -- & -- & -- & -- \\
+        Fixed-stage & EXP3 & ref tree & -- & -- & -- & -- \\
+        Fixed-stage & $\epsilon$-EXP3 & ref tree & -- & -- & -- & -- \\
+        Fixed-stage & Random & ref tree & -- & -- & -- & -- \\
+        Fixed-stage & Naive & ref tree & -- & -- & -- & -- \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Interaction Mechanism Ablation}
+
+We next address \textbf{Q2} by testing whether the BarrierShare signal survives the interface between the learning layer and the agent selector. We compare three variants:
+(1) \emph{algorithm-direct}, where the algorithm directly chooses the branch;
+(2) \emph{theta-guided-agent}, where the algorithm supplies scores and the agent selector uses them as guidance; and
+(3) \emph{agent-only}, where the selector operates without BarrierShare scores.
+This ablation helps separate the quality of the learning rule from the quality of the interface through which that rule influences staged agent decisions.
+
+\subsection{Candidate-Set Scaling}
+
+To answer \textbf{Q3}, we fix a representative partial-share structure, such as 4/5-share, and vary the number of candidate choices per stage. We compare BarrierShare, EXP3, $\epsilon$-EXP3, Random, and Naive under candidate counts such as 5, 15, and 25. This experiment tests whether the structural advantage of BarrierShare remains useful as branching grows and the stage-wise decision problem becomes more difficult.
+
+\subsection{Simulation Results}
+
+We use simulation to answer \textbf{Q4--Q6} in a clean regret-aligned setting. These experiments are designed to match the theorem and its structural corollaries as directly as possible. In particular, the simulation section jointly evaluates the main regret comparison, the long-safe-suffix effect, and the hierarchy-depth scaling effect.
+
+\begin{table}[t]
+    \centering
+    \small
+    \caption{Main simulation results aligned with the regret theorem.}
+    \label{tab:sim_main}
+    \begin{tabular}{lcccc}
+        \toprule
+        Tree & Method & $T$ & $\mathrm{Reg}_T \downarrow$ & $\mathrm{Reg}_T/T \downarrow$ \\
+        \midrule
+        all-share & BarrierShare & -- & -- & -- \\
+        4/5-share & BarrierShare & -- & -- & -- \\
+        2/5-share & BarrierShare & -- & -- & -- \\
+        all-unshare & BarrierShare & -- & -- & -- \\
+        4/5-share & EXP3 & -- & -- & -- \\
+        4/5-share & $\epsilon$-EXP3 & -- & -- & -- \\
+        4/5-share & Random & -- & -- & -- \\
+        4/5-share & Naive & -- & -- & -- \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\paragraph{Main simulation comparison.}
+We first compare BarrierShare against bandit and heuristic baselines under representative share structures. This experiment provides the cleanest test of whether the intermediate feedback model improves learning relative to the conservative end-to-end bandit regime.
+
+\paragraph{Long safe suffix.}
+We then address \textbf{Q5}, which is the key structure experiment for the theorem. We fix the total depth $L$ and branching factor, and vary the risky depth $R$ so that the barrier-free safe suffix becomes longer. The predicted qualitative behavior is that BarrierShare improves as $R$ shrinks, while bandit baselines continue to scale with the full depth. This experiment directly tests the interpretation that the effective sequential learning cost depends on the risky skeleton depth rather than on total depth alone.
+
+\paragraph{Depth scaling.}
+Finally, to answer \textbf{Q6}, we sweep the depth of the hierarchy, e.g., $L \in \{5, 15, 25\}$, while keeping the candidate count fixed. We run BarrierShare under multiple share ratios and compare it with EXP3, $\epsilon$-EXP3, Naive, and Random. This experiment tests whether the performance gap grows with hierarchy depth and whether long safe suffixes mitigate the effective depth dependence in practice.
+
+\subsection{Efficiency and Deployment Metrics}
+
+Beyond the primary learning metrics, we report efficiency and deployment statistics including LLM calls, input tokens, output tokens, total tokens, estimated API cost, average latency, and optionally p95 latency. These are not the central theoretical claim of the paper, but they are important for the staged-agent story because they show whether the algorithmic gain is practically attainable under realistic resource constraints.
+
+\subsection{Additional Analyses}
+
+We include two additional analyses either in the main paper or in the appendix, depending on space.
+
+\paragraph{Specialist mass.}
+This analysis varies the probability mass that falls into private or unshared branches. Its purpose is to test whether BarrierShare remains useful as more tasks are routed into specialist or restricted regions where shared propagation is limited.
+
+\paragraph{Noise and execution instability.}
+This analysis perturbs terminal cost or execution outcomes with bounded noise to test whether BarrierShare remains stable under imperfect execution. In the agent interpretation, this can also be viewed as varying the level of execution instability.
+\section{Conclusion}
+
+This paper studies hierarchical online learning for multi-stage agent workflows under structured feedback sharing. We begin from the conservative end-to-end bandit view, show that full-share delta propagation reveals the value of reusable upward feedback, and then identify structural barriers as the key reason why real systems lie between full sharing and purely path-local learning. In response, we propose BarrierShare, a unified intermediate algorithm that combines recursive shared aggregation in barrier-free regions with local bandit learning at risky decision points. Our theoretical results show that the resulting learning difficulty is governed by the risky skeleton depth rather than only by the total hierarchy depth, and our simulation and fixed-stage agent experiments provide consistent evidence for this structural picture. A current limitation is that our formulation is tailored to fixed-stage or fixed-for-the-experiment hierarchical workflows, where barriers are modeled as structural feedback-sharing constraints rather than formal privacy guarantees.
+
+\bibliographystyle{unsrtnat}
+\bibliography{main2_refs}
+\section{Notation and Additional Definitions}
+
+\towrite{Use this appendix to reduce notation load in the main paper and make the proofs easier to read. Keep it concise but systematic. This section should gather the symbols that are currently spread across the problem setup, method, and theory.}
+
+\subsection{Global Symbol Table}
+
+\towrite{Provide a compact table for the main symbols: tree objects $(\mathcal{T}, r, \mathcal{L}, C_i, L(i))$; path and probability symbols $(\ell_t, \Pi_t(\cdot), p_t(j \mid i))$; loss and comparator symbols $(c_t(\ell), Y_\eta[i,T], Y_\ast[i,T], C_i^\ast, d_i)$; and algorithm-state symbols $(\theta_\ell, W[u], \Delta_t)$.}
+
+\subsection{Barrier and Sharing Definitions}
+
+\towrite{Collect the paper-specific definitions in one place: shared leaf, unshared leaf, gate, barrier, upload-reachable edge, safe node, risky node, risky height, risky skeleton depth $R$, and safe suffix. This should be the canonical reference for the appendix proofs.}
+
+\section{Complete Algorithms and Pseudocode}
+
+\towrite{This appendix should contain the full algorithmic descriptions that are too bulky for the main paper. Keep the main text focused on the conceptual modules, and use this appendix for exact procedural definitions.}
+
+\subsection{Full-Share Algorithm}
+
+\towrite{Provide the complete recursive aggregation pseudocode for the full-share endpoint, including the leaf update, aggregate update, and the invariant maintained by internal nodes.}
+
+\subsection{Risky-PS and Intermediate Variants}
+
+\towrite{Include pseudocode for the risky or truncated partial-share variant if you want to show how the endpoint and intermediate algorithms differ. This is the right place to expose the relationship among the variants without cluttering the main text.}
+
+\subsection{BarrierShare Algorithm}
+
+\towrite{Provide the full BarrierShare pseudocode: path selection, local bandit updates on risky prefixes, shared delta propagation, and barrier stopping. This should be the appendix version that a reader can directly implement.}
+
+\subsection{Implementation Notes}
+
+\towrite{Add short implementation notes for choices that matter in code but are too detailed for the main text, such as initialization, probability floors, shared-upload bookkeeping, or how the theorem-facing notation maps to actual state variables.}
+
+\section{Full Theoretical Proofs}
+
+\towrite{This is one of the core appendices. The main paper should keep only theorem statements, key lemmas, and proof intuition; this appendix should contain the complete derivations.}
+
+\subsection{Problem-Dependent Definitions}
+
+\towrite{Restate the definitions needed by the proofs, including safe subtrees, risky nodes, risky height, risky skeleton depth $R$, and barrier-free fully shared suffixes. This subsection should make the later proofs self-contained.}
+
+\subsection{Safe-Subtree Equivalence Proof}
+
+\towrite{Give the full proof that recursive aggregation on a fully safe subtree is equivalent to leaf-level exponential weights or an Exp3-style forecaster over the subtree leaves. The telescoping probability argument belongs here in full detail.}
+
+\subsection{Local Risky-Node Regret Bound}
+
+\towrite{Provide the complete risky single-layer regret derivation, including the branch-conditioned bandit update and any truncated or barrier-specific adjustments. If the main text only presents the final bound, all intermediate steps should be placed here.}
+
+\subsection{Root Regret Proof}
+
+\towrite{Provide the complete proof of the main theorem. This subsection should show how the recursive excess term $\Delta(i)$ is constructed, how the $R$-adjusted quantity enters the bound, and how the proof recovers the all-share and all-unshare endpoints.}
+
+\subsection{Structural Corollaries}
+
+\towrite{Expand the theorem into the corollaries used by the experiments: long safe suffix, depth effect, and the behavior when $R<L$. If you have additional structural discussion about coefficients or branch factors, place it here.}
+
+\subsection{Optional Lower-Bound or Endpoint Discussion}
+
+\towrite{If you decide to include lower-bound comparisons, naive-fix failures, or a more technical discussion of how BarrierShare relates to Hou-style worst-case behavior, put that material here instead of in the main text.}
+
+\section{Experimental Setup}
+
+\towrite{This appendix should make the experiments reproducible. Because your paper mixes LLM-backed workflow experiments and simulation, the setup appendix needs clear subsections rather than one long block of text.}
+
+\subsection{Common Setup}
+
+\towrite{Describe shared configuration choices: seeds, horizon or number of rounds, averaging procedure, regret aggregation, mean and standard deviation reporting, and any common evaluation conventions used across both experiment families.}
+
+\subsection{Fixed-Stage LLM Experiment Setup}
+
+\towrite{Specify how the fixed-stage workflow is instantiated: the stages, candidate agents or policies, terminal cost components, workflow-specific barrier semantics, and how token, cost, and latency statistics are collected. This is where you can document executor details without overloading the main paper.}
+
+\subsection{Simulation Setup}
+
+\towrite{Describe tree-generation rules, branching factors, depth, share-ratio construction, long-safe-suffix construction, specialist-mass construction, and noise injection. This subsection should make the simulation regime fully unambiguous.}
+
+\subsection{Baselines}
+
+\towrite{Describe BarrierShare, EXP3, epsilon-EXP3, Random, Naive, and any endpoint configurations such as full-share or full-unshare. This is the right place for implementation-level baseline details that do not belong in the main text.}
+
+\section{Additional Simulation Results}
+
+\towrite{Use this appendix for complete simulation reporting. The main paper should keep only the most decision-relevant tables and figures; this appendix should contain the full numerical picture.}
+
+\subsection{Full Simulation Tables}
+
+\towrite{Provide the full simulation result tables for all methods, share ratios, seeds, and summary statistics. This subsection should include the complete version of the main simulation table from the paper.}
+
+\subsection{Long Safe Suffix Results}
+
+\towrite{Provide the detailed results for varying risky depth $R$ under fixed total depth $L$, including full tables, curves, or error bars if available. This subsection should make the theorem-to-experiment connection explicit.}
+
+\subsection{Depth Scaling Results}
+
+\towrite{Provide the complete results for depth sweeps, such as $L=5,15,25$, including all methods and all share ratios that are too bulky for the main paper.}
+
+\subsection{Specialist-Mass and Noise Results}
+
+\towrite{If these experiments are run, place them here as mechanism and robustness supplements. They are useful, but they usually do not need to compete for space in the main paper.}
+
+\subsection{Variance and Error Bars}
+
+\towrite{Provide per-seed summaries, confidence intervals, or additional variance plots if they help establish stability. This is especially useful when the simulation evidence is part of the main theorem support.}
+
+\section{Additional LLM Results}
+
+\towrite{Use this appendix for all workflow-backed experimental material that is too detailed for the main paper. The main text should show the headline LLM table and the core ablations; this appendix should carry the rest.}
+
+\subsection{Full Main-Result Tables}
+
+\towrite{Provide the complete version of the main LLM result table, including all methods, share ratios, and metrics that may have been compressed in the main paper.}
+
+\subsection{Interaction Mechanism Ablations}
+
+\towrite{Provide the full ablation tables for algorithm-direct, theta-guided-agent, and agent-only settings, together with any additional breakdowns that do not fit in the main text.}
+
+\subsection{Candidate-Set Scaling Results}
+
+\towrite{Provide the full candidate-scaling tables for 5, 15, and 25 candidates per stage, including all methods and any variance statistics.}
+
+\subsection{Efficiency Analysis}
+
+\towrite{This subsection should contain the full efficiency-oriented reporting: input tokens, output tokens, total tokens, estimated LLM cost, average latency, p95 latency, tokens per success, and cost per success.}
+
+\subsection{Optional Case Studies}
+
+\towrite{If you include qualitative examples, use this subsection for success and failure cases showing why a barrier helped or failed to help. Keep the main paper quantitative and reserve narrative examples for here.}
+
+\section{Fixed-Stage Agent Workflow Instantiation Details}
+
+\towrite{The main paper should only include the minimal mapping needed to understand the experiments. This appendix should contain the full workflow instantiation details needed for careful reading or reproduction.}
+
+\subsection{Tree Schema and Stage Semantics}
+
+\towrite{Describe the fixed-stage schema in full detail: the meaning of each stage, what each node or candidate represents, and how leaves correspond to complete workflow or macro-policies.}
+
+\subsection{Terminal Cost and Barrier Semantics}
+
+\towrite{Document the full terminal-cost definition and explain how shared, unshared, and barrier-limited semantics are interpreted in the workflow environment. This is the right place to spell out workflow-specific nuances that would be too heavy for the main paper.}
+
+\subsection{Additional Environment Details}
+
+\towrite{Add any remaining fixed-tree environment details that a reviewer may want to inspect, such as task-family construction, stage-specific assumptions, or how workflow constraints are encoded.}
+
+\section{Limitations and Future Directions}
+
+\towrite{Keep a short but explicit appendix section on limitations. Even if the main paper no longer has a standalone discussion section, the appendix should still document the paper's scope and boundaries.}
+
+\subsection{Current Limitations}
+
+\towrite{State the main limitations clearly: BarrierShare is designed for fixed-stage or fixed-for-the-experiment hierarchical workflows; the barrier is a structural feedback model rather than a formal privacy guarantee; and the comparator is a best fixed path rather than a dynamic comparator.}
+
+\subsection{Future Directions}
+
+\towrite{Outline the most natural extensions: dynamic trees, planner-tree co-design, learned barriers, richer feedback models, or extending beyond fixed-stage workflows toward more open-ended planning systems.}
+
+\end{document}

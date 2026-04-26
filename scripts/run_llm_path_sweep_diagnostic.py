@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import csv
 import json
 import os
@@ -46,6 +47,15 @@ DEFAULT_BUCKET_FILE = (
 )
 
 
+def attribute_weakening_level() -> int:
+    raw = str(os.environ.get("PSAGENT_ATTRIBUTE_WEAKENING_LEVEL", "0")).strip()
+    try:
+        level = int(raw)
+    except ValueError:
+        return 0
+    return min(max(level, 0), 4)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run a small fixed-path llm_bench diagnostic sweep over representative paths."
@@ -60,6 +70,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model")
     parser.add_argument("--max-paths-per-task", type=int, default=5)
     parser.add_argument("--bucket-file", type=Path, default=DEFAULT_BUCKET_FILE)
+    parser.add_argument(
+        "--parallelism",
+        type=int,
+        default=max(1, int(os.environ.get("PSAGENT_LLM_DIAG_PARALLELISM", "1") or 1)),
+    )
     return parser.parse_args()
 
 
@@ -135,30 +150,66 @@ def select_demo_task_ids(membership: dict[str, list[str]]) -> list[str]:
 def build_stage_requirements(
     row: dict[str, Any],
     adapter: TelecomMMSTaskAdapter,
-) -> dict[str, dict[str, float]]:
+) -> dict[str, Any]:
     descriptor = adapter.build_task_descriptor(row)
-    stage_requirements = descriptor.stage_capability_requirements or {
+    deliberation_requirements = descriptor.stage_deliberation_requirements or {
+        stage_name: ("deep" if float(descriptor.stage_difficulty.get(stage_name, 0.0)) >= 0.42 else "fast")
+        for stage_name in STAGES
+    }
+    capability_requirements = descriptor.stage_capability_requirements or {
         stage_name: dict(descriptor.attribute_weights)
         for stage_name in STAGES
     }
     return {
-        stage_name: {
-            capability_name: float(stage_requirements.get(stage_name, {}).get(capability_name, 0.0))
-            for capability_name in CAPABILITY_NAMES
-        }
-        for stage_name in STAGES
+        "deliberation": {
+            stage_name: (
+                "deep"
+                if str(deliberation_requirements.get(stage_name, "fast")).strip().lower() == "deep"
+                else "fast"
+            )
+            for stage_name in STAGES
+        },
+        "capability": {
+            stage_name: {
+                capability_name: float(
+                    capability_requirements.get(stage_name, {}).get(capability_name, 0.0)
+                )
+                for capability_name in CAPABILITY_NAMES
+            }
+            for stage_name in STAGES
+        },
     }
 
 
-def stage_match(requirement: dict[str, float], skill: dict[str, float]) -> float:
-    denom = sum(float(requirement.get(capability_name, 0.0)) for capability_name in CAPABILITY_NAMES)
+def stage_match(
+    *,
+    requirement_bundle: dict[str, Any],
+    agent: Any,
+    weakening_level: int,
+    stage_name: str,
+) -> float:
+    reasoning_requirement = str(
+        requirement_bundle["deliberation"].get(stage_name, "fast")
+    ).strip().lower()
+    reasoning_mode = str(getattr(agent, "deliberation_mode", "deep")).strip().lower()
+    reasoning_score = 1.0 if reasoning_requirement == reasoning_mode else 0.0
+
+    capability_requirement = dict(requirement_bundle["capability"].get(stage_name, {}))
+    denom = sum(float(capability_requirement.get(capability_name, 0.0)) for capability_name in CAPABILITY_NAMES)
     if denom <= 0.0:
-        return 0.0
-    numer = sum(
-        float(requirement.get(capability_name, 0.0)) * float(skill.get(capability_name, 0.0))
-        for capability_name in CAPABILITY_NAMES
-    )
-    return numer / denom
+        capability_score = 0.0
+    else:
+        capability_score = sum(
+            float(capability_requirement.get(capability_name, 0.0))
+            * float(getattr(agent, "attribute_skill", {}).get(capability_name, 0.0))
+            for capability_name in CAPABILITY_NAMES
+        ) / denom
+
+    if weakening_level <= 0:
+        return reasoning_score
+    if weakening_level >= 4:
+        return (0.25 * capability_score) + (0.75 * reasoning_score)
+    return capability_score
 
 
 def path_base_alias(agent_id: str) -> str:
@@ -225,12 +276,18 @@ def build_offline_path_record(
     *,
     task_id: str,
     path: tuple[str, ...],
-    stage_requirements: dict[str, dict[str, float]],
+    stage_requirements: dict[str, Any],
     agent_map: dict[str, Any],
+    weakening_level: int,
 ) -> dict[str, Any]:
     family_agents = [agent_map[agent_id] for agent_id in path]
     stage_scores = {
-        stage_name: stage_match(stage_requirements[stage_name], agent.attribute_skill)
+        stage_name: stage_match(
+            requirement_bundle=stage_requirements,
+            agent=agent,
+            weakening_level=weakening_level,
+            stage_name=stage_name,
+        )
         for stage_name, agent in zip(STAGES, family_agents)
     }
     base_aliases = [path_base_alias(agent_id) for agent_id in path]
@@ -430,11 +487,110 @@ def build_task_summary(task_id: str, rows: list[dict[str, Any]]) -> dict[str, An
     }
 
 
+def run_selected_path_job(job: dict[str, Any]) -> dict[str, Any]:
+    env = FixedTreeEnvironment(
+        agent_catalog=[],
+        family_kind=job["family_kind"],
+        family_seed=int(job["seed"]),
+        executor_name="llm_bench",
+    )
+    if job.get("model") and getattr(env.family_executor, "model", None) is not None:
+        env.family_executor.model = job["model"]
+
+    row = job["row"]
+    path_row = job["path_row"]
+    env.reset(row)
+    result = env.run_path(list(path_row["path_agent_ids"]))
+    episode_log = result.episode_log or {}
+    stage_trace = {
+        str(stage_row["stage_name"]): stage_row
+        for stage_row in episode_log.get("stage_trace", [])
+    }
+    stage5_output = (
+        result.stage_outputs.get("stage5", {}).get("output", {})
+        if isinstance(result.stage_outputs.get("stage5"), dict)
+        else {}
+    )
+    stage3_output = (
+        result.stage_outputs.get("stage3", {}).get("output", {})
+        if isinstance(result.stage_outputs.get("stage3"), dict)
+        else {}
+    )
+    stage4_output = (
+        result.stage_outputs.get("stage4", {}).get("output", {})
+        if isinstance(result.stage_outputs.get("stage4"), dict)
+        else {}
+    )
+    stage5_stage_trace = stage_trace.get("stage5", {})
+    stage4_per_blocker = []
+    for blocker_row in stage4_output.get("per_blocker", []) if isinstance(stage4_output, dict) else []:
+        if not isinstance(blocker_row, dict):
+            continue
+        stage4_per_blocker.append(
+            {
+                "blocker_id": blocker_row.get("blocker_id"),
+                "should_repair": blocker_row.get("should_repair"),
+                "repairability": blocker_row.get("repairability"),
+                "evidence": json_ready(blocker_row.get("evidence")),
+                "repair_order": blocker_row.get("repair_order"),
+                "execution_attempted": blocker_row.get("execution_attempted"),
+                "execution_succeeded": blocker_row.get("execution_succeeded"),
+                "executed_step_count": blocker_row.get("executed_step_count"),
+            }
+        )
+    tool_call_count = sum(
+        len(stage_row.get("executed_tool_calls", []) or [])
+        for stage_row in stage_trace.values()
+    )
+    record = {
+        "task_id": job["task_id"],
+        "instance_id": str(row.get("instance_id")),
+        "bucket_label": job["bucket_label"],
+        "path_rank_offline": int(path_row["rank"]),
+        "path_class": str(path_row["path_class"]),
+        "path_lane_sequence": list(path_row["path_lane_sequence"]),
+        "path_agent_ids": list(path_row["path_agent_ids"]),
+        "path_route_summary": str(path_row["path_route_summary"]),
+        "offline_path_match": float(path_row["path_match"]),
+        "raw_terminal_penalty": float(result.raw_terminal_penalty),
+        "raw_path_cost_component": float(result.raw_path_cost_component),
+        "raw_reasoning_cost_component": float(result.raw_reasoning_cost_component),
+        "raw_total_cost": float(result.raw_total_cost),
+        "prompt_tokens_total": float(result.prompt_tokens_total),
+        "completion_tokens_total": float(result.completion_tokens_total),
+        "total_tokens_total": float(result.total_tokens_total),
+        "api_cost_total_usd_raw": float(result.api_cost_total_usd_raw),
+        "tool_call_count": int(tool_call_count),
+        "final_action": result.final_action,
+        "oracle_action": result.oracle_action,
+        "selected_blocker_ids": list(stage5_output.get("selected_blocker_ids", [])),
+        "deferred_blocker_ids": list(stage5_output.get("deferred_blocker_ids", [])),
+        "stage3_output": json_ready(stage3_output),
+        "stage4_output": json_ready(stage4_output),
+        "stage5_output": json_ready(stage5_output),
+        "stage4_repairability": stage4_output.get("repairability"),
+        "stage4_transfer_reason": stage4_output.get("transfer_reason"),
+        "stage4_per_blocker": stage4_per_blocker,
+        "stage4_should_repair_true_count": sum(
+            1 for blocker_row in stage4_per_blocker if blocker_row.get("should_repair") is True
+        ),
+        "stage5_raw_action_hint": stage5_stage_trace.get("raw_output", {}).get("final_action")
+        if isinstance(stage5_stage_trace.get("raw_output"), dict)
+        else None,
+        "stage5_llm_raw_output": json_ready(stage5_stage_trace.get("llm_raw_output", [])),
+        "exact_match": bool(result.success),
+        "stage_resource_summary": flatten_stage_resource_summary(stage_trace),
+        "first_private_barrier_stage": episode_log.get("first_private_barrier_stage"),
+    }
+    return {"job_index": int(job["job_index"]), "record": record}
+
+
 def main() -> None:
     args = parse_args()
     rows = load_rows(args.data.resolve())
     indexed_rows = index_rows_by_task_id(rows)
     bucket_membership = load_bucket_membership(args.bucket_file.resolve())
+    weakening_level = attribute_weakening_level()
 
     task_ids = list(args.task_ids or [])
     if not task_ids:
@@ -456,22 +612,16 @@ def main() -> None:
         allowed_children=family_spec.allowed_children,
     )
     adapter = TelecomMMSTaskAdapter()
-    env = FixedTreeEnvironment(
-        agent_catalog=[],
-        family_kind=args.family_kind,
-        family_seed=args.seed,
-        executor_name="llm_bench",
-    )
-    if args.model and getattr(env.family_executor, "model", None) is not None:
-        env.family_executor.model = args.model
-
     records: list[dict[str, Any]] = []
     task_path_selection: dict[str, list[dict[str, Any]]] = {}
     task_summaries: list[dict[str, Any]] = []
+    jobs: list[dict[str, Any]] = []
+    job_index = 0
 
     for task_id in task_ids:
         row = indexed_rows[task_id]
-        print(f"[task] {task_id} bucket={bucket_label_for_task(task_id, bucket_membership)}", flush=True)
+        bucket_label = bucket_label_for_task(task_id, bucket_membership)
+        print(f"[task] {task_id} bucket={bucket_label}", flush=True)
         stage_requirements = build_stage_requirements(row, adapter)
         offline_rankings = sort_offline_records(
             [
@@ -480,6 +630,7 @@ def main() -> None:
                     path=path,
                     stage_requirements=stage_requirements,
                     agent_map=agent_map,
+                    weakening_level=weakening_level,
                 )
                 for path in all_paths
             ]
@@ -511,90 +662,29 @@ def main() -> None:
                 f"path_match={path_row['path_match']}",
                 flush=True,
             )
-            env.reset(row)
-            result = env.run_path(list(path_row["path_agent_ids"]))
-            episode_log = result.episode_log or {}
-            stage_trace = {
-                str(stage_row["stage_name"]): stage_row
-                for stage_row in episode_log.get("stage_trace", [])
-            }
-            stage5_output = (
-                result.stage_outputs.get("stage5", {}).get("output", {})
-                if isinstance(result.stage_outputs.get("stage5"), dict)
-                else {}
+            jobs.append(
+                {
+                    "job_index": job_index,
+                    "task_id": task_id,
+                    "bucket_label": bucket_label,
+                    "row": row,
+                    "path_row": path_row,
+                    "family_kind": args.family_kind,
+                    "seed": args.seed,
+                    "model": args.model or os.environ.get("PSAGENT_LLM_BENCH_MODEL"),
+                }
             )
-            stage3_output = (
-                result.stage_outputs.get("stage3", {}).get("output", {})
-                if isinstance(result.stage_outputs.get("stage3"), dict)
-                else {}
-            )
-            stage4_output = (
-                result.stage_outputs.get("stage4", {}).get("output", {})
-                if isinstance(result.stage_outputs.get("stage4"), dict)
-                else {}
-            )
-            stage5_stage_trace = stage_trace.get("stage5", {})
-            stage4_per_blocker = []
-            for blocker_row in stage4_output.get("per_blocker", []) if isinstance(stage4_output, dict) else []:
-                if not isinstance(blocker_row, dict):
-                    continue
-                stage4_per_blocker.append(
-                    {
-                        "blocker_id": blocker_row.get("blocker_id"),
-                        "should_repair": blocker_row.get("should_repair"),
-                        "repairability": blocker_row.get("repairability"),
-                        "evidence": json_ready(blocker_row.get("evidence")),
-                        "repair_order": blocker_row.get("repair_order"),
-                        "execution_attempted": blocker_row.get("execution_attempted"),
-                        "execution_succeeded": blocker_row.get("execution_succeeded"),
-                        "executed_step_count": blocker_row.get("executed_step_count"),
-                    }
-                )
-            tool_call_count = sum(
-                len(stage_row.get("executed_tool_calls", []) or [])
-                for stage_row in stage_trace.values()
-            )
-            record = {
-                "task_id": task_id,
-                "instance_id": str(row.get("instance_id")),
-                "bucket_label": bucket_label_for_task(task_id, bucket_membership),
-                "path_rank_offline": int(path_row["rank"]),
-                "path_class": str(path_row["path_class"]),
-                "path_lane_sequence": list(path_row["path_lane_sequence"]),
-                "path_agent_ids": list(path_row["path_agent_ids"]),
-                "path_route_summary": str(path_row["path_route_summary"]),
-                "offline_path_match": float(path_row["path_match"]),
-                "raw_terminal_penalty": float(result.raw_terminal_penalty),
-                "raw_path_cost_component": float(result.raw_path_cost_component),
-                "raw_reasoning_cost_component": float(result.raw_reasoning_cost_component),
-                "raw_total_cost": float(result.raw_total_cost),
-                "prompt_tokens_total": float(result.prompt_tokens_total),
-                "completion_tokens_total": float(result.completion_tokens_total),
-                "total_tokens_total": float(result.total_tokens_total),
-                "api_cost_total_usd_raw": float(result.api_cost_total_usd_raw),
-                "tool_call_count": int(tool_call_count),
-                "final_action": result.final_action,
-                "oracle_action": result.oracle_action,
-                "selected_blocker_ids": list(stage5_output.get("selected_blocker_ids", [])),
-                "deferred_blocker_ids": list(stage5_output.get("deferred_blocker_ids", [])),
-                "stage3_output": json_ready(stage3_output),
-                "stage4_output": json_ready(stage4_output),
-                "stage5_output": json_ready(stage5_output),
-                "stage4_repairability": stage4_output.get("repairability"),
-                "stage4_transfer_reason": stage4_output.get("transfer_reason"),
-                "stage4_per_blocker": stage4_per_blocker,
-                "stage4_should_repair_true_count": sum(
-                    1 for blocker_row in stage4_per_blocker if blocker_row.get("should_repair") is True
-                ),
-                "stage5_raw_action_hint": stage5_stage_trace.get("raw_output", {}).get("final_action")
-                if isinstance(stage5_stage_trace.get("raw_output"), dict)
-                else None,
-                "stage5_llm_raw_output": json_ready(stage5_stage_trace.get("llm_raw_output", [])),
-                "exact_match": bool(result.success),
-                "stage_resource_summary": flatten_stage_resource_summary(stage_trace),
-                "first_private_barrier_stage": episode_log.get("first_private_barrier_stage"),
-            }
-            records.append(record)
+            job_index += 1
+
+    if args.parallelism <= 1:
+        records = [run_selected_path_job(job)["record"] for job in jobs]
+    else:
+        completed: list[dict[str, Any]] = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.parallelism) as executor:
+            for result in executor.map(run_selected_path_job, jobs):
+                completed.append(result)
+        completed.sort(key=lambda row: int(row["job_index"]))
+        records = [row["record"] for row in completed]
 
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in records:
@@ -682,6 +772,8 @@ def main() -> None:
             "family_kind": args.family_kind,
             "seed": args.seed,
             "model": args.model or os.environ.get("PSAGENT_LLM_BENCH_MODEL"),
+            "attribute_weakening_level": weakening_level,
+            "parallelism": args.parallelism,
             "bucket_file": str(args.bucket_file.resolve()),
             "path_mode": args.path_mode,
             "top_k_offline": args.top_k_offline,

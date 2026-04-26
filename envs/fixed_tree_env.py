@@ -44,6 +44,9 @@ LLM_BENCH_REASONING_ALPHA_API = 100.0
 LLM_BENCH_REASONING_ALPHA_IN = 0.0001
 LLM_BENCH_REASONING_ALPHA_OUT = 0.0004
 LLM_BENCH_REASONING_DEFAULT_MODE = "token"
+LLM_BENCH_REASONING_MATCH_DISCOUNT = 0.85
+LLM_BENCH_REASONING_MISMATCH_PENALTY_DEEP_REQUIRED = 1.35
+LLM_BENCH_REASONING_MISMATCH_PENALTY_FAST_REQUIRED = 1.15
 TELECOM_MMS_REASONING_INPUT_TOKEN_BUDGET_V2 = 20_000.0
 TELECOM_MMS_REASONING_OUTPUT_TOKEN_BUDGET_V2 = 7_500.0
 TELECOM_MMS_REASONING_API_COST_BUDGET_USD_V2 = 0.05
@@ -1293,15 +1296,80 @@ class FixedTreeEnvironment:
 
         if self.executor_name == "llm_bench":
             resource_metrics = self._aggregate_stage_resource_metrics(stage_trace or [])
-            reasoning_components = compute_llm_bench_reasoning_components(
-                prompt_tokens_total=resource_metrics["prompt_tokens_total"],
-                completion_tokens_total=resource_metrics["completion_tokens_total"],
-                api_cost_total_usd_raw=resource_metrics["api_cost_total_usd_raw"],
+            stage_trace_map = {
+                str(row["stage_name"]): row for row in (stage_trace or []) if "stage_name" in row
+            }
+            reasoning_trace: list[JsonDict] = []
+            raw_reasoning_cost_component_api = 0.0
+            raw_reasoning_cost_component_token = 0.0
+
+            for stage_name, agent_id in zip(self._family_stages, path):
+                snapshot = self._stage_resource_snapshot(stage_trace_map.get(stage_name, {}))
+                agent = self.family_agent_map[agent_id]
+                requirement = self._stage_deliberation_requirement(
+                    self.current_task_descriptor,
+                    stage_name,
+                )
+                realized_mode = getattr(agent, "deliberation_mode", "deep")
+                multiplier = self._reasoning_match_multiplier(
+                    requirement=requirement,
+                    actual_mode=realized_mode,
+                )
+                stage_reasoning_components = compute_llm_bench_reasoning_components(
+                    prompt_tokens_total=snapshot["prompt_tokens_total_stage"],
+                    completion_tokens_total=snapshot["completion_tokens_total_stage"],
+                    api_cost_total_usd_raw=snapshot["api_cost_total_usd_stage"],
+                )
+                base_stage_api = float(
+                    stage_reasoning_components.get("raw_reasoning_cost_component_api", 0.0) or 0.0
+                )
+                base_stage_token = float(
+                    stage_reasoning_components.get("raw_reasoning_cost_component_token", 0.0) or 0.0
+                )
+                weighted_stage_api = round(base_stage_api * multiplier, 6)
+                weighted_stage_token = round(base_stage_token * multiplier, 6)
+                raw_reasoning_cost_component_api += weighted_stage_api
+                raw_reasoning_cost_component_token += weighted_stage_token
+                reasoning_trace.append(
+                    {
+                        "stage_name": stage_name,
+                        "agent_id": agent_id,
+                        "deliberation_requirement": self._normalize_deliberation_mode(
+                            requirement
+                        ),
+                        "deliberation_mode": self._normalize_deliberation_mode(realized_mode),
+                        "reasoning_match_multiplier": multiplier,
+                        "base_reasoning_cost_api": round(base_stage_api, 6),
+                        "base_reasoning_cost_token": round(base_stage_token, 6),
+                        "weighted_reasoning_cost_api": weighted_stage_api,
+                        "weighted_reasoning_cost_token": weighted_stage_token,
+                        **snapshot,
+                    }
+                )
+
+            reasoning_default_mode = LLM_BENCH_REASONING_DEFAULT_MODE
+            raw_reasoning_cost_component = (
+                raw_reasoning_cost_component_api
+                if reasoning_default_mode == "api"
+                else raw_reasoning_cost_component_token
             )
+            reasoning_components = {
+                "alpha_api": LLM_BENCH_REASONING_ALPHA_API,
+                "alpha_in": LLM_BENCH_REASONING_ALPHA_IN,
+                "alpha_out": LLM_BENCH_REASONING_ALPHA_OUT,
+                "reasoning_cost_mode_default": reasoning_default_mode,
+                "raw_reasoning_cost_component": round(raw_reasoning_cost_component, 6),
+                "raw_reasoning_cost_component_api": round(
+                    raw_reasoning_cost_component_api, 6
+                ),
+                "raw_reasoning_cost_component_token": round(
+                    raw_reasoning_cost_component_token, 6
+                ),
+            }
             return {
                 **resource_metrics,
                 **reasoning_components,
-                "trace": deepcopy(resource_metrics["reasoning_trace"]),
+                "trace": reasoning_trace,
             }
 
         if self.executor_name != "simulated":
@@ -1432,6 +1500,23 @@ class FixedTreeEnvironment:
             return str(stage_requirements[stage_name])
         difficulty = getattr(task, "stage_difficulty", {}).get(stage_name, 0.0)
         return "deep" if difficulty >= 0.42 else "fast"
+
+    def _normalize_deliberation_mode(self, value: Any) -> str:
+        return "deep" if str(value).strip().lower() == "deep" else "fast"
+
+    def _reasoning_match_multiplier(
+        self,
+        *,
+        requirement: Any,
+        actual_mode: Any,
+    ) -> float:
+        required_mode = self._normalize_deliberation_mode(requirement)
+        realized_mode = self._normalize_deliberation_mode(actual_mode)
+        if required_mode == realized_mode:
+            return LLM_BENCH_REASONING_MATCH_DISCOUNT
+        if required_mode == "deep":
+            return LLM_BENCH_REASONING_MISMATCH_PENALTY_DEEP_REQUIRED
+        return LLM_BENCH_REASONING_MISMATCH_PENALTY_FAST_REQUIRED
 
     def _apply_family_behavior_to_execution(
         self,
