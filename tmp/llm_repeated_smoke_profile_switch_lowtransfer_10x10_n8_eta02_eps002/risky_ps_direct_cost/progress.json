@@ -1,0 +1,9 @@
+{
+  "method": "risky_ps_direct_cost",
+  "scheduled_episodes": 100,
+  "completed_episodes": 92,
+  "last_completed_episode_index": 91,
+  "status": "running",
+  "model": "gpt-4o-mini",
+  "updated_at": "2026-04-26T23:01:50.344905"
+}

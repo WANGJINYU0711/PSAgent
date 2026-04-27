@@ -1,0 +1,9 @@
+{
+  "method": "direct_multistage_exp3",
+  "scheduled_episodes": 100,
+  "completed_episodes": 91,
+  "last_completed_episode_index": 90,
+  "status": "running",
+  "model": "gpt-4o-mini",
+  "updated_at": "2026-04-26T23:01:21.007621"
+}

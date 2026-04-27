@@ -1,0 +1,104 @@
+{
+  "created_at": "2026-04-26T19:53:52.871830",
+  "dataset": "data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_nontransfer_smoke/tasks.json",
+  "dataset_indices": [
+    0,
+    7,
+    9,
+    11,
+    13,
+    16,
+    17,
+    18,
+    19,
+    23,
+    24,
+    25,
+    35,
+    36,
+    40,
+    45,
+    46,
+    51,
+    61,
+    65
+  ],
+  "repeats": 10,
+  "horizon": 100,
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch",
+  "executor_name": "llm_bench",
+  "schedule_mode": "trap_switch",
+  "switch_denominator": 8,
+  "schedule_buckets": "analysis/shared_basin_prefix_dedup_profile_switch_nontransfer_smoke_schedule_buckets.json",
+  "schedule_metadata": {
+    "cycle_length": 10,
+    "total_episodes": 100,
+    "switch_episode": 12,
+    "trap_bucket_size": 10,
+    "target_bucket_size": 10,
+    "specialist_task_count": 9
+  },
+  "model": "gpt-4o-mini",
+  "seed": 0,
+  "methods": [
+    "naive_mixed_avg",
+    "naive_mixed",
+    "random_path",
+    "direct_multistage_exp3",
+    "direct_multistage_exp3_local",
+    "epsilon_exp3",
+    "risky_ps_old",
+    "risky_ps",
+    "risky_ps_ix",
+    "risky_ps_safe_conditional",
+    "risky_ps_safe_conditional_ix",
+    "risky_ps_linear",
+    "risky_ps_direct_cost"
+  ],
+  "policy_kwargs_by_method": {
+    "naive_mixed_avg": {},
+    "naive_mixed": {},
+    "random_path": {},
+    "direct_multistage_exp3": {
+      "eta": 0.2
+    },
+    "direct_multistage_exp3_local": {
+      "eta": 0.2
+    },
+    "epsilon_exp3": {
+      "eta": 0.2,
+      "epsilon": 0.02
+    },
+    "risky_ps_old": {
+      "eta": 0.2,
+      "epsilon": 0.02
+    },
+    "risky_ps": {
+      "eta": 0.2,
+      "epsilon": 0.02
+    },
+    "risky_ps_ix": {
+      "eta": 0.2,
+      "epsilon": 0.02
+    },
+    "risky_ps_safe_conditional": {
+      "eta": 0.2,
+      "epsilon": 0.02
+    },
+    "risky_ps_safe_conditional_ix": {
+      "eta": 0.2,
+      "epsilon": 0.02
+    },
+    "risky_ps_linear": {
+      "eta": 0.2,
+      "epsilon": 0.02
+    },
+    "risky_ps_direct_cost": {
+      "eta": 0.2,
+      "epsilon": 0.02
+    }
+  },
+  "common_eta_override": 0.2,
+  "common_epsilon_override": 0.02,
+  "parallelism": "method_only"
+}

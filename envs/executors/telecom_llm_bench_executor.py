@@ -66,6 +66,7 @@ MUTATING_REPAIR_TOOL_NAMES = {
 FAST_TOKEN_BUDGET_PER_STAGE = 1200
 FAST_TOKEN_PENALTY_BLOCK_SIZE = 200
 FAST_TOKEN_OVER_BUDGET_PENALTY_PER_BLOCK = 0.25
+AGENT_PROFILE_ONLY_EXPERIMENT_SETTING = "telecom_mms_agent_profile_only_clean_v1"
 
 
 class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
@@ -82,6 +83,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         self.llm_bridge_script = Path(__file__).with_name("_telecom_llm_bench_bridge.py")
         self.tau2_root = self.root / "tau2-bench"
         self.attribute_weakening_level = self._attribute_weakening_level_from_env()
+        self.experiment_setting = AGENT_PROFILE_ONLY_EXPERIMENT_SETTING
 
     def _attribute_weakening_level_from_env(self) -> int:
         raw = str(os.environ.get("PSAGENT_ATTRIBUTE_WEAKENING_LEVEL", "0")).strip()
@@ -92,7 +94,8 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         return min(max(level, 0), 4)
 
     def _attribute_guidance_enabled(self) -> bool:
-        return self.attribute_weakening_level > 0
+        # Clean profile-only runs keep stage/task capability hints out of the LLM prompt.
+        return False
 
     def _attribute_weak_skip_enabled(self) -> bool:
         return self._attribute_guidance_enabled() and self.attribute_weakening_level < 2
@@ -102,14 +105,22 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
 
     def _attribute_prompt_context_sentence(self) -> str:
         if not self._attribute_guidance_enabled():
-            return (
-                "You are given the agent deliberation mode and the current stage deliberation requirement.\n"
-            )
+            return "You are given only the selected agent's deliberation mode and execution profile.\n"
         return (
-            "You are given a soft capability-fit summary, current stage capability requirements, "
-            "the agent deliberation mode, and the current stage deliberation requirement.\n"
+            "You are given a soft capability-fit summary and the selected agent deliberation mode.\n"
             "Capability-fit cues are weak hints only. They must not override stage evidence, hard rules, or the execution contract.\n"
         )
+
+    def _llm_visible_task_metadata(self, raw_instance: dict[str, Any]) -> dict[str, Any]:
+        """Expose run provenance without leaking labels, oracle actions, or profile-switch keys."""
+
+        metadata = raw_instance.get("metadata", {}) or {}
+        return {
+            "experiment_setting": self.experiment_setting,
+            "domain": metadata.get("domain"),
+            "problem_family": metadata.get("problem_family"),
+            "metadata_visibility": "oracle_and_profile_switch_fields_redacted",
+        }
 
     def _attribute_prompt_fields(
         self,
@@ -437,7 +448,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "db_hash_after": result.get("db_hash_after"),
             "input": {
                 "user_context": deepcopy(raw_instance.get("user_context", {})),
-                "task_metadata": deepcopy(raw_instance.get("metadata", {})),
+                "task_metadata": deepcopy(self._llm_visible_task_metadata(raw_instance)),
                 "task_id": task.task_id,
             },
             "output": deepcopy(output),
@@ -457,7 +468,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         return {
             "input": {
                 "user_context": deepcopy(raw_instance.get("user_context", {})),
-                "task_metadata": deepcopy(raw_instance.get("metadata", {})),
+                "task_metadata": deepcopy(self._llm_visible_task_metadata(raw_instance)),
                 "task_id": task.task_id,
             },
             "output": output,
@@ -1027,17 +1038,9 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         task: TaskDescriptor | None = None,
         stage_name: str | None = None,
     ) -> int:
+        del task
         mode = getattr(agent, "deliberation_mode", "deep")
         rounds = self._base_round_budget(agent, stage_name)
-        if task is not None and stage_name is not None:
-            requirement = self._stage_deliberation_requirement(task, stage_name)
-            if requirement == "deep":
-                if mode == "deep":
-                    rounds += 1
-                else:
-                    rounds = min(3, rounds + 1)
-            elif requirement == "fast" and mode == "deep":
-                rounds -= 1
         return max(2, min(8, rounds))
 
     def _agent_behavior_guidance(self, agent: AgentSpec) -> str:
@@ -1057,7 +1060,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             else "Use the available round budget on the highest-risk facts only."
         )
         deliberation = (
-            "This agent is fast: prioritize the shortest valid evidence chain, avoid redundant calls, and do not add second-pass verification unless the stage requires deep reasoning."
+            "This agent is fast: prioritize the shortest valid evidence chain, avoid redundant calls, and do second-pass verification only when the current fact is decisive for the requested output."
             if getattr(agent, "deliberation_mode", "deep") == "fast"
             else "This agent is deep: spend budget on careful verification of high-risk facts and do not finalize stage3-stage5 outputs before decisive evidence is checked."
         )
@@ -1091,7 +1094,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         return {
             "mode": mode,
             "style_guidance": (
-                "Use the shortest valid evidence chain, avoid low-value extra tool calls, and only do second-pass verification when the stage explicitly requires it."
+                "Use the shortest valid evidence chain, avoid low-value extra tool calls, and do second-pass verification only when the current fact is decisive for the requested output."
                 if mode == "fast"
                 else "Use extra rounds on the highest-risk fields, cross-check decisive evidence, and do not rush stage3-stage5 decisions."
             ),
@@ -1183,12 +1186,11 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         stage_name: str,
         *,
         mode: str,
-        stage_requirement: str,
     ) -> list[str]:
         if mode == "fast":
             policy = [
                 "Use the shortest valid evidence chain that supports the required structured output.",
-                "Do not do secondary verification unless the stage explicitly requires deep reasoning or the current fact is decisive for the output.",
+                "Do not do secondary verification unless the current fact is decisive for the output.",
                 "Keep the search compact and avoid broad speculative branching.",
             ]
             if self._attribute_weak_skip_enabled():
@@ -1251,15 +1253,6 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 policy.append(
                     "Do not use transfer as a substitute for verification; reserve transfer for explicit external/manual handling or a stage4 transfer_required plan."
                 )
-
-        if stage_requirement == "deep" and mode == "fast":
-            policy.append(
-                "This is a deep-reasoning stage with a fast agent: narrow scope aggressively, but do not finalize a high-confidence blocker conclusion or terminal action until the decisive evidence is checked."
-            )
-        elif stage_requirement == "fast" and mode == "deep":
-            policy.append(
-                "This is a fast stage with a deep agent: once the minimum evidence floor is met, stop. Depth is not permission to broaden into low-yield verification."
-            )
         return policy
 
     def _capability_mismatch_policy(
@@ -1267,26 +1260,15 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         stage_name: str,
         *,
         mode: str,
-        stage_requirement: str,
     ) -> str:
         del stage_name
-        if stage_requirement == "deep" and mode == "fast":
-            return (
-                "Deep-required mismatch rule: this is a fast agent on a deep stage. Narrow the scope aggressively to the highest-yield evidence path, "
-                "but you may not finalize a high-confidence blocker conclusion, repair decision, or terminal action unless the decisive evidence for that decision has been checked. "
-                "If deep verification is required but cannot fit in budget, return a narrower repair_subset or defer ambiguous blockers instead of an under-verified confident action; transfer still requires explicit external/manual need."
-            )
-        if stage_requirement == "fast" and mode == "deep":
-            return (
-                "Fast-required mismatch rule: this is a deep agent on a fast stage. Use the shortest high-yield evidence chain first. "
-                "Once the minimum evidence floor is met, you must stop and may not use depth as a reason to broaden into extra low-yield verification."
-            )
+        del mode
         if self._attribute_weak_skip_enabled():
             return (
-                "Deliberation is aligned with the stage requirement. Capability-fit cues may weakly suggest where this route is relatively higher-fit or lower-fit, "
+                "Capability-fit cues may weakly suggest where this route is relatively higher-fit or lower-fit, "
                 "but they are not binding and do not justify skipping decisive evidence."
             )
-        return "Deliberation is aligned with the stage requirement. Stay within the stage goal, evidence floor, and round budget."
+        return "No stage-level fast/deep requirement is visible. Follow only the selected agent deliberation profile, stage goal, evidence floor, and round budget."
 
     def _stage3_blocker_decision_rules(self, *, mode: str) -> list[str]:
         rules = [
@@ -1374,7 +1356,6 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         agent: AgentSpec,
     ) -> dict[str, Any]:
         mode = getattr(agent, "deliberation_mode", "deep")
-        stage_requirement = self._stage_deliberation_requirement(task, stage_name)
         stop_policy = (
             "Close once the minimum verification floor is met and the structured output is supported."
             if mode == "fast"
@@ -1386,27 +1367,20 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             else "Prefer explicit tool evidence and cross-check the decisive evidence path before committing."
         )
         return {
-            "contract_version": "telecom_agent_execution_contract_reasoning_only_v1",
+            "contract_version": "telecom_agent_profile_only_execution_contract_v1",
             "deliberation_mode": mode,
-            "stage_deliberation_requirement": stage_requirement,
             "round_budget_hint": self._max_rounds(agent, task, stage_name),
             "round_budget_band": "2-3" if mode == "fast" else "5-8",
             "evidence_policy": evidence_policy,
             "stop_policy": stop_policy,
-            "capability_mismatch_policy": self._capability_mismatch_policy(
-                stage_name,
-                mode=mode,
-                stage_requirement=stage_requirement,
-            ),
+            "profile_policy": self._capability_mismatch_policy(stage_name, mode=mode),
             "search_policy": self._stage_execution_search_policy(
                 stage_name,
                 mode=mode,
-                stage_requirement=stage_requirement,
             ),
             "stage_specific_hard_constraints": self._stage_execution_hard_constraints(
                 stage_name,
                 mode=mode,
-                stage_requirement=stage_requirement,
             ),
             "attribute_guidance_mode": (
                 "disabled"
@@ -1427,20 +1401,11 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         stage_name: str,
         *,
         mode: str,
-        stage_requirement: str,
     ) -> list[str]:
         common_rules = [
             "Treat the execution contract as binding. If the contract conflicts with a broad search instinct, follow the contract.",
             "Do not spend rounds outside the stage goal and output contract.",
         ]
-        if stage_requirement == "deep" and mode == "fast":
-            common_rules.append(
-                "Fast-on-deep mismatch: you may narrow scope, but you may not skip decisive verification and still return a high-confidence blocker, repair, or terminal conclusion."
-            )
-        elif stage_requirement == "fast" and mode == "deep":
-            common_rules.append(
-                "Deep-on-fast mismatch: once the minimum evidence floor is met, you must stop instead of broadening into low-yield verification."
-            )
         if stage_name == "stage3":
             return common_rules + self._stage3_blocker_decision_rules(mode=mode)
         if stage_name == "stage4":
@@ -1473,9 +1438,9 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "The execution contract is binding. Treat it as an operating contract, not advisory guidance.",
                 "1. search_policy is binding: it defines how wide or narrow your search may be.",
                 "2. stop_policy is binding: it defines when you must stop and when you may not stop yet.",
-                "3. capability_mismatch_policy is binding: mismatch changes what you are allowed to finalize, not just how many rounds you get.",
+                "3. profile_policy is binding: only the selected agent's deliberation profile may change search depth.",
                 "4. stage_specific_hard_constraints are binding: do not override them with broad search instincts.",
-                "5. If the contract says the agent is fast, use the shortest valid evidence chain, avoid redundant verification, and do not do second-pass checking unless the stage requirement or decisive evidence forces it.",
+                "5. If the contract says the agent is fast, use the shortest valid evidence chain, avoid redundant verification, and do second-pass checking only when decisive evidence forces it.",
                 "6. If the contract says the agent is deep, spend extra rounds on the highest-risk evidence and do not finalize a high-risk output before decisive evidence is verified.",
                 "7. Stay within the round_budget_hint implied by the contract.",
                 f"8. {stage_specific_rules[stage_name]}",
@@ -1518,13 +1483,11 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 },
                 **self._attribute_prompt_fields(task, "stage2", agent),
                 "agent_deliberation_profile": self._build_agent_deliberation_profile(agent),
-                "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage2"),
-                "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage2", agent),
                 "agent_execution_contract": execution_contract,
                 "stage_goal": "Resolve the customer and telecom line only.",
                 "stage1_output": stage1_output,
                 "user_context": raw_instance.get("user_context", {}),
-                "task_metadata": raw_instance.get("metadata", {}),
+                "task_metadata": self._llm_visible_task_metadata(raw_instance),
             },
             ensure_ascii=False,
         )
@@ -1569,13 +1532,11 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 },
                 **self._attribute_prompt_fields(task, "stage1", agent),
                 "agent_deliberation_profile": self._build_agent_deliberation_profile(agent),
-                "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage1"),
-                "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage1", agent),
                 "agent_execution_contract": execution_contract,
                 "stage_goal": "Ground the user, phone number, and target telecom line at a minimal level only.",
                 "policy_mode": "grounding_only_minimal_lookup",
                 "user_context": raw_instance.get("user_context", {}),
-                "task_metadata": raw_instance.get("metadata", {}),
+                "task_metadata": self._llm_visible_task_metadata(raw_instance),
                 "output_contract": {
                     "top_level_keys": [
                         "domain",
@@ -1642,8 +1603,6 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 },
                 **self._attribute_prompt_fields(task, "stage3", agent),
                 "agent_deliberation_profile": self._build_agent_deliberation_profile(agent),
-                "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage3"),
-                "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage3", agent),
                 "agent_execution_contract": execution_contract,
                 "stage3_blocker_decision_rules": self._stage3_blocker_decision_rules(
                     mode=getattr(agent, "deliberation_mode", "deep")
@@ -1659,7 +1618,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "stage1_output": stage1_output,
                 "stage2_output": stage2_output,
                 "user_context": raw_instance.get("user_context", {}),
-                "task_metadata": raw_instance.get("metadata", {}),
+                "task_metadata": self._llm_visible_task_metadata(raw_instance),
             },
             ensure_ascii=False,
         )
@@ -1740,8 +1699,6 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 },
                 **self._attribute_prompt_fields(task, "stage4", agent),
                 "agent_deliberation_profile": self._build_agent_deliberation_profile(agent),
-                "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage4"),
-                "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage4", agent),
                 "agent_execution_contract": execution_contract,
                 "stage4_repair_precondition_rules": self._stage4_repair_precondition_rules(
                     mode=getattr(agent, "deliberation_mode", "deep")
@@ -1773,7 +1730,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 },
                 "blocker_specs": blocker_specs,
                 "repair_metadata": repair_metadata,
-                "task_metadata": raw_instance.get("metadata", {}),
+                "task_metadata": self._llm_visible_task_metadata(raw_instance),
                 "normalization_rules": [
                     "Return every blocker_id exactly once",
                     "Set should_repair to a boolean for every blocker row",
@@ -1841,8 +1798,6 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 },
                 **self._attribute_prompt_fields(task, "stage5", agent),
                 "agent_deliberation_profile": self._build_agent_deliberation_profile(agent),
-                "current_stage_deliberation_requirement": self._build_stage_deliberation_summary(task, "stage5"),
-                "deliberation_match_summary": self._build_deliberation_match_summary(task, "stage5", agent),
                 "agent_execution_contract": execution_contract,
                 "stage5_terminal_decision_rules": self._stage5_terminal_decision_rules(
                     mode=deliberation_mode
@@ -1857,7 +1812,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 },
                 "stage4_output": stage4_output,
                 "verification_checklist": self._stage5_verification_checklist(stage4_output),
-                "task_metadata": raw_instance.get("metadata", {}),
+                "task_metadata": self._llm_visible_task_metadata(raw_instance),
                 "output_contract": {
                     "top_level_keys": [
                         "final_action",
@@ -2166,31 +2121,11 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         raw_instance: dict[str, Any],
         stage3_output: dict[str, Any],
     ) -> bool:
-        metadata = raw_instance.get("metadata", {}) or {}
-        if str(getattr(agent, "deliberation_mode", "deep")).strip().lower() != "deep":
-            return False
-        stage_requirement = self._stage_deliberation_requirement(task, "stage4")
-        route_tokens = " ".join(
-            [
-                str(getattr(agent, "route_label", "")),
-                str(getattr(agent, "node_semantic", "")),
-            ]
-        ).lower()
-        target_like_stage4 = "target" in route_tokens and "trap" not in route_tokens
-        if stage_requirement != "deep" or not target_like_stage4:
-            return False
-        if str(metadata.get("expected_terminal_action", "")).strip().lower() == "transfer":
-            return False
-        if bool(metadata.get("contains_hybrid_action")):
-            return False
-        if bool(metadata.get("contains_assistant_side_action")):
-            return False
-        blocker_ids = [
-            row.get("blocker_id")
-            for row in stage3_output.get("per_blocker", [])
-            if isinstance(row, dict) and row.get("blocker_id")
-        ]
-        return not any(self._is_nonlocal_or_hybrid_transfer_blocker(bid) for bid in blocker_ids)
+        del task, agent, raw_instance, stage3_output
+        # Disabled for telecom_mms_agent_profile_only_clean_v1: completion used
+        # route/oracle-like metadata to add repairs after the LLM's raw Stage 4
+        # decision, which gives deep/target paths an execution-layer advantage.
+        return False
 
     def _local_repair_precondition_supported(
         self,

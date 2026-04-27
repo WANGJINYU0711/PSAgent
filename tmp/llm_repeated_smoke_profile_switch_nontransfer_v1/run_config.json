@@ -1,0 +1,58 @@
+{
+  "created_at": "2026-04-26T19:02:47.614637",
+  "dataset": "data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_nontransfer_smoke/tasks.json",
+  "dataset_indices": [
+    0,
+    7,
+    9,
+    11,
+    13,
+    16,
+    17,
+    18,
+    19,
+    23,
+    24,
+    25,
+    35,
+    36,
+    40,
+    45,
+    46,
+    51,
+    61,
+    65
+  ],
+  "repeats": 2,
+  "horizon": 20,
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch",
+  "executor_name": "llm_bench",
+  "schedule_mode": "trap_switch",
+  "switch_denominator": 2,
+  "schedule_buckets": "analysis/shared_basin_prefix_dedup_profile_switch_nontransfer_smoke_schedule_buckets.json",
+  "schedule_metadata": {
+    "cycle_length": 10,
+    "total_episodes": 20,
+    "switch_episode": 10,
+    "trap_bucket_size": 10,
+    "target_bucket_size": 10,
+    "specialist_task_count": 9
+  },
+  "model": "gpt-4o-mini",
+  "seed": 0,
+  "methods": [
+    "risky_ps",
+    "direct_multistage_exp3",
+    "naive_mixed_avg",
+    "random_path"
+  ],
+  "policy_kwargs_by_method": {
+    "risky_ps": {},
+    "direct_multistage_exp3": {},
+    "naive_mixed_avg": {},
+    "random_path": {}
+  },
+  "common_eta_override": null,
+  "common_epsilon_override": null,
+  "parallelism": "method_only"
+}
