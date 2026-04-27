@@ -69,6 +69,75 @@ SHALLOW_TRAP_BLOCKERS = {
 }
 PROFILE_SWITCH_VERSION = "profile_switch_v1"
 
+TRAP_PROFILE_DISPLAY_NAME = "fast_path_pre_switch"
+TARGET_PROFILE_DISPLAY_NAME = "deep_path_post_switch"
+SPECIALIST_PROFILE_DISPLAY_NAME = "verification_heavy_post_switch"
+
+TRAP_PROFILE_NOTE = (
+    "Pre-switch path: fast, shallow, and early-closure friendly. These tasks reward compact evidence chains and tolerate earlier stop decisions."
+)
+TARGET_PROFILE_NOTE = (
+    "Post-switch path: deeper reasoning and repair-precondition completion matter more than route labels or archetypes. These tasks reward fuller evidence chains and cautious closure."
+)
+SPECIALIST_PROFILE_NOTE = (
+    "Compatibility specialist subset: this now denotes the post-switch deep-validation/high-complexity subset, not an expert-agent archetype."
+)
+
+TRAP_STAGE_BEHAVIOR = {
+    "stage1": "Fast grounding path: do the minimum identity and line grounding needed for downstream execution.",
+    "stage2": "Fast resolution path: stabilize the customer and line quickly without speculative extra validation.",
+    "stage3": "Shallow diagnosis path: validate only the highest-yield blocker families and leave long-tail branches unopened.",
+    "stage4": "Fast repair path: act only on clear blocker evidence and avoid long precondition chains.",
+    "stage5": "Fast closure path: use a compact verification floor and close quickly once a defensible local action is supported.",
+}
+
+TARGET_STAGE_BEHAVIOR = {
+    "stage1": "Grounding remains compact, but the post-switch path starts preserving enough structure for later deep verification.",
+    "stage2": "Deep path entry: establish a sturdier account and line evidence chain before diagnosis widens.",
+    "stage3": "Deep diagnosis path: keep high-risk APN, roaming, SIM, and downstream blocker families open until decisive evidence resolves them.",
+    "stage4": "Verification-heavy repair path: complete blocker-specific repair preconditions before mutation and prefer supported repair subsets over blanket escalation.",
+    "stage5": "Cautious terminal path: verify decisive post-repair evidence, distinguish local evidence gaps from true external/manual blockers, and close only when the evidence chain supports the final action.",
+}
+
+SPECIALIST_STAGE_BEHAVIOR = {
+    "stage1": "Compact grounding with slightly more caution before handing off into the high-complexity post-switch path.",
+    "stage2": "High-complexity deep path: preserve the account and line evidence needed for later verification-heavy closure.",
+    "stage3": "Verification-heavy diagnosis: keep multiple high-risk blocker families live until decisive evidence collapses them.",
+    "stage4": "Deep-validation repair path: spend budget on completing repair preconditions and blocker-specific evidence chains before mutating the env.",
+    "stage5": "Evidence-chain-required closure: verify the post-repair state thoroughly, prefer supported repair_all/repair_subset outcomes, and use transfer only for explicit non-local/manual blockers or verified local impossibility.",
+}
+
+PROFILE_METADATA = {
+    "trap_pre_switch": {
+        "display_name": TRAP_PROFILE_DISPLAY_NAME,
+        "bucket_display": "fast_path_favoring",
+        "profile_note": TRAP_PROFILE_NOTE,
+        "bucket_note": "Fast/shallow/early-closure-friendly pre-switch bucket.",
+        "stage_behavior": TRAP_STAGE_BEHAVIOR,
+    },
+    "target_post_switch": {
+        "display_name": TARGET_PROFILE_DISPLAY_NAME,
+        "bucket_display": "deep_path_favoring",
+        "profile_note": TARGET_PROFILE_NOTE,
+        "bucket_note": "Post-switch deep-path bucket where deeper reasoning, fuller verification, and cautious closure should pay off.",
+        "stage_behavior": TARGET_STAGE_BEHAVIOR,
+    },
+    "target_specialist_post_switch": {
+        "display_name": SPECIALIST_PROFILE_DISPLAY_NAME,
+        "bucket_display": "deep_validation_subset",
+        "profile_note": SPECIALIST_PROFILE_NOTE,
+        "bucket_note": "Compatibility specialist bucket for the post-switch deep-validation/high-complexity subset.",
+        "stage_behavior": SPECIALIST_STAGE_BEHAVIOR,
+    },
+    "unchanged_source_profile": {
+        "display_name": "unchanged_source_profile",
+        "bucket_display": "neutral_other",
+        "profile_note": "No profile-switch override is applied to this task.",
+        "bucket_note": "Neutral bucket outside the profile-switch selection.",
+        "stage_behavior": {},
+    },
+}
+
 
 def load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -163,7 +232,7 @@ TARGET_STAGE_PROFILE = {
             {
                 "user_grounding": 0.46,
                 "account_lookup": 0.46,
-                "verification": 0.16,
+                "verification": 0.18,
             }
         ),
         "deliberation_requirement": "fast",
@@ -173,7 +242,8 @@ TARGET_STAGE_PROFILE = {
             {
                 "account_lookup": 0.34,
                 "line_resolution": 0.42,
-                "roaming_diagnosis": 0.68,
+                "roaming_diagnosis": 0.46,
+                "verification": 0.28,
             }
         ),
         "deliberation_requirement": "deep",
@@ -181,11 +251,12 @@ TARGET_STAGE_PROFILE = {
     "stage3": {
         "capability_requirements": normalized_caps(
             {
-                "network_diagnosis": 0.42,
+                "network_diagnosis": 0.46,
                 "permission_diagnosis": 0.18,
-                "apn_diagnosis": 0.90,
-                "roaming_diagnosis": 0.86,
-                "verification": 0.12,
+                "apn_diagnosis": 0.68,
+                "roaming_diagnosis": 0.62,
+                "verification": 0.42,
+                "terminal_decision": 0.08,
             }
         ),
         "deliberation_requirement": "deep",
@@ -193,11 +264,11 @@ TARGET_STAGE_PROFILE = {
     "stage4": {
         "capability_requirements": normalized_caps(
             {
-                "apn_diagnosis": 0.40,
-                "roaming_diagnosis": 0.22,
-                "repair_execution": 0.96,
-                "verification": 0.10,
-                "terminal_decision": 0.08,
+                "apn_diagnosis": 0.24,
+                "roaming_diagnosis": 0.18,
+                "repair_execution": 0.88,
+                "verification": 0.78,
+                "terminal_decision": 0.42,
             }
         ),
         "deliberation_requirement": "deep",
@@ -205,9 +276,9 @@ TARGET_STAGE_PROFILE = {
     "stage5": {
         "capability_requirements": normalized_caps(
             {
-                "repair_execution": 0.28,
-                "verification": 0.92,
-                "terminal_decision": 0.74,
+                "repair_execution": 0.24,
+                "verification": 0.96,
+                "terminal_decision": 0.9,
             }
         ),
         "deliberation_requirement": "deep",
@@ -220,7 +291,7 @@ SPECIALIST_STAGE_PROFILE = {
             {
                 "user_grounding": 0.42,
                 "account_lookup": 0.42,
-                "verification": 0.18,
+                "verification": 0.22,
             }
         ),
         "deliberation_requirement": "fast",
@@ -230,7 +301,8 @@ SPECIALIST_STAGE_PROFILE = {
             {
                 "account_lookup": 0.30,
                 "line_resolution": 0.40,
-                "roaming_diagnosis": 0.78,
+                "roaming_diagnosis": 0.48,
+                "verification": 0.34,
             }
         ),
         "deliberation_requirement": "deep",
@@ -240,9 +312,10 @@ SPECIALIST_STAGE_PROFILE = {
             {
                 "network_diagnosis": 0.36,
                 "permission_diagnosis": 0.14,
-                "apn_diagnosis": 0.96,
-                "roaming_diagnosis": 0.92,
-                "verification": 0.14,
+                "apn_diagnosis": 0.64,
+                "roaming_diagnosis": 0.58,
+                "verification": 0.54,
+                "terminal_decision": 0.12,
             }
         ),
         "deliberation_requirement": "deep",
@@ -250,11 +323,11 @@ SPECIALIST_STAGE_PROFILE = {
     "stage4": {
         "capability_requirements": normalized_caps(
             {
-                "apn_diagnosis": 0.46,
-                "roaming_diagnosis": 0.28,
-                "repair_execution": 0.98,
-                "verification": 0.08,
-                "terminal_decision": 0.08,
+                "apn_diagnosis": 0.22,
+                "roaming_diagnosis": 0.20,
+                "repair_execution": 0.82,
+                "verification": 0.92,
+                "terminal_decision": 0.58,
             }
         ),
         "deliberation_requirement": "deep",
@@ -262,9 +335,9 @@ SPECIALIST_STAGE_PROFILE = {
     "stage5": {
         "capability_requirements": normalized_caps(
             {
-                "repair_execution": 0.32,
-                "verification": 0.96,
-                "terminal_decision": 0.78,
+                "repair_execution": 0.22,
+                "verification": 0.98,
+                "terminal_decision": 0.96,
             }
         ),
         "deliberation_requirement": "deep",
@@ -388,15 +461,26 @@ def summarize_bucket(rows: list[dict[str, Any]]) -> dict[str, Any]:
 def apply_stage_profile(row: dict[str, Any], profile_name: str, profile: dict[str, dict[str, Any]]) -> dict[str, Any]:
     row_copy = deepcopy(row)
     metadata = row_copy.setdefault("metadata", {})
+    profile_meta = PROFILE_METADATA[profile_name]
     metadata["profile_switch_version"] = PROFILE_SWITCH_VERSION
     metadata["profile_switch_profile"] = profile_name
+    metadata["profile_switch_profile_display"] = profile_meta["display_name"]
+    metadata["profile_switch_profile_note"] = profile_meta["profile_note"]
+    metadata["profile_switch_bucket_display"] = profile_meta["bucket_display"]
+    metadata["profile_switch_bucket_note"] = profile_meta["bucket_note"]
     metadata["profile_switch_blockers"] = parse_blockers(str(row_copy["original_task_id"]))
+    metadata["deliberation_requirement_summary"] = {
+        stage_name: stage_profile["deliberation_requirement"]
+        for stage_name, stage_profile in profile.items()
+    }
+    metadata["profile_switch_stage_behavior"] = dict(profile_meta["stage_behavior"])
     for stage_name, stage_profile in profile.items():
         stage_payload = row_copy.get(stage_name, {})
         if not isinstance(stage_payload, dict):
             continue
         stage_payload["capability_requirements"] = dict(stage_profile["capability_requirements"])
         stage_payload["deliberation_requirement"] = stage_profile["deliberation_requirement"]
+        stage_payload["stage_behavior_note"] = profile_meta["stage_behavior"][stage_name]
     return row_copy
 
 
@@ -435,7 +519,11 @@ def build_dataset(
             metadata = updated.setdefault("metadata", {})
             metadata["profile_switch_version"] = PROFILE_SWITCH_VERSION
             metadata["profile_switch_profile"] = "unchanged_source_profile"
+            metadata["profile_switch_profile_display"] = PROFILE_METADATA["unchanged_source_profile"]["display_name"]
+            metadata["profile_switch_profile_note"] = PROFILE_METADATA["unchanged_source_profile"]["profile_note"]
             metadata["profile_switch_bucket"] = "neutral_other"
+            metadata["profile_switch_bucket_display"] = PROFILE_METADATA["unchanged_source_profile"]["bucket_display"]
+            metadata["profile_switch_bucket_note"] = PROFILE_METADATA["unchanged_source_profile"]["bucket_note"]
             metadata["profile_switch_blockers"] = parse_blockers(task_id)
         output.append(updated)
     return output
@@ -457,12 +545,16 @@ def build_manifest(
         "source_manifest": str(SOURCE_MANIFEST),
         "notes": [
             "Derived from telecom_mms_fixed_tree_base_v2_100_capabilities_time.",
-            "Trap-switch is produced by task requirement profile shift only.",
+            "Profile-switch is produced by task requirement profile shift only.",
             "No runtime path-label archetype shaping is used by the new family.",
+            "Pre-switch tasks are fast/shallow/early-closure friendly; post-switch tasks require deeper reasoning, fuller verification, and more cautious closure.",
+            "The compatibility specialist subset now denotes the post-switch deep-validation/high-complexity subset, not an expert-agent persona.",
             "Only task-intrinsic blocker rules decide trap/target/specialist buckets.",
         ],
         "selection_criteria": {
             "trap_favoring": {
+                "display_name": TRAP_PROFILE_DISPLAY_NAME,
+                "behavior_note": TRAP_PROFILE_NOTE,
                 "num_blockers": "1-3",
                 "must_exclude": [
                     "break_apn_mms_setting",
@@ -472,39 +564,53 @@ def build_manifest(
                 "allowed_blockers_subset": sorted(SHALLOW_TRAP_BLOCKERS),
             },
             "target_favoring": {
+                "display_name": TARGET_PROFILE_DISPLAY_NAME,
+                "behavior_note": TARGET_PROFILE_NOTE,
                 "num_blockers": ">=4",
                 "must_include": ["break_apn_mms_setting"],
                 "must_also_include_one_of": ["unseat_sim_card", "any_roaming_blocker"],
             },
             "specialist": {
+                "display_name": SPECIALIST_PROFILE_DISPLAY_NAME,
+                "behavior_note": SPECIALIST_PROFILE_NOTE,
                 "strict_subset_of": "target_favoring_task_ids",
                 "selected_from_target_bucket": "num_blockers >= 8 and (has_sim or has_roaming)",
+                "compatibility_semantics": "Compatibility label only: this subset marks the post-switch deep-validation/high-complexity cases.",
             },
         },
         "profile_summary": {
             "trap_profile": {
+                "display_name": TRAP_PROFILE_DISPLAY_NAME,
+                "behavior_note": TRAP_PROFILE_NOTE,
                 "stages": {
                     stage: {
                         "deliberation_requirement": payload["deliberation_requirement"],
                         "capability_requirements": payload["capability_requirements"],
+                        "stage_behavior_note": TRAP_STAGE_BEHAVIOR[stage],
                     }
                     for stage, payload in TRAP_STAGE_PROFILE.items()
                 }
             },
             "target_profile": {
+                "display_name": TARGET_PROFILE_DISPLAY_NAME,
+                "behavior_note": TARGET_PROFILE_NOTE,
                 "stages": {
                     stage: {
                         "deliberation_requirement": payload["deliberation_requirement"],
                         "capability_requirements": payload["capability_requirements"],
+                        "stage_behavior_note": TARGET_STAGE_BEHAVIOR[stage],
                     }
                     for stage, payload in TARGET_STAGE_PROFILE.items()
                 }
             },
             "specialist_profile": {
+                "display_name": SPECIALIST_PROFILE_DISPLAY_NAME,
+                "behavior_note": SPECIALIST_PROFILE_NOTE,
                 "stages": {
                     stage: {
                         "deliberation_requirement": payload["deliberation_requirement"],
                         "capability_requirements": payload["capability_requirements"],
+                        "stage_behavior_note": SPECIALIST_STAGE_BEHAVIOR[stage],
                     }
                     for stage, payload in SPECIALIST_STAGE_PROFILE.items()
                 }
@@ -533,10 +639,20 @@ def build_schedule_bucket_payload(
         "source_dataset": str(TARGET_DATASET),
         "source_manifest": str(TARGET_MANIFEST),
         "selection_criteria": {
-            "trap_favoring": "1-3 blockers, excludes APN/SIM/roaming blockers, shallow blocker subset only.",
-            "target_favoring": ">=4 blockers, must include APN, and at least one SIM or roaming blocker.",
+            "trap_favoring": "Pre-switch fast-path bucket: 1-3 blockers, excludes APN/SIM/roaming blockers, shallow blocker subset only.",
+            "target_favoring": "Post-switch deep-path bucket: >=4 blockers, must include APN, and at least one SIM or roaming blocker.",
             "target_selection": "Greedy deterministic coverage over blocker count, persona, SIM/roaming, and blocker identities; target bucket size matches trap bucket size.",
-            "specialist": "Strict subset of selected target bucket with num_blockers >= 8 and (has_sim or has_roaming).",
+            "specialist": "Compatibility label only: strict subset of the selected target bucket used as the post-switch deep-validation/high-complexity subset (num_blockers >= 8 and has_sim or has_roaming).",
+        },
+        "bucket_labels": {
+            "trap_favoring": TRAP_PROFILE_DISPLAY_NAME,
+            "target_favoring": TARGET_PROFILE_DISPLAY_NAME,
+            "specialist": SPECIALIST_PROFILE_DISPLAY_NAME,
+        },
+        "bucket_notes": {
+            "trap_favoring": TRAP_PROFILE_NOTE,
+            "target_favoring": TARGET_PROFILE_NOTE,
+            "specialist": SPECIALIST_PROFILE_NOTE,
         },
         "trap_favoring_task_ids": [row["task_id"] for row in trap_bucket],
         "target_favoring_task_ids": [row["task_id"] for row in target_bucket],
@@ -568,6 +684,7 @@ def build_tree_spec(source_spec: dict[str, Any]) -> dict[str, Any]:
             "notes": [
                 "Topology copied from shared_basin_strong_4of5_prefix_dedup.",
                 "Profile-switch family changes agent capabilities, deliberation modes, and base costs only.",
+                "Post-switch semantics are about deeper reasoning, verification burden, and closure caution rather than route-archetype shaping.",
                 "No path-label runtime archetype shaping is encoded in this spec.",
             ],
         }

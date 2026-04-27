@@ -119,15 +119,30 @@ def _assistant_step_to_dict(
     *,
     round_trip_seconds: float | None = None,
 ) -> dict[str, Any]:
+    raw_usage = getattr(message, "usage", None)
     usage_breakdown = _normalize_usage(getattr(message, "usage", None))
+    content = getattr(message, "content", None)
+    tool_calls = [tc.model_dump() for tc in (message.tool_calls or [])]
+    estimated_total_tokens = float(
+        max(
+            1,
+            (
+                len(content or "")
+                + len(json.dumps(tool_calls, ensure_ascii=False))
+            )
+            // 4,
+        )
+    )
     return {
-        "content": message.content,
-        "tool_calls": [tc.model_dump() for tc in (message.tool_calls or [])],
+        "content": content,
+        "tool_calls": tool_calls,
         "cost": message.cost,
-        "usage": message.usage,
+        "usage": raw_usage,
         "generation_time_seconds": message.generation_time_seconds,
         "round_trip_seconds": round_trip_seconds,
         "usage_breakdown": usage_breakdown,
+        "token_usage_available": isinstance(raw_usage, dict) and bool(raw_usage),
+        "estimated_total_tokens": estimated_total_tokens,
     }
 
 
@@ -325,6 +340,7 @@ def _aggregate_resource_usage(
     executed_tool_calls: list[dict[str, Any]],
     replayed_tool_calls: list[dict[str, Any]],
     stage_wall_clock_seconds: float,
+    final_output: dict[str, Any] | None,
 ) -> dict[str, Any]:
     prompt_tokens_total = 0.0
     completion_tokens_total = 0.0
@@ -333,33 +349,52 @@ def _aggregate_resource_usage(
     generation_time_total_seconds = 0.0
     llm_round_trip_total_seconds = 0.0
     llm_call_count = len(llm_messages)
+    estimated_total_tokens_total = 0.0
+    token_usage_available = llm_call_count > 0
+    json_attempt_count = 0
+    valid_json_first_try = False
 
     for message in llm_messages:
         usage_breakdown = _normalize_usage(message.get("usage"))
         prompt_tokens_total += usage_breakdown["prompt_tokens"]
         completion_tokens_total += usage_breakdown["completion_tokens"]
         total_tokens_total += usage_breakdown["total_tokens"]
+        estimated_total_tokens_total += float(message.get("estimated_total_tokens") or 0.0)
         api_cost_total_usd_raw += float(message.get("cost") or 0.0)
         generation_time_total_seconds += float(
             message.get("generation_time_seconds") or 0.0
         )
         llm_round_trip_total_seconds += float(message.get("round_trip_seconds") or 0.0)
+        token_usage_available = token_usage_available and bool(
+            message.get("token_usage_available", False)
+        )
+        if not (message.get("tool_calls") or []):
+            json_attempt_count += 1
+            if json_attempt_count == 1:
+                valid_json_first_try = _extract_json(message.get("content")) is not None
 
     tool_wall_clock_total_seconds = sum(
         float(call.get("wall_clock_seconds") or 0.0)
         for call in [*replayed_tool_calls, *executed_tool_calls]
     )
+    json_retry_count = max(0, json_attempt_count - 1)
+    if final_output is None:
+        valid_json_first_try = False
 
     return {
         "llm_call_count": llm_call_count,
         "prompt_tokens_total": prompt_tokens_total,
         "completion_tokens_total": completion_tokens_total,
         "total_tokens_total": total_tokens_total,
+        "estimated_total_tokens_total": estimated_total_tokens_total,
+        "token_usage_available": token_usage_available,
         "api_cost_total_usd_raw": api_cost_total_usd_raw,
         "generation_time_total_seconds": generation_time_total_seconds,
         "llm_round_trip_total_seconds": llm_round_trip_total_seconds,
         "tool_wall_clock_total_seconds": tool_wall_clock_total_seconds,
         "stage_wall_clock_seconds": stage_wall_clock_seconds,
+        "valid_json_first_try": valid_json_first_try,
+        "json_retry_count": json_retry_count,
         "usage_breakdown": {
             "prompt_tokens_total": prompt_tokens_total,
             "completion_tokens_total": completion_tokens_total,
@@ -488,6 +523,7 @@ def main(*, json_stdout: Any = JSON_STDOUT) -> None:
         executed_tool_calls=executed_tool_calls,
         replayed_tool_calls=replayed_tool_calls,
         stage_wall_clock_seconds=stage_wall_clock_seconds,
+        final_output=final_output,
     )
     policy_eval_debug = None
     if stage_name == "stage5":

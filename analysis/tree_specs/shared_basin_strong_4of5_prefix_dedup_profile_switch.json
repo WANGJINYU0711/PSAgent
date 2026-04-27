@@ -27,6 +27,7 @@
     "notes": [
       "Topology copied from shared_basin_strong_4of5_prefix_dedup.",
       "Profile-switch family changes agent capabilities, deliberation modes, and base costs only.",
+      "Post-switch semantics are about deeper reasoning, verification burden, and closure caution rather than route-archetype shaping.",
       "No path-label runtime archetype shaping is encoded in this spec."
     ]
   },

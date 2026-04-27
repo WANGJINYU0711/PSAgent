@@ -7,8 +7,10 @@
   "source_manifest": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time/manifest.json",
   "notes": [
     "Derived from telecom_mms_fixed_tree_base_v2_100_capabilities_time.",
-    "Trap-switch is produced by task requirement profile shift only.",
+    "Profile-switch is produced by task requirement profile shift only.",
     "No runtime path-label archetype shaping is used by the new family.",
+    "Pre-switch tasks are fast/shallow/early-closure friendly; post-switch tasks require deeper reasoning, fuller verification, and more cautious closure.",
+    "The compatibility specialist subset now denotes the post-switch deep-validation/high-complexity subset, not an expert-agent persona.",
     "Only task-intrinsic blocker rules decide trap/target/specialist buckets."
   ],
   "selection_criteria": {
@@ -30,7 +32,9 @@
         "break_app_storage_permission",
         "data_mode_off",
         "data_usage_exceeded"
-      ]
+      ],
+      "display_name": "fast_path_pre_switch",
+      "behavior_note": "Pre-switch path: fast, shallow, and early-closure friendly. These tasks reward compact evidence chains and tolerate earlier stop decisions."
     },
     "target_favoring": {
       "num_blockers": ">=4",
@@ -40,11 +44,16 @@
       "must_also_include_one_of": [
         "unseat_sim_card",
         "any_roaming_blocker"
-      ]
+      ],
+      "display_name": "deep_path_post_switch",
+      "behavior_note": "Post-switch path: deeper reasoning and repair-precondition completion matter more than route labels or archetypes. These tasks reward fuller evidence chains and cautious closure."
     },
     "specialist": {
       "strict_subset_of": "target_favoring_task_ids",
-      "selected_from_target_bucket": "num_blockers >= 8 and (has_sim or has_roaming)"
+      "selected_from_target_bucket": "num_blockers >= 8 and (has_sim or has_roaming)",
+      "display_name": "verification_heavy_post_switch",
+      "behavior_note": "Compatibility specialist subset: this now denotes the post-switch deep-validation/high-complexity subset, not an expert-agent archetype.",
+      "compatibility_semantics": "Compatibility label only: this subset marks the post-switch deep-validation/high-complexity cases."
     }
   },
   "profile_summary": {
@@ -63,7 +72,8 @@
             "repair_execution": 0.0,
             "verification": 0.08,
             "terminal_decision": 0.0
-          }
+          },
+          "stage_behavior_note": "Fast grounding path: do the minimum identity and line grounding needed for downstream execution."
         },
         "stage2": {
           "deliberation_requirement": "fast",
@@ -78,7 +88,8 @@
             "repair_execution": 0.0,
             "verification": 0.0,
             "terminal_decision": 0.0
-          }
+          },
+          "stage_behavior_note": "Fast resolution path: stabilize the customer and line quickly without speculative extra validation."
         },
         "stage3": {
           "deliberation_requirement": "fast",
@@ -93,7 +104,8 @@
             "repair_execution": 0.0,
             "verification": 0.04,
             "terminal_decision": 0.0
-          }
+          },
+          "stage_behavior_note": "Shallow diagnosis path: validate only the highest-yield blocker families and leave long-tail branches unopened."
         },
         "stage4": {
           "deliberation_requirement": "fast",
@@ -108,7 +120,8 @@
             "repair_execution": 0.34,
             "verification": 0.08,
             "terminal_decision": 0.18
-          }
+          },
+          "stage_behavior_note": "Fast repair path: act only on clear blocker evidence and avoid long precondition chains."
         },
         "stage5": {
           "deliberation_requirement": "fast",
@@ -123,9 +136,12 @@
             "repair_execution": 0.18,
             "verification": 0.22,
             "terminal_decision": 0.48
-          }
+          },
+          "stage_behavior_note": "Fast closure path: use a compact verification floor and close quickly once a defensible local action is supported."
         }
-      }
+      },
+      "display_name": "fast_path_pre_switch",
+      "behavior_note": "Pre-switch path: fast, shallow, and early-closure friendly. These tasks reward compact evidence chains and tolerate earlier stop decisions."
     },
     "target_profile": {
       "stages": {
@@ -140,9 +156,10 @@
             "apn_diagnosis": 0.0,
             "roaming_diagnosis": 0.0,
             "repair_execution": 0.0,
-            "verification": 0.16,
+            "verification": 0.18,
             "terminal_decision": 0.0
-          }
+          },
+          "stage_behavior_note": "Grounding remains compact, but the post-switch path starts preserving enough structure for later deep verification."
         },
         "stage2": {
           "deliberation_requirement": "deep",
@@ -153,11 +170,12 @@
             "network_diagnosis": 0.0,
             "permission_diagnosis": 0.0,
             "apn_diagnosis": 0.0,
-            "roaming_diagnosis": 0.68,
+            "roaming_diagnosis": 0.46,
             "repair_execution": 0.0,
-            "verification": 0.0,
+            "verification": 0.28,
             "terminal_decision": 0.0
-          }
+          },
+          "stage_behavior_note": "Deep path entry: establish a sturdier account and line evidence chain before diagnosis widens."
         },
         "stage3": {
           "deliberation_requirement": "deep",
@@ -165,14 +183,15 @@
             "user_grounding": 0.0,
             "account_lookup": 0.0,
             "line_resolution": 0.0,
-            "network_diagnosis": 0.42,
+            "network_diagnosis": 0.46,
             "permission_diagnosis": 0.18,
-            "apn_diagnosis": 0.9,
-            "roaming_diagnosis": 0.86,
+            "apn_diagnosis": 0.68,
+            "roaming_diagnosis": 0.62,
             "repair_execution": 0.0,
-            "verification": 0.12,
-            "terminal_decision": 0.0
-          }
+            "verification": 0.42,
+            "terminal_decision": 0.08
+          },
+          "stage_behavior_note": "Deep diagnosis path: keep high-risk APN, roaming, SIM, and downstream blocker families open until decisive evidence resolves them."
         },
         "stage4": {
           "deliberation_requirement": "deep",
@@ -182,12 +201,13 @@
             "line_resolution": 0.0,
             "network_diagnosis": 0.0,
             "permission_diagnosis": 0.0,
-            "apn_diagnosis": 0.4,
-            "roaming_diagnosis": 0.22,
-            "repair_execution": 0.96,
-            "verification": 0.1,
-            "terminal_decision": 0.08
-          }
+            "apn_diagnosis": 0.24,
+            "roaming_diagnosis": 0.18,
+            "repair_execution": 0.88,
+            "verification": 0.78,
+            "terminal_decision": 0.42
+          },
+          "stage_behavior_note": "Verification-heavy repair path: complete blocker-specific repair preconditions before mutation and prefer supported repair subsets over blanket escalation."
         },
         "stage5": {
           "deliberation_requirement": "deep",
@@ -199,12 +219,15 @@
             "permission_diagnosis": 0.0,
             "apn_diagnosis": 0.0,
             "roaming_diagnosis": 0.0,
-            "repair_execution": 0.28,
-            "verification": 0.92,
-            "terminal_decision": 0.74
-          }
+            "repair_execution": 0.24,
+            "verification": 0.96,
+            "terminal_decision": 0.9
+          },
+          "stage_behavior_note": "Cautious terminal path: verify decisive post-repair evidence, distinguish local evidence gaps from true external/manual blockers, and close only when the evidence chain supports the final action."
         }
-      }
+      },
+      "display_name": "deep_path_post_switch",
+      "behavior_note": "Post-switch path: deeper reasoning and repair-precondition completion matter more than route labels or archetypes. These tasks reward fuller evidence chains and cautious closure."
     },
     "specialist_profile": {
       "stages": {
@@ -219,9 +242,10 @@
             "apn_diagnosis": 0.0,
             "roaming_diagnosis": 0.0,
             "repair_execution": 0.0,
-            "verification": 0.18,
+            "verification": 0.22,
             "terminal_decision": 0.0
-          }
+          },
+          "stage_behavior_note": "Compact grounding with slightly more caution before handing off into the high-complexity post-switch path."
         },
         "stage2": {
           "deliberation_requirement": "deep",
@@ -232,11 +256,12 @@
             "network_diagnosis": 0.0,
             "permission_diagnosis": 0.0,
             "apn_diagnosis": 0.0,
-            "roaming_diagnosis": 0.78,
+            "roaming_diagnosis": 0.48,
             "repair_execution": 0.0,
-            "verification": 0.0,
+            "verification": 0.34,
             "terminal_decision": 0.0
-          }
+          },
+          "stage_behavior_note": "High-complexity deep path: preserve the account and line evidence needed for later verification-heavy closure."
         },
         "stage3": {
           "deliberation_requirement": "deep",
@@ -246,12 +271,13 @@
             "line_resolution": 0.0,
             "network_diagnosis": 0.36,
             "permission_diagnosis": 0.14,
-            "apn_diagnosis": 0.96,
-            "roaming_diagnosis": 0.92,
+            "apn_diagnosis": 0.64,
+            "roaming_diagnosis": 0.58,
             "repair_execution": 0.0,
-            "verification": 0.14,
-            "terminal_decision": 0.0
-          }
+            "verification": 0.54,
+            "terminal_decision": 0.12
+          },
+          "stage_behavior_note": "Verification-heavy diagnosis: keep multiple high-risk blocker families live until decisive evidence collapses them."
         },
         "stage4": {
           "deliberation_requirement": "deep",
@@ -261,12 +287,13 @@
             "line_resolution": 0.0,
             "network_diagnosis": 0.0,
             "permission_diagnosis": 0.0,
-            "apn_diagnosis": 0.46,
-            "roaming_diagnosis": 0.28,
-            "repair_execution": 0.98,
-            "verification": 0.08,
-            "terminal_decision": 0.08
-          }
+            "apn_diagnosis": 0.22,
+            "roaming_diagnosis": 0.2,
+            "repair_execution": 0.82,
+            "verification": 0.92,
+            "terminal_decision": 0.58
+          },
+          "stage_behavior_note": "Deep-validation repair path: spend budget on completing repair preconditions and blocker-specific evidence chains before mutating the env."
         },
         "stage5": {
           "deliberation_requirement": "deep",
@@ -278,12 +305,15 @@
             "permission_diagnosis": 0.0,
             "apn_diagnosis": 0.0,
             "roaming_diagnosis": 0.0,
-            "repair_execution": 0.32,
-            "verification": 0.96,
-            "terminal_decision": 0.78
-          }
+            "repair_execution": 0.22,
+            "verification": 0.98,
+            "terminal_decision": 0.96
+          },
+          "stage_behavior_note": "Evidence-chain-required closure: verify the post-repair state thoroughly, prefer supported repair_all/repair_subset outcomes, and use transfer only for explicit non-local/manual blockers or verified local impossibility."
         }
-      }
+      },
+      "display_name": "verification_heavy_post_switch",
+      "behavior_note": "Compatibility specialist subset: this now denotes the post-switch deep-validation/high-complexity subset, not an expert-agent archetype."
     }
   },
   "coverage_summary": {

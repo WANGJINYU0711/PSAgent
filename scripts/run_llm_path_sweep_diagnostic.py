@@ -4,6 +4,7 @@ import argparse
 import concurrent.futures
 import csv
 import json
+import math
 import os
 import statistics
 import sys
@@ -45,6 +46,9 @@ HYBRID_PATH_CLASSES = {
 DEFAULT_BUCKET_FILE = (
     ROOT / "analysis" / "shared_basin_prefix_dedup_profile_switch_schedule_buckets.json"
 )
+FAST_TOKEN_BUDGET_PER_STAGE = 1200
+FAST_TOKEN_PENALTY_BLOCK_SIZE = 200
+FAST_TOKEN_OVER_BUDGET_PENALTY_PER_BLOCK = 0.25
 
 
 def attribute_weakening_level() -> int:
@@ -375,16 +379,113 @@ def flatten_stage_resource_summary(stage_trace: dict[str, dict[str, Any]]) -> li
         row = stage_trace.get(stage_name, {})
         summary.append(
             {
-                "stage_name": stage_name,
+                "stage_id": row.get("stage_id", stage_name),
+                "stage_name": row.get("stage_name", stage_name),
+                "agent_id": row.get("agent_id"),
+                "agent_deliberation_mode": row.get("agent_deliberation_mode"),
+                "stage_requirement": row.get("stage_requirement"),
+                "base_round_budget": int(row.get("base_round_budget", 0) or 0),
+                "max_rounds_allowed": int(row.get("max_rounds_allowed", 0) or 0),
                 "llm_call_count_stage": int(row.get("llm_call_count_stage", 0) or 0),
+                "llm_call_count_over_base_budget": int(
+                    row.get("llm_call_count_over_base_budget", 0) or 0
+                ),
+                "valid_json_first_try": bool(row.get("valid_json_first_try", False)),
+                "json_retry_count": int(row.get("json_retry_count", 0) or 0),
+                "diagnostic_fallback_used": bool(row.get("diagnostic_fallback_used", False)),
+                "verification_fallback_used": bool(row.get("verification_fallback_used", False)),
+                "fallback_used": bool(row.get("fallback_used", False)),
+                "replay_tool_call_count": int(row.get("replay_tool_call_count", 0) or 0),
+                "prompt_tokens_stage": float(row.get("prompt_tokens_stage", 0.0) or 0.0),
+                "completion_tokens_stage": float(
+                    row.get("completion_tokens_stage", 0.0) or 0.0
+                ),
+                "total_tokens_stage": float(row.get("total_tokens_stage", 0.0) or 0.0),
                 "prompt_tokens_total_stage": float(row.get("prompt_tokens_total_stage", 0.0) or 0.0),
                 "completion_tokens_total_stage": float(
                     row.get("completion_tokens_total_stage", 0.0) or 0.0
                 ),
+                "total_tokens_total_stage": float(row.get("total_tokens_total_stage", 0.0) or 0.0),
+                "token_usage_available": bool(row.get("token_usage_available", False)),
+                "estimated_total_tokens_stage": float(
+                    row.get("estimated_total_tokens_stage", 0.0) or 0.0
+                ),
+                "token_budget_stage": float(row.get("token_budget_stage", 0.0) or 0.0),
+                "token_over_budget_stage": float(row.get("token_over_budget_stage", 0.0) or 0.0),
+                "token_over_budget_units": int(row.get("token_over_budget_units", 0) or 0),
+                "token_over_budget_penalty": float(
+                    row.get("token_over_budget_penalty", 0.0) or 0.0
+                ),
+                "is_fast_agent": bool(row.get("is_fast_agent", False)),
+                "is_deep_agent": bool(row.get("is_deep_agent", False)),
                 "tool_call_count_stage": len(row.get("executed_tool_calls", []) or []),
             }
         )
     return summary
+
+
+def _mean(values: list[float]) -> float | None:
+    if not values:
+        return None
+    return float(statistics.fmean(values))
+
+
+def aggregate_path_resource_summary(stage_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    totals = {
+        "llm_call_count_total": 0,
+        "prompt_tokens_total": 0.0,
+        "completion_tokens_total": 0.0,
+        "total_tokens_total": 0.0,
+        "json_retry_count_total": 0,
+        "fallback_count_total": 0,
+        "replay_tool_call_count_total": 0,
+        "token_over_budget_penalty_total": 0.0,
+        "fast_llm_call_count_total": 0,
+        "fast_prompt_tokens_total": 0.0,
+        "fast_completion_tokens_total": 0.0,
+        "fast_total_tokens_total": 0.0,
+        "fast_json_retry_count_total": 0,
+        "fast_fallback_count_total": 0,
+        "fast_replay_tool_call_count_total": 0,
+        "fast_token_over_budget_total": 0.0,
+        "fast_token_over_budget_penalty_total": 0.0,
+        "fast_llm_call_count_over_base_budget_total": 0,
+    }
+    for row in stage_rows:
+        totals["llm_call_count_total"] += int(row.get("llm_call_count_stage", 0) or 0)
+        totals["prompt_tokens_total"] += float(row.get("prompt_tokens_stage", 0.0) or 0.0)
+        totals["completion_tokens_total"] += float(
+            row.get("completion_tokens_stage", 0.0) or 0.0
+        )
+        totals["total_tokens_total"] += float(row.get("total_tokens_stage", 0.0) or 0.0)
+        totals["json_retry_count_total"] += int(row.get("json_retry_count", 0) or 0)
+        totals["fallback_count_total"] += int(bool(row.get("fallback_used", False)))
+        totals["replay_tool_call_count_total"] += int(row.get("replay_tool_call_count", 0) or 0)
+        totals["token_over_budget_penalty_total"] += float(
+            row.get("token_over_budget_penalty", 0.0) or 0.0
+        )
+        if bool(row.get("is_fast_agent", False)):
+            totals["fast_llm_call_count_total"] += int(row.get("llm_call_count_stage", 0) or 0)
+            totals["fast_prompt_tokens_total"] += float(row.get("prompt_tokens_stage", 0.0) or 0.0)
+            totals["fast_completion_tokens_total"] += float(
+                row.get("completion_tokens_stage", 0.0) or 0.0
+            )
+            totals["fast_total_tokens_total"] += float(row.get("total_tokens_stage", 0.0) or 0.0)
+            totals["fast_json_retry_count_total"] += int(row.get("json_retry_count", 0) or 0)
+            totals["fast_fallback_count_total"] += int(bool(row.get("fallback_used", False)))
+            totals["fast_replay_tool_call_count_total"] += int(
+                row.get("replay_tool_call_count", 0) or 0
+            )
+            totals["fast_token_over_budget_total"] += float(
+                row.get("token_over_budget_stage", 0.0) or 0.0
+            )
+            totals["fast_token_over_budget_penalty_total"] += float(
+                row.get("token_over_budget_penalty", 0.0) or 0.0
+            )
+            totals["fast_llm_call_count_over_base_budget_total"] += int(
+                row.get("llm_call_count_over_base_budget", 0) or 0
+            )
+    return totals
 
 
 def flatten_record_for_csv(record: dict[str, Any]) -> dict[str, Any]:
@@ -400,14 +501,42 @@ def flatten_record_for_csv(record: dict[str, Any]) -> dict[str, Any]:
         "raw_path_cost_component": record["raw_path_cost_component"],
         "raw_reasoning_cost_component": record["raw_reasoning_cost_component"],
         "raw_total_cost": record["raw_total_cost"],
+        "raw_total_cost_with_token_penalty": record["raw_total_cost_with_token_penalty"],
         "prompt_tokens_total": record["prompt_tokens_total"],
         "completion_tokens_total": record["completion_tokens_total"],
+        "total_tokens_total": record["total_tokens_total"],
+        "llm_call_count_total": record["llm_call_count_total"],
+        "json_retry_count_total": record["json_retry_count_total"],
+        "fallback_count_total": record["fallback_count_total"],
+        "replay_tool_call_count_total": record["replay_tool_call_count_total"],
+        "token_over_budget_penalty_total": record["token_over_budget_penalty_total"],
+        "fast_total_tokens_total": record["fast_total_tokens_total"],
+        "fast_json_retry_count_total": record["fast_json_retry_count_total"],
+        "fast_fallback_count_total": record["fast_fallback_count_total"],
+        "fast_token_over_budget_penalty_total": record["fast_token_over_budget_penalty_total"],
         "api_cost_total_usd_raw": record["api_cost_total_usd_raw"],
         "tool_call_count": record["tool_call_count"],
         "final_action": record["final_action"],
         "stage4_repairability": record.get("stage4_repairability"),
         "stage4_transfer_reason": record.get("stage4_transfer_reason"),
         "stage4_should_repair_true_count": record.get("stage4_should_repair_true_count"),
+        "stage4_llm_call_count": record.get("stage4_llm_call_count"),
+        "stage4_json_retry_count": record.get("stage4_json_retry_count"),
+        "stage4_fallback_used": record.get("stage4_fallback_used"),
+        "stage4_normalizer_changed_output": record.get("stage4_normalizer_changed_output"),
+        "stage4_completion_pass_applied": record.get("stage4_completion_pass_applied"),
+        "stage4_completion_prerequisite_pass_applied": record.get(
+            "stage4_completion_prerequisite_pass_applied"
+        ),
+        "stage4_completion_added_prerequisite_blockers_count": len(
+            record.get("stage4_completion_added_prerequisite_blockers", []) or []
+        ),
+        "stage4_completion_added_downstream_blockers_count": len(
+            record.get("stage4_completion_added_downstream_blockers", []) or []
+        ),
+        "stage4_completion_added_blockers_count": len(
+            record.get("stage4_completion_added_blockers", []) or []
+        ),
         "stage5_raw_action_hint": record.get("stage5_raw_action_hint"),
         "selected_blocker_ids": json.dumps(record["selected_blocker_ids"], ensure_ascii=False),
         "deferred_blocker_ids": json.dumps(record["deferred_blocker_ids"], ensure_ascii=False),
@@ -440,13 +569,20 @@ def pearson_correlation(xs: list[float], ys: list[float]) -> float | None:
 
 def build_task_summary(task_id: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
     terminal_best = min(rows, key=lambda row: (float(row["raw_terminal_penalty"]), float(row["raw_total_cost"])))
-    token_top = max(rows, key=lambda row: (float(row["prompt_tokens_total"] + row["completion_tokens_total"]), row["path_rank_offline"]))
+    token_top = max(
+        rows,
+        key=lambda row: (float(row["total_tokens_total"]), row["path_rank_offline"]),
+    )
     offline_top = max(rows, key=lambda row: (float(row["offline_path_match"]), -int(row["path_rank_offline"])))
     return {
         "task_id": task_id,
         "bucket_label": rows[0]["bucket_label"] if rows else "other",
         "path_count": len(rows),
         "raw_terminal_penalty_range": range_summary([float(row["raw_terminal_penalty"]) for row in rows]),
+        "raw_total_cost_range": range_summary([float(row["raw_total_cost"]) for row in rows]),
+        "raw_total_cost_with_token_penalty_range": range_summary(
+            [float(row["raw_total_cost_with_token_penalty"]) for row in rows]
+        ),
         "raw_reasoning_cost_component_range": range_summary(
             [float(row["raw_reasoning_cost_component"]) for row in rows]
         ),
@@ -466,10 +602,7 @@ def build_task_summary(task_id: str, rows: list[dict[str, Any]]) -> dict[str, An
         "top_token_path": {
             "path_rank_offline": token_top["path_rank_offline"],
             "path_class": token_top["path_class"],
-            "tokens_total": round(
-                float(token_top["prompt_tokens_total"]) + float(token_top["completion_tokens_total"]),
-                6,
-            ),
+            "tokens_total": round(float(token_top["total_tokens_total"]), 6),
             "offline_path_match": token_top["offline_path_match"],
         },
         "top_offline_match_path": {
@@ -484,6 +617,189 @@ def build_task_summary(task_id: str, rows: list[dict[str, Any]]) -> dict[str, An
             [float(row["offline_path_match"]) for row in rows],
             [-float(row["raw_terminal_penalty"]) for row in rows],
         ),
+    }
+
+
+def collect_stage_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for record in records:
+        for row in record.get("stage_resource_summary", []) or []:
+            if isinstance(row, dict):
+                out.append(row)
+    return out
+
+
+def build_path_class_summary(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in records:
+        grouped[str(row.get("path_class", "other"))].append(row)
+
+    out: dict[str, dict[str, Any]] = {}
+    for path_class in ["pure_general", "pure_target", "pure_trap", "hybrid_with_barrier"]:
+        rows = grouped.get(path_class, [])
+        out[path_class] = {
+            "n": len(rows),
+            "exact_match_mean": _mean([1.0 if row.get("exact_match") else 0.0 for row in rows]),
+            "raw_terminal_penalty_mean": _mean(
+                [float(row.get("raw_terminal_penalty", 0.0)) for row in rows]
+            ),
+            "raw_total_cost_mean": _mean([float(row.get("raw_total_cost", 0.0)) for row in rows]),
+            "raw_total_cost_with_token_penalty_mean": _mean(
+                [float(row.get("raw_total_cost_with_token_penalty", 0.0)) for row in rows]
+            ),
+            "fast_total_tokens_mean": _mean(
+                [float(row.get("fast_total_tokens_total", 0.0)) for row in rows]
+            ),
+            "fast_json_retry_count_mean": _mean(
+                [float(row.get("fast_json_retry_count_total", 0.0)) for row in rows]
+            ),
+            "fast_fallback_count_mean": _mean(
+                [float(row.get("fast_fallback_count_total", 0.0)) for row in rows]
+            ),
+            "fast_token_over_budget_penalty_mean": _mean(
+                [float(row.get("fast_token_over_budget_penalty_total", 0.0)) for row in rows]
+            ),
+            "stage4_completion_added_blockers_mean": _mean(
+                [
+                    float(len(row.get("stage4_completion_added_blockers", []) or []))
+                    for row in rows
+                ]
+            ),
+            "stage4_completion_added_prerequisite_blockers_mean": _mean(
+                [
+                    float(
+                        len(row.get("stage4_completion_added_prerequisite_blockers", []) or [])
+                    )
+                    for row in rows
+                ]
+            ),
+            "stage4_completion_prerequisite_pass_applied_rate": _mean(
+                [
+                    1.0
+                    if row.get("stage4_completion_prerequisite_pass_applied")
+                    else 0.0
+                    for row in rows
+                ]
+            ),
+            "stage4_completion_pass_applied_rate": _mean(
+                [1.0 if row.get("stage4_completion_pass_applied") else 0.0 for row in rows]
+            ),
+            "llm_call_count_total_mean": _mean(
+                [float(row.get("llm_call_count_total", 0.0)) for row in rows]
+            ),
+        }
+    return out
+
+
+def build_extended_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
+    stage_rows = collect_stage_rows(records)
+    fast_stage_rows = [row for row in stage_rows if bool(row.get("is_fast_agent", False))]
+    fast_deep_stage_rows = [
+        row
+        for row in fast_stage_rows
+        if str(row.get("stage_requirement", "")).strip().lower() == "deep"
+    ]
+    stage4_records = records
+    return {
+        "avg_llm_call_count_total": _mean(
+            [float(row.get("llm_call_count_total", 0.0)) for row in records]
+        ),
+        "avg_total_tokens_total": _mean(
+            [float(row.get("total_tokens_total", 0.0)) for row in records]
+        ),
+        "avg_json_retry_count_total": _mean(
+            [float(row.get("json_retry_count_total", 0.0)) for row in records]
+        ),
+        "avg_fallback_count_total": _mean(
+            [float(row.get("fallback_count_total", 0.0)) for row in records]
+        ),
+        "avg_replay_tool_call_count_total": _mean(
+            [float(row.get("replay_tool_call_count_total", 0.0)) for row in records]
+        ),
+        "avg_token_over_budget_penalty_total": _mean(
+            [float(row.get("token_over_budget_penalty_total", 0.0)) for row in records]
+        ),
+        "avg_raw_total_cost_with_token_penalty": _mean(
+            [float(row.get("raw_total_cost_with_token_penalty", 0.0)) for row in records]
+        ),
+        "avg_fast_llm_call_count_total": _mean(
+            [float(row.get("fast_llm_call_count_total", 0.0)) for row in records]
+        ),
+        "avg_fast_total_tokens_total": _mean(
+            [float(row.get("fast_total_tokens_total", 0.0)) for row in records]
+        ),
+        "avg_fast_json_retry_count_total": _mean(
+            [float(row.get("fast_json_retry_count_total", 0.0)) for row in records]
+        ),
+        "avg_fast_fallback_count_total": _mean(
+            [float(row.get("fast_fallback_count_total", 0.0)) for row in records]
+        ),
+        "avg_fast_replay_tool_call_count_total": _mean(
+            [float(row.get("fast_replay_tool_call_count_total", 0.0)) for row in records]
+        ),
+        "avg_fast_token_over_budget_total": _mean(
+            [float(row.get("fast_token_over_budget_total", 0.0)) for row in records]
+        ),
+        "avg_fast_token_over_budget_penalty_total": _mean(
+            [float(row.get("fast_token_over_budget_penalty_total", 0.0)) for row in records]
+        ),
+        "fast_token_over_budget_rate": _mean(
+            [1.0 if float(row.get("token_over_budget_stage", 0.0) or 0.0) > 0.0 else 0.0 for row in fast_stage_rows]
+        ),
+        "fast_valid_json_first_try_rate": _mean(
+            [1.0 if row.get("valid_json_first_try") else 0.0 for row in fast_stage_rows]
+        ),
+        "fast_on_deep_stage_retry_rate": _mean(
+            [1.0 if int(row.get("json_retry_count", 0) or 0) > 0 else 0.0 for row in fast_deep_stage_rows]
+        ),
+        "stage4_valid_json_first_try_rate": _mean(
+            [1.0 if row.get("stage4_valid_json_first_try") else 0.0 for row in stage4_records]
+        ),
+        "stage4_json_retry_count_mean": _mean(
+            [float(row.get("stage4_json_retry_count", 0.0)) for row in stage4_records]
+        ),
+        "stage4_fallback_used_rate": _mean(
+            [1.0 if row.get("stage4_fallback_used") else 0.0 for row in stage4_records]
+        ),
+        "stage4_completion_pass_applied_rate": _mean(
+            [1.0 if row.get("stage4_completion_pass_applied") else 0.0 for row in stage4_records]
+        ),
+        "stage4_completion_prerequisite_pass_applied_rate": _mean(
+            [
+                1.0
+                if row.get("stage4_completion_prerequisite_pass_applied")
+                else 0.0
+                for row in stage4_records
+            ]
+        ),
+        "stage4_completion_added_prerequisite_blockers_mean": _mean(
+            [
+                float(len(row.get("stage4_completion_added_prerequisite_blockers", []) or []))
+                for row in stage4_records
+            ]
+        ),
+        "stage4_completion_added_blockers_mean": _mean(
+            [
+                float(len(row.get("stage4_completion_added_blockers", []) or []))
+                for row in stage4_records
+            ]
+        ),
+        "stage4_completion_blocked_by_hard_transfer_guard_count": int(
+            sum(
+                len(row.get("stage4_completion_blocked_by_hard_transfer_guard", []) or [])
+                for row in stage4_records
+            )
+        ),
+        "stage4_normalizer_changed_output_rate": _mean(
+            [1.0 if row.get("stage4_normalizer_changed_output") else 0.0 for row in stage4_records]
+        ),
+        "token_usage_unavailable_stage_count": int(
+            sum(1 for row in stage_rows if not bool(row.get("token_usage_available", False)))
+        ),
+        "fast_token_usage_unavailable_stage_count": int(
+            sum(1 for row in fast_stage_rows if not bool(row.get("token_usage_available", False)))
+        ),
+        "path_class_summary": build_path_class_summary(records),
     }
 
 
@@ -521,7 +837,10 @@ def run_selected_path_job(job: dict[str, Any]) -> dict[str, Any]:
         if isinstance(result.stage_outputs.get("stage4"), dict)
         else {}
     )
+    stage4_stage_trace = stage_trace.get("stage4", {})
     stage5_stage_trace = stage_trace.get("stage5", {})
+    stage_resource_summary = flatten_stage_resource_summary(stage_trace)
+    path_resource_summary = aggregate_path_resource_summary(stage_resource_summary)
     stage4_per_blocker = []
     for blocker_row in stage4_output.get("per_blocker", []) if isinstance(stage4_output, dict) else []:
         if not isinstance(blocker_row, dict):
@@ -542,6 +861,10 @@ def run_selected_path_job(job: dict[str, Any]) -> dict[str, Any]:
         len(stage_row.get("executed_tool_calls", []) or [])
         for stage_row in stage_trace.values()
     )
+    raw_total_cost_base = float(result.raw_total_cost)
+    raw_total_cost_with_token_penalty = (
+        raw_total_cost_base + float(path_resource_summary["fast_token_over_budget_penalty_total"])
+    )
     record = {
         "task_id": job["task_id"],
         "instance_id": str(row.get("instance_id")),
@@ -555,7 +878,8 @@ def run_selected_path_job(job: dict[str, Any]) -> dict[str, Any]:
         "raw_terminal_penalty": float(result.raw_terminal_penalty),
         "raw_path_cost_component": float(result.raw_path_cost_component),
         "raw_reasoning_cost_component": float(result.raw_reasoning_cost_component),
-        "raw_total_cost": float(result.raw_total_cost),
+        "raw_total_cost": raw_total_cost_base,
+        "raw_total_cost_with_token_penalty": raw_total_cost_with_token_penalty,
         "prompt_tokens_total": float(result.prompt_tokens_total),
         "completion_tokens_total": float(result.completion_tokens_total),
         "total_tokens_total": float(result.total_tokens_total),
@@ -574,13 +898,63 @@ def run_selected_path_job(job: dict[str, Any]) -> dict[str, Any]:
         "stage4_should_repair_true_count": sum(
             1 for blocker_row in stage4_per_blocker if blocker_row.get("should_repair") is True
         ),
+        "stage4_llm_raw_output": json_ready(stage4_stage_trace.get("llm_raw_output", [])),
+        "stage4_raw_json_extracted": json_ready(stage4_output.get("stage4_raw_json_extracted")),
+        "stage4_raw_action_hint": stage4_output.get("stage4_raw_action_hint"),
+        "stage4_prompt_summary": stage4_stage_trace.get("prompt_summary"),
+        "stage4_llm_call_count": int(stage4_stage_trace.get("llm_call_count_stage", 0) or 0),
+        "stage4_max_rounds_allowed": int(
+            stage4_stage_trace.get("max_rounds_allowed", 0) or 0
+        ),
+        "stage4_base_round_budget": int(
+            stage4_stage_trace.get("base_round_budget", 0) or 0
+        ),
+        "stage4_valid_json_first_try": bool(
+            stage4_stage_trace.get("valid_json_first_try", False)
+        ),
+        "stage4_json_retry_count": int(stage4_stage_trace.get("json_retry_count", 0) or 0),
+        "stage4_fallback_used": bool(stage4_stage_trace.get("fallback_used", False)),
+        "stage4_normalizer_changed_output": bool(
+            stage4_output.get("stage4_normalizer_changed_output", False)
+        ),
+        "stage4_selected_before_normalization": list(
+            stage4_output.get("stage4_selected_before_normalization", []) or []
+        ),
+        "stage4_deferred_before_normalization": list(
+            stage4_output.get("stage4_deferred_before_normalization", []) or []
+        ),
+        "stage4_selected_after_normalization": list(
+            stage4_output.get("stage4_selected_after_normalization", []) or []
+        ),
+        "stage4_deferred_after_normalization": list(
+            stage4_output.get("stage4_deferred_after_normalization", []) or []
+        ),
+        "stage4_completion_pass_applied": bool(
+            stage4_output.get("stage4_completion_pass_applied", False)
+        ),
+        "stage4_completion_prerequisite_pass_applied": bool(
+            stage4_output.get("stage4_completion_prerequisite_pass_applied", False)
+        ),
+        "stage4_completion_added_prerequisite_blockers": list(
+            stage4_output.get("stage4_completion_added_prerequisite_blockers", []) or []
+        ),
+        "stage4_completion_added_downstream_blockers": list(
+            stage4_output.get("stage4_completion_added_downstream_blockers", []) or []
+        ),
+        "stage4_completion_added_blockers": list(
+            stage4_output.get("stage4_completion_added_blockers", []) or []
+        ),
+        "stage4_completion_blocked_by_hard_transfer_guard": list(
+            stage4_output.get("stage4_completion_blocked_by_hard_transfer_guard", []) or []
+        ),
         "stage5_raw_action_hint": stage5_stage_trace.get("raw_output", {}).get("final_action")
         if isinstance(stage5_stage_trace.get("raw_output"), dict)
         else None,
         "stage5_llm_raw_output": json_ready(stage5_stage_trace.get("llm_raw_output", [])),
         "exact_match": bool(result.success),
-        "stage_resource_summary": flatten_stage_resource_summary(stage_trace),
+        "stage_resource_summary": stage_resource_summary,
         "first_private_barrier_stage": episode_log.get("first_private_barrier_stage"),
+        **path_resource_summary,
     }
     return {"job_index": int(job["job_index"]), "record": record}
 
@@ -759,6 +1133,7 @@ def main() -> None:
             else None
         ),
     }
+    extended_summary = build_extended_summary(records)
 
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -782,6 +1157,7 @@ def main() -> None:
             "task_path_selection": task_path_selection,
             "task_summaries": task_summaries,
             "overall_summary": overall_summary,
+            "extended_summary": extended_summary,
         },
     )
 

@@ -1,0 +1,42 @@
+{
+  "subset_name": "telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_lowtransfer_smoke",
+  "subset_version": "lowtransfer_smoke_v1",
+  "family": "telecom_mms_recovery",
+  "task_count": 68,
+  "source_dataset": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch/tasks.json",
+  "source_manifest": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch/manifest.json",
+  "notes": [
+    "Low-transfer smoke view over the profile-switch 100-task dataset.",
+    "Starts from the non-transfer smoke set and adds exactly one target-favoring transfer task so scheduled transfer share stays <=10%.",
+    "Intended for repeated trap_switch smoke compatibility without restoring the original 33% transfer mix."
+  ],
+  "filtering_criteria": {
+    "base_track": "nontransfer_smoke_v1 rows retained",
+    "added_transfer_task_ids": [
+      "[mms_issue]airplane_mode_on|break_apn_mms_setting|break_app_both_permissions|user_abroad_roaming_disabled_off[PERSONA:None]"
+    ],
+    "low_transfer_schedule_goal": "<=10% transfer episodes under repeats=10, switch_denominator=8"
+  },
+  "counts": {
+    "source_row_count": 100,
+    "kept_row_count": 68,
+    "dropped_row_count": 32,
+    "expected_terminal_action_after": {
+      "repair_all": 33,
+      "repair_subset": 34,
+      "transfer": 1
+    },
+    "repairability_after": {
+      "repairable": 33,
+      "partially_repairable": 34,
+      "transfer_required": 1
+    }
+  },
+  "smoke_bucket_summary": {
+    "trap_bucket_size": 10,
+    "target_bucket_size": 10,
+    "specialist_bucket_size": 9,
+    "added_transfer_target_count": 1,
+    "scheduled_transfer_rate_repeats10_switch8": 0.08800000000000001
+  }
+}

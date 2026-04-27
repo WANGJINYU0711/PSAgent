@@ -1,0 +1,61 @@
+{
+  "schema_version": "profile_switch_v1",
+  "source_dataset": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_nontransfer_smoke/tasks.json",
+  "source_manifest": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_nontransfer_smoke/manifest.json",
+  "selection_criteria": {
+    "paired_runner_note": "Trim trap_favoring to match surviving target_favoring count for trap_switch repeated smoke compatibility.",
+    "filtering_note": "All referenced task_ids come from the non-transfer smoke filtered dataset only."
+  },
+  "trap_favoring_task_ids": [
+    "[mms_issue]airplane_mode_on|bad_network_preference|break_app_sms_permission[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_wifi_calling|break_app_sms_permission[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_wifi_calling|break_app_storage_permission[PERSONA:Easy]",
+    "[mms_issue]airplane_mode_on|break_app_both_permissions|data_usage_exceeded[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|break_app_storage_permission[PERSONA:Easy]",
+    "[mms_issue]bad_network_preference[PERSONA:None]",
+    "[mms_issue]bad_network_preference|break_app_storage_permission[PERSONA:None]",
+    "[mms_issue]bad_wifi_calling[PERSONA:Easy]",
+    "[mms_issue]bad_wifi_calling|break_app_storage_permission[PERSONA:Easy]",
+    "[mms_issue]break_app_both_permissions[PERSONA:Hard]"
+  ],
+  "target_favoring_task_ids": [
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Easy]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Easy]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|unseat_sim_card[PERSONA:Easy]"
+  ],
+  "specialist_task_ids": [
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Easy]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Easy]"
+  ],
+  "coverage_summary": {
+    "trap_bucket_size": 10,
+    "target_bucket_size": 10,
+    "specialist_bucket_size": 9,
+    "paired_runner_bucket_size": 10
+  },
+  "bucket_labels": {
+    "trap_favoring": "fast_path_pre_switch",
+    "target_favoring": "deep_path_post_switch",
+    "specialist": "verification_heavy_post_switch"
+  },
+  "bucket_notes": {
+    "trap_favoring": "Pre-switch path: fast, shallow, and early-closure friendly. These tasks reward compact evidence chains and tolerate earlier stop decisions.",
+    "target_favoring": "Post-switch path: deeper reasoning and repair-precondition completion matter more than route labels or archetypes. These tasks reward fuller evidence chains and cautious closure.",
+    "specialist": "Compatibility specialist subset: this now denotes the post-switch deep-validation/high-complexity subset, not an expert-agent archetype.",
+    "filtered_nontransfer_smoke": "Non-transfer smoke filtered bucket file; transfer tasks excluded, trap bucket trimmed to target bucket size for runner compatibility."
+  }
+}
