@@ -1,0 +1,9 @@
+{
+  "method": "epsilon_exp3",
+  "scheduled_episodes": 20,
+  "completed_episodes": 20,
+  "last_completed_episode_index": 19,
+  "status": "complete",
+  "model": "gpt-4o-mini",
+  "updated_at": "2026-04-28T22:14:51.955230"
+}

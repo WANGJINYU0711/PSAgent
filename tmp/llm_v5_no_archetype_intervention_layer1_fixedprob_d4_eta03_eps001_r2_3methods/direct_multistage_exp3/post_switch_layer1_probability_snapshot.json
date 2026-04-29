@@ -1,0 +1,52 @@
+[
+  {
+    "method": "direct_multistage_exp3",
+    "snapshot_episode_index": 5,
+    "snapshot_episode_1based": 6,
+    "rank": 1,
+    "child_id": "stage1_n1__from__root__c01",
+    "prob": 0.25598317584382285,
+    "distribution_kind": "stagewise_marginal_mixture",
+    "freeze_mode": "root_direct_child_marginal_at_switch"
+  },
+  {
+    "method": "direct_multistage_exp3",
+    "snapshot_episode_index": 5,
+    "snapshot_episode_1based": 6,
+    "rank": 2,
+    "child_id": "stage1_n2__from__root__c02",
+    "prob": 0.09191012532375376,
+    "distribution_kind": "stagewise_marginal_mixture",
+    "freeze_mode": "root_direct_child_marginal_at_switch"
+  },
+  {
+    "method": "direct_multistage_exp3",
+    "snapshot_episode_index": 5,
+    "snapshot_episode_1based": 6,
+    "rank": 3,
+    "child_id": "stage1_n3__from__root__c03",
+    "prob": 0.25598317584382285,
+    "distribution_kind": "stagewise_marginal_mixture",
+    "freeze_mode": "root_direct_child_marginal_at_switch"
+  },
+  {
+    "method": "direct_multistage_exp3",
+    "snapshot_episode_index": 5,
+    "snapshot_episode_1based": 6,
+    "rank": 4,
+    "child_id": "stage1_n4__from__root__c04",
+    "prob": 0.25598317584382285,
+    "distribution_kind": "stagewise_marginal_mixture",
+    "freeze_mode": "root_direct_child_marginal_at_switch"
+  },
+  {
+    "method": "direct_multistage_exp3",
+    "snapshot_episode_index": 5,
+    "snapshot_episode_1based": 6,
+    "rank": 5,
+    "child_id": "stage1_n5__from__root__c05",
+    "prob": 0.14014034714477783,
+    "distribution_kind": "stagewise_marginal_mixture",
+    "freeze_mode": "root_direct_child_marginal_at_switch"
+  }
+]

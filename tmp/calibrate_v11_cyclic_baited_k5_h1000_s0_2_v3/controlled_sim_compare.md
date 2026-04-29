@@ -1,0 +1,15 @@
+| setting | method_label | eta_shared | gamma_shared | num_paths | regret_per_t_mean | regret_per_t_std | average_cost_mean | exact_best_path_hit_rate_mean | shared_path_fraction_mean |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| shared_basin_strong_4of5_prefix_dedup | direct_multistage_exp3 | None | None | 440 | 0.028702255029362387 | 0.08601744009211156 | 0.34299999999999997 | 0.142 | 0.9703333333333334 |
+| shared_basin_strong_4of5_prefix_dedup | direct_multistage_exp3_local | None | None | 440 | 0.10870225502936239 | 0.07892401408950257 | 0.42300000000000004 | 0.10200000000000002 | 0.9673333333333334 |
+| shared_basin_strong_4of5_prefix_dedup | epsilon_exp3 | None | None | 440 | 0.07136892169602906 | 0.07983942217559777 | 0.38566666666666666 | 0.010666666666666666 | 0.968 |
+| shared_basin_strong_4of5_prefix_dedup | naive_mixed | None | None | 440 | 0.21303558836269573 | 0.06645549889462371 | 0.5273333333333333 | 0.0 | 1.0 |
+| shared_basin_strong_4of5_prefix_dedup | naive_mixed_avg | None | None | 440 | -0.10196441163730428 | 0.12522113772575832 | 0.21233333333333335 | 0.2353333333333333 | 1.0 |
+| shared_basin_strong_4of5_prefix_dedup | random_path | None | None | 440 | 0.41170225502936236 | 0.006999999999999974 | 0.726 | 0.015333333333333332 | 0.9266666666666667 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps | 0.05 | None | 440 | 0.05836892169602906 | 0.03992910383834495 | 0.3726666666666667 | 0.08833333333333333 | 0.9743333333333334 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_direct_cost | 0.05 | None | 440 | 0.17736892169602905 | 0.06158192375472962 | 0.4916666666666667 | 0.037333333333333336 | 0.9700000000000001 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_ix | 0.05 | 0.005 | 440 | 0.039702255029362386 | 0.06274551776820397 | 0.35400000000000004 | 0.06799999999999999 | 0.9673333333333334 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_linear | 0.05 | None | 440 | 0.09703558836269573 | 0.046522396040330226 | 0.41133333333333333 | 0.04700000000000001 | 0.9733333333333333 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_old | 0.2 | None | 440 | 0.11670225502936239 | 0.05632051136131489 | 0.431 | 0.02266666666666667 | 0.9686666666666666 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_safe_conditional | 0.05 | None | 440 | 0.07436892169602906 | 0.027006172134038792 | 0.38866666666666666 | 0.14133333333333334 | 0.9780000000000001 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_safe_conditional_ix | 0.05 | 0.0005 | 440 | 0.07403558836269573 | 0.026501572280401276 | 0.38833333333333336 | 0.14533333333333334 | 0.979 |

@@ -1,0 +1,46 @@
+{
+  "specialist_episode_count": 8,
+  "specialist_task_hit_ids": [
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Easy]"
+  ],
+  "schedule_episode_indices": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "methods": {
+    "direct_multistage_exp3": {
+      "specialist_episode_count": 8,
+      "specialist_unshared_path_fraction": 0.375,
+      "specialist_shared_path_fraction": 0.625,
+      "specialist_total_cost_mean": 0.20271974954737476,
+      "specialist_raw_terminal_penalty_mean": 6.5
+    },
+    "epsilon_exp3": {
+      "specialist_episode_count": 8,
+      "specialist_unshared_path_fraction": 0.25,
+      "specialist_shared_path_fraction": 0.75,
+      "specialist_total_cost_mean": 0.18382340072420036,
+      "specialist_raw_terminal_penalty_mean": 5.875
+    },
+    "risky_ps_linear": {
+      "specialist_episode_count": 8,
+      "specialist_unshared_path_fraction": 0.0,
+      "specialist_shared_path_fraction": 1.0,
+      "specialist_total_cost_mean": 0.14602429088714544,
+      "specialist_raw_terminal_penalty_mean": 4.625
+    }
+  }
+}

@@ -1,0 +1,15 @@
+| setting | method_label | eta_shared | gamma_shared | num_paths | regret_per_t_mean | regret_per_t_std | average_cost_mean | exact_best_path_hit_rate_mean | shared_path_fraction_mean |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| shared_basin_strong_4of5_prefix_dedup | direct_multistage_exp3 | None | None | 440 | 0.1826211180929102 | 0.0 | 0.2 | 0.05 | 0.9375 |
+| shared_basin_strong_4of5_prefix_dedup | direct_multistage_exp3_local | None | None | 440 | 0.2576211180929102 | 0.0 | 0.275 | 0.025 | 0.9125 |
+| shared_basin_strong_4of5_prefix_dedup | epsilon_exp3 | None | None | 440 | 0.10762111809291022 | 0.0 | 0.125 | 0.0 | 0.95 |
+| shared_basin_strong_4of5_prefix_dedup | naive_mixed | None | None | 440 | -0.004878881907089775 | 0.0 | 0.0125 | 0.0 | 1.0 |
+| shared_basin_strong_4of5_prefix_dedup | naive_mixed_avg | None | None | 440 | -0.004878881907089775 | 0.0 | 0.0125 | 0.0 | 1.0 |
+| shared_basin_strong_4of5_prefix_dedup | random_path | None | None | 440 | 0.2951211180929102 | 0.0 | 0.3125 | 0.0125 | 0.925 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps | 0.05 | None | 440 | 0.1826211180929102 | 0.0 | 0.2 | 0.025 | 0.9125 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_direct_cost | 0.05 | None | 440 | 0.17012111809291022 | 0.0 | 0.1875 | 0.0125 | 0.9125 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_ix | 0.05 | 0.005 | 440 | 0.1826211180929102 | 0.0 | 0.2 | 0.025 | 0.9125 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_linear | 0.05 | None | 440 | 0.1826211180929102 | 0.0 | 0.2 | 0.025 | 0.9125 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_old | 0.2 | None | 440 | 0.1826211180929102 | 0.0 | 0.2 | 0.025 | 0.9125 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_safe_conditional | 0.05 | None | 440 | 0.17012111809291022 | 0.0 | 0.1875 | 0.0125 | 0.9125 |
+| shared_basin_strong_4of5_prefix_dedup | risky_ps_safe_conditional_ix | 0.05 | 0.0005 | 440 | 0.17012111809291022 | 0.0 | 0.1875 | 0.0125 | 0.9125 |

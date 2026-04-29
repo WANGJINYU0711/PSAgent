@@ -128,11 +128,15 @@ TREE_SPEC_COST_MODES = (
     "default",
     "ps_favored_trap",
     "ps_favored_trap_v10_avg_baited",
+    "ps_favored_trap_v11_cyclic_baited",
+    "ps_favored_trap_v12_gap_compressed_baited",
 )
 PS_FAVORED_COST_MODES = frozenset(
     {
         "ps_favored_trap",
         "ps_favored_trap_v10_avg_baited",
+        "ps_favored_trap_v11_cyclic_baited",
+        "ps_favored_trap_v12_gap_compressed_baited",
     }
 )
 PS_FAVORED_TRAP_BASE_ALIASES = (
@@ -149,6 +153,18 @@ PS_FAVORED_SAFE_SUFFIX_STAGE4 = "stage4_n1"
 PS_FAVORED_SAFE_SUFFIX_STAGE5 = frozenset({"stage5_n1", "stage5_n2"})
 PS_FAVORED_V10_BAIT_STAGE1 = "stage1_n1"
 PS_FAVORED_V10_BAIT_STAGE2 = frozenset({"stage2_n1", "stage2_n2"})
+PS_FAVORED_V11_BAIT_LAYOUTS = (
+    ("stage1_n1", frozenset({"stage2_n1", "stage2_n2"})),
+    ("stage1_n2", frozenset({"stage2_n1", "stage2_n3"})),
+    ("stage1_n3", frozenset({"stage2_n2", "stage2_n3"})),
+    ("stage1_n4", frozenset({"stage2_n1", "stage2_n2"})),
+)
+PS_FAVORED_V11_TARGET_STAGE1_CYCLE = (
+    "stage1_n3",
+    "stage1_n2",
+    "stage1_n1",
+    "stage1_n3",
+)
 DEFAULT_IX_ETA_SHARED_VALUES = (0.005, 0.01, 0.02, 0.05)
 DEFAULT_IX_GAMMA_SHARED_VALUES = (0.0005, 0.001, 0.002, 0.005)
 DENOMINATOR_ABLATION_METHODS = (
@@ -712,6 +728,7 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         tree_spec_role_mode: str = "spec_or_agent_id",
         tree_spec_cost_mode: str = "default",
         trap_switch_denominator: int | None = None,
+        cyclic_switch_count: int | None = None,
     ) -> None:
         if tree_spec_cost_mode not in TREE_SPEC_COST_MODES:
             raise ValueError(f"Unknown tree-spec cost mode: {tree_spec_cost_mode}")
@@ -725,6 +742,11 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         )
         if self.trap_switch_denominator <= 0:
             raise ValueError("trap_switch_denominator must be positive")
+        self.cyclic_switch_count = (
+            int(cyclic_switch_count) if cyclic_switch_count is not None else None
+        )
+        if self.cyclic_switch_count is not None and self.cyclic_switch_count <= 0:
+            raise ValueError("cyclic_switch_count must be positive")
         self.setting_name = str(spec.get("tree_name", spec_path.stem))
         self.variant = str(spec.get("tree_name", spec_path.stem))
         self.depth = int(spec["depth"])
@@ -814,9 +836,44 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
     def _uses_ps_favored_v10_avg_baited(self) -> bool:
         return self.tree_spec_cost_mode == "ps_favored_trap_v10_avg_baited"
 
+    def _uses_ps_favored_v11_cyclic_baited(self) -> bool:
+        return self.tree_spec_cost_mode == "ps_favored_trap_v11_cyclic_baited"
+
+    def _uses_ps_favored_v12_gap_compressed_baited(self) -> bool:
+        return self.tree_spec_cost_mode == "ps_favored_trap_v12_gap_compressed_baited"
+
     def _ps_favored_trap_switch_episode(self, horizon: int | None) -> int:
         effective_horizon = int(horizon or self.depth or 1)
         return max(1, effective_horizon // self.trap_switch_denominator)
+
+    def _ps_favored_cyclic_switch_count(self) -> int:
+        return max(1, int(self.cyclic_switch_count or 1))
+
+    def _ps_favored_cyclic_switch_episodes(self, horizon: int | None) -> list[int]:
+        effective_horizon = max(1, int(horizon or self.depth or 1))
+        switch_count = self._ps_favored_cyclic_switch_count()
+        episodes: list[int] = []
+        for switch_index in range(1, switch_count + 1):
+            episode = int(math.floor(effective_horizon * switch_index / (switch_count + 1)))
+            episode = min(max(1, episode), max(1, effective_horizon - 1))
+            if not episodes or episode > episodes[-1]:
+                episodes.append(episode)
+        return episodes
+
+    def _ps_favored_cyclic_phase(
+        self,
+        episode_index: int | None,
+        horizon: int | None,
+    ) -> int:
+        if episode_index is None:
+            return 0
+        phase = 0
+        for switch_episode in self._ps_favored_cyclic_switch_episodes(horizon):
+            if episode_index >= switch_episode:
+                phase += 1
+            else:
+                break
+        return phase
 
     def _build_allowed_children_from_spec(
         self,
@@ -1360,8 +1417,13 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         cached = getattr(self, "_ps_favored_exact_best_path_cache", None)
         if cached is not None:
             return cached
+        candidate_good_paths = (
+            self._ps_favored_v11_selected_good_leaf_paths()
+            if self._uses_ps_favored_v11_cyclic_baited()
+            else self._ps_favored_selected_good_leaf_paths()
+        )
         good_paths = sorted(
-            self._ps_favored_selected_good_leaf_paths(),
+            candidate_good_paths,
             key=lambda path: stable_unit_interval(
                 "ps_favored_exact_best_rank",
                 self.setting_name,
@@ -1379,6 +1441,12 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         base_aliases: tuple[str, ...],
         gates: tuple[int, ...],
     ) -> bool:
+        if self._uses_ps_favored_v11_cyclic_baited():
+            return self._is_ps_favored_v11_near_best_good(
+                visible_path,
+                base_aliases,
+                gates,
+            )
         return (
             self._is_ps_favored_candidate_safe_subtree(base_aliases, gates)
             and visible_path in self._ps_favored_selected_good_leaf_paths()
@@ -1428,6 +1496,30 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         exact_best_path = self._ps_favored_exact_best_path()
         return exact_best_path is not None and visible_path == exact_best_path
 
+    def _ps_favored_v11_selected_good_leaf_paths(self) -> frozenset[tuple[str, ...]]:
+        cached = getattr(self, "_ps_favored_v11_selected_good_leaf_paths_cache", None)
+        if cached is not None:
+            return cached
+        filtered = frozenset(
+            path
+            for path in self._ps_favored_selected_good_leaf_paths()
+            if self._ps_favored_base_aliases_for_path(path)[:2] == ("stage1_n3", "stage2_n1")
+        )
+        cached = filtered or self._ps_favored_selected_good_leaf_paths()
+        self._ps_favored_v11_selected_good_leaf_paths_cache = cached
+        return cached
+
+    def _is_ps_favored_v11_near_best_good(
+        self,
+        visible_path: tuple[str, ...],
+        base_aliases: tuple[str, ...],
+        gates: tuple[int, ...],
+    ) -> bool:
+        return (
+            self._is_ps_favored_candidate_safe_subtree(base_aliases, gates)
+            and visible_path in self._ps_favored_v11_selected_good_leaf_paths()
+        )
+
     def _is_ps_favored_trap(self, base_aliases: tuple[str, ...]) -> bool:
         return base_aliases == PS_FAVORED_TRAP_BASE_ALIASES
 
@@ -1442,6 +1534,81 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
             and base_aliases[0] == PS_FAVORED_V10_BAIT_STAGE1
             and base_aliases[1] in PS_FAVORED_V10_BAIT_STAGE2
             and all(int(gate) == 0 for gate in gates)
+        )
+
+    def _ps_favored_v11_bait_layout_for_phase(
+        self,
+        phase: int,
+    ) -> tuple[str, frozenset[str]]:
+        return PS_FAVORED_V11_BAIT_LAYOUTS[phase % len(PS_FAVORED_V11_BAIT_LAYOUTS)]
+
+    def _ps_favored_v11_target_stage1_for_phase(self, phase: int) -> str:
+        target_phase = max(0, phase - 1)
+        return PS_FAVORED_V11_TARGET_STAGE1_CYCLE[
+            target_phase % len(PS_FAVORED_V11_TARGET_STAGE1_CYCLE)
+        ]
+
+    def _is_ps_favored_v11_phase_target_good(
+        self,
+        base_aliases: tuple[str, ...],
+        gates: tuple[int, ...],
+        phase: int,
+    ) -> bool:
+        target_stage1 = self._ps_favored_v11_target_stage1_for_phase(phase)
+        return (
+            len(base_aliases) == 5
+            and len(gates) == 5
+            and base_aliases[0] == target_stage1
+            and base_aliases[1] == "stage2_n1"
+            and base_aliases[2] in {"stage3_n1", "stage3_n2"}
+            and base_aliases[3] == "stage4_n1"
+            and base_aliases[4] == "stage5_n1"
+            and all(int(gate) == 0 for gate in gates)
+        )
+
+    def _is_ps_favored_v11_phase_exact_best(
+        self,
+        base_aliases: tuple[str, ...],
+        gates: tuple[int, ...],
+        phase: int,
+    ) -> bool:
+        target_stage1 = self._ps_favored_v11_target_stage1_for_phase(phase)
+        return (
+            len(base_aliases) == 5
+            and len(gates) == 5
+            and base_aliases == (
+                target_stage1,
+                "stage2_n1",
+                "stage3_n2",
+                "stage4_n1",
+                "stage5_n1",
+            )
+            and all(int(gate) == 0 for gate in gates)
+        )
+
+    def _is_ps_favored_v11_bait_corridor_for_layout(
+        self,
+        base_aliases: tuple[str, ...],
+        gates: tuple[int, ...],
+        layout: tuple[str, frozenset[str]],
+    ) -> bool:
+        bait_stage1, bait_stage2 = layout
+        return (
+            len(base_aliases) == 5
+            and len(gates) == 5
+            and base_aliases[0] == bait_stage1
+            and base_aliases[1] in bait_stage2
+            and all(int(gate) == 0 for gate in gates)
+        )
+
+    def _is_ps_favored_v11_any_bait_corridor(
+        self,
+        base_aliases: tuple[str, ...],
+        gates: tuple[int, ...],
+    ) -> bool:
+        return any(
+            self._is_ps_favored_v11_bait_corridor_for_layout(base_aliases, gates, layout)
+            for layout in PS_FAVORED_V11_BAIT_LAYOUTS
         )
 
     def _base_costs_ps_favored_trap(
@@ -1670,6 +1837,284 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         )
         return clamp01(probability), "ps_favored_v10_multi_barrier_post_switch"
 
+    def _ps_favored_trap_v11_cyclic_baited_probability(
+        self,
+        *,
+        visible_path: tuple[str, ...],
+        base_aliases: tuple[str, ...],
+        gates: tuple[int, ...],
+        episode_index: int | None,
+        horizon: int | None,
+    ) -> tuple[float, str]:
+        phase = self._ps_favored_cyclic_phase(episode_index, horizon)
+        is_pre_anchor = episode_index is not None and phase == 0
+        active_layout = self._ps_favored_v11_bait_layout_for_phase(phase)
+        is_active_bait = self._is_ps_favored_v11_bait_corridor_for_layout(
+            base_aliases,
+            gates,
+            active_layout,
+        )
+        is_any_bait = self._is_ps_favored_v11_any_bait_corridor(base_aliases, gates)
+
+        if is_pre_anchor:
+            return self._ps_favored_trap_v10_avg_baited_probability(
+                visible_path=visible_path,
+                base_aliases=base_aliases,
+                gates=gates,
+                episode_index=0,
+                horizon=max(2, int(horizon or self.depth or 1)),
+            )
+
+        if self._is_ps_favored_v11_phase_exact_best(base_aliases, gates, phase):
+            return 0.007, "ps_favored_v11_exact_best_cyclic_target_phase"
+
+        if self._is_ps_favored_v11_phase_target_good(base_aliases, gates, phase):
+            probability = 0.010 + stable_positive_hash_noise(
+                0.010,
+                "ps_favored_v11_target_good_cyclic_target_phase",
+                self.setting_name,
+                phase,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v11_target_good_cyclic_target_phase"
+
+        if self._is_ps_favored_candidate_safe_subtree(base_aliases, gates):
+            probability = 0.86 + stable_positive_hash_noise(
+                0.08,
+                "ps_favored_v11_target_bad_cyclic_target_phase",
+                self.setting_name,
+                phase,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v11_target_bad_cyclic_target_phase"
+
+        if is_active_bait:
+            probability = 0.040 + stable_positive_hash_noise(
+                0.030,
+                "ps_favored_v11_active_rotating_bait_corridor",
+                self.setting_name,
+                phase,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v11_active_rotating_bait_corridor"
+
+        if is_any_bait:
+            probability = 0.88 + stable_positive_hash_noise(
+                0.08,
+                "ps_favored_v11_stale_rotating_bait_corridor",
+                self.setting_name,
+                phase,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v11_stale_rotating_bait_corridor"
+
+        if self._is_ps_favored_trap_basin(base_aliases):
+            return 0.992, "ps_favored_v11_trap_basin_cyclic_target_phase"
+
+        if self._is_ps_favored_balancing_decoy_candidate(base_aliases, gates):
+            probability = 0.55 + stable_positive_hash_noise(
+                0.12,
+                "ps_favored_v11_balancing_candidate_cyclic_target_phase",
+                self.setting_name,
+                phase,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v11_balancing_candidate_cyclic_target_phase"
+
+        if self._is_ps_favored_local_decoy(visible_path, base_aliases, gates):
+            probability = 0.50 + stable_positive_hash_noise(
+                0.08,
+                "ps_favored_v11_local_decoy_cyclic_target_phase",
+                self.setting_name,
+                phase,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v11_local_decoy_cyclic_target_phase"
+
+        if self._is_ps_favored_decoy_branch(base_aliases, gates):
+            probability = 0.60 + stable_positive_hash_noise(
+                0.10,
+                "ps_favored_v11_decoy_branch_cyclic_target_phase",
+                self.setting_name,
+                phase,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v11_decoy_branch_cyclic_target_phase"
+
+        if self._is_ps_favored_safe_suffix(base_aliases, gates):
+            probability = 0.64 + stable_positive_hash_noise(
+                0.10,
+                "ps_favored_v11_ordinary_safe_cyclic_target_phase",
+                self.setting_name,
+                phase,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v11_ordinary_safe_cyclic_target_phase"
+
+        barrier_count = sum(int(gate) == 1 for gate in gates)
+        if barrier_count == 0:
+            probability = 0.58 + stable_positive_hash_noise(
+                0.10,
+                "ps_favored_v11_non_safe_all_shared_cyclic_target_phase",
+                self.setting_name,
+                phase,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v11_non_safe_all_shared_cyclic_target_phase"
+        if barrier_count == 1:
+            probability = 0.70 + stable_positive_hash_noise(
+                0.10,
+                "ps_favored_v11_one_barrier_cyclic_target_phase",
+                self.setting_name,
+                phase,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v11_one_barrier_cyclic_target_phase"
+        probability = 0.82 + stable_positive_hash_noise(
+            0.10,
+            "ps_favored_v11_multi_barrier_cyclic_target_phase",
+            self.setting_name,
+            phase,
+            *base_aliases,
+            *visible_path,
+        )
+        return clamp01(probability), "ps_favored_v11_multi_barrier_cyclic_target_phase"
+
+    def _ps_favored_trap_v12_gap_compressed_baited_probability(
+        self,
+        *,
+        visible_path: tuple[str, ...],
+        base_aliases: tuple[str, ...],
+        gates: tuple[int, ...],
+        episode_index: int | None,
+        horizon: int | None,
+    ) -> tuple[float, str]:
+        switch_episode = self._ps_favored_trap_switch_episode(horizon)
+        is_pre_switch = episode_index is not None and episode_index < switch_episode
+
+        if is_pre_switch:
+            return self._ps_favored_trap_v10_avg_baited_probability(
+                visible_path=visible_path,
+                base_aliases=base_aliases,
+                gates=gates,
+                episode_index=episode_index,
+                horizon=horizon,
+            )
+
+        if self._is_ps_favored_v10_avg_bait_corridor(base_aliases, gates):
+            probability = 0.86 + stable_positive_hash_noise(
+                0.08,
+                "ps_favored_v12_bait_corridor_post_switch_traplate",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v12_bait_corridor_post_switch_traplate"
+
+        if self._is_ps_favored_trap_basin(base_aliases):
+            return 0.992, "ps_favored_v12_trap_basin_post_switch_traplate"
+
+        if self._is_ps_favored_exact_best(visible_path):
+            return 0.010, "ps_favored_v12_exact_best_post_switch_gap_compressed"
+
+        if self._is_ps_favored_near_best_good(visible_path, base_aliases, gates):
+            probability = 0.015 + stable_positive_hash_noise(
+                0.003,
+                "ps_favored_v12_target_good_post_switch_gap_compressed",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v12_target_good_post_switch_gap_compressed"
+
+        if self._is_ps_favored_candidate_safe_subtree(base_aliases, gates):
+            probability = 0.035 + stable_positive_hash_noise(
+                0.006,
+                "ps_favored_v12_target_bad_post_switch_gap_compressed",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v12_target_bad_post_switch_gap_compressed"
+
+        if self._is_ps_favored_local_decoy(visible_path, base_aliases, gates):
+            probability = 0.025 + stable_positive_hash_noise(
+                0.004,
+                "ps_favored_v12_safe_decoy_post_switch_gap_compressed",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v12_safe_decoy_post_switch_gap_compressed"
+
+        if self._is_ps_favored_balancing_decoy_candidate(base_aliases, gates):
+            probability = 0.030 + stable_positive_hash_noise(
+                0.006,
+                "ps_favored_v12_balancing_decoy_post_switch_gap_compressed",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v12_balancing_decoy_post_switch_gap_compressed"
+
+        if self._is_ps_favored_decoy_branch(base_aliases, gates):
+            probability = 0.035 + stable_positive_hash_noise(
+                0.006,
+                "ps_favored_v12_decoy_branch_post_switch_gap_compressed",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v12_decoy_branch_post_switch_gap_compressed"
+
+        if self._is_ps_favored_safe_suffix(base_aliases, gates):
+            probability = 0.035 + stable_positive_hash_noise(
+                0.006,
+                "ps_favored_v12_ordinary_safe_post_switch_gap_compressed",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v12_ordinary_safe_post_switch_gap_compressed"
+
+        barrier_count = sum(int(gate) == 1 for gate in gates)
+        if barrier_count == 0:
+            probability = 0.035 + stable_positive_hash_noise(
+                0.006,
+                "ps_favored_v12_non_safe_all_shared_post_switch_gap_compressed",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v12_non_safe_all_shared_post_switch_gap_compressed"
+        if barrier_count == 1:
+            probability = 0.038 + stable_positive_hash_noise(
+                0.006,
+                "ps_favored_v12_one_barrier_post_switch_gap_compressed",
+                self.setting_name,
+                *base_aliases,
+                *visible_path,
+            )
+            return clamp01(probability), "ps_favored_v12_one_barrier_post_switch_gap_compressed"
+        probability = 0.041 + stable_positive_hash_noise(
+            0.006,
+            "ps_favored_v12_multi_barrier_post_switch_gap_compressed",
+            self.setting_name,
+            *base_aliases,
+            *visible_path,
+        )
+        return clamp01(probability), "ps_favored_v12_multi_barrier_post_switch_gap_compressed"
+
     def _ps_favored_trap_base_probability(
         self,
         *,
@@ -1781,6 +2226,22 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         episode_index: int | None,
         horizon: int | None,
     ) -> tuple[float, str]:
+        if self._uses_ps_favored_v12_gap_compressed_baited():
+            return self._ps_favored_trap_v12_gap_compressed_baited_probability(
+                visible_path=visible_path,
+                base_aliases=base_aliases,
+                gates=gates,
+                episode_index=episode_index,
+                horizon=horizon,
+            )
+        if self._uses_ps_favored_v11_cyclic_baited():
+            return self._ps_favored_trap_v11_cyclic_baited_probability(
+                visible_path=visible_path,
+                base_aliases=base_aliases,
+                gates=gates,
+                episode_index=episode_index,
+                horizon=horizon,
+            )
         if self._uses_ps_favored_v10_avg_baited():
             return self._ps_favored_trap_v10_avg_baited_probability(
                 visible_path=visible_path,
@@ -2076,9 +2537,32 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
         oracle_path = tuple(oracle["true_best_leaf"])
         oracle_profile = self.path_profiles[oracle_path]
         trap_switch_episode = self._ps_favored_trap_switch_episode(horizon)
+        cyclic_switch_episodes = (
+            self._ps_favored_cyclic_switch_episodes(horizon)
+            if self._uses_ps_favored_v11_cyclic_baited()
+            else []
+        )
         return {
             "tree_spec_cost_mode": self.tree_spec_cost_mode,
-            "cost_landscape_design": "v9_targeted_marginal_calibration",
+            "cost_landscape_design": (
+                "v12_gap_compressed_baited_trap_late"
+                if self._uses_ps_favored_v12_gap_compressed_baited()
+                else
+                "v11_cyclic_baited_fixed_safe_suffix"
+                if self._uses_ps_favored_v11_cyclic_baited()
+                else "v9_targeted_marginal_calibration"
+            ),
+            "gap_compressed_post_switch_design": (
+                {
+                    "target_good": "0.015 + stable_positive_hash_noise(0.003)",
+                    "safe_decoy": "0.025 + stable_positive_hash_noise(0.004)",
+                    "ordinary_bad": "0.035 + stable_positive_hash_noise(0.006)",
+                    "trap_basin": "0.992",
+                    "bait_corridor": "0.86 + stable_positive_hash_noise(0.08)",
+                }
+                if self._uses_ps_favored_v12_gap_compressed_baited()
+                else None
+            ),
             "trap_basin_definition": {
                 "b1": PS_FAVORED_TRAP_BASIN_STAGE1,
                 "b2": sorted(PS_FAVORED_TRAP_BASIN_STAGE2),
@@ -2091,6 +2575,21 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
             ),
             "trap_switch_denominator": self.trap_switch_denominator,
             "trap_switch_episode": trap_switch_episode,
+            "cyclic_switch_count": self.cyclic_switch_count,
+            "cyclic_effective_switch_count": (
+                self._ps_favored_cyclic_switch_count()
+                if self._uses_ps_favored_v11_cyclic_baited()
+                else None
+            ),
+            "cyclic_switch_episodes": cyclic_switch_episodes,
+            "cyclic_bait_layouts": [
+                {
+                    "stage1": stage1,
+                    "stage2": sorted(stage2_values),
+                }
+                for stage1, stage2_values in PS_FAVORED_V11_BAIT_LAYOUTS
+            ],
+            "cyclic_target_stage1_cycle": list(PS_FAVORED_V11_TARGET_STAGE1_CYCLE),
             "safe_basin_definition": {
                 "b3": sorted(PS_FAVORED_SAFE_SUFFIX_STAGE3),
                 "b4": PS_FAVORED_SAFE_SUFFIX_STAGE4,
@@ -2232,6 +2731,7 @@ class SpecBackedControlledTreeEnv(ControlledTreeEnv):
             "tree_spec_role_mode": self.tree_spec_role_mode,
             "tree_spec_cost_mode": self.tree_spec_cost_mode,
             "trap_switch_denominator": self.trap_switch_denominator,
+            "cyclic_switch_count": self.cyclic_switch_count,
             "cost_role_source_counts": dict(self.cost_role_source_counts),
             "stages": self.role_permutation_by_stage,
         }
@@ -2337,11 +2837,23 @@ def run_one(
     oracle_episode_costs = [float(value) for value in oracle["oracle_episode_costs"]]
     tail_window_size = min(TAIL_WINDOW_SIZE_DEFAULT, horizon)
     trap_switch_denominator = getattr(env, "trap_switch_denominator", None)
-    trap_switch_episode = (
-        env._ps_favored_trap_switch_episode(horizon)
+    cyclic_switch_count = getattr(env, "cyclic_switch_count", None)
+    cyclic_switch_episodes = (
+        env._ps_favored_cyclic_switch_episodes(horizon)
         if getattr(env, "tree_spec_cost_mode", "default") in PS_FAVORED_COST_MODES
-        and hasattr(env, "_ps_favored_trap_switch_episode")
-        else max(1, horizon // 3)
+        and hasattr(env, "_ps_favored_cyclic_switch_episodes")
+        and getattr(env, "tree_spec_cost_mode", "default") == "ps_favored_trap_v11_cyclic_baited"
+        else []
+    )
+    trap_switch_episode = (
+        cyclic_switch_episodes[0]
+        if cyclic_switch_episodes
+        else (
+            env._ps_favored_trap_switch_episode(horizon)
+            if getattr(env, "tree_spec_cost_mode", "default") in PS_FAVORED_COST_MODES
+            and hasattr(env, "_ps_favored_trap_switch_episode")
+            else max(1, horizon // 3)
+        )
     )
     post_switch_start_index = min(max(trap_switch_episode, 1), horizon)
     post_switch_start_episode = post_switch_start_index + 1
@@ -2362,16 +2874,35 @@ def run_one(
                 profile.base_aliases,
                 profile.gates,
             )
-            is_near_best_good = env._is_ps_favored_near_best_good(
-                tuple(path),
-                profile.base_aliases,
-                profile.gates,
-            )
-            is_target_bad = env._is_ps_favored_target_bad(
-                tuple(path),
-                profile.base_aliases,
-                profile.gates,
-            )
+            if (
+                getattr(env, "tree_spec_cost_mode", "default")
+                == "ps_favored_trap_v11_cyclic_baited"
+                and hasattr(env, "_ps_favored_cyclic_phase")
+            ):
+                phase = env._ps_favored_cyclic_phase(episode_index, horizon)
+                is_near_best_good = env._is_ps_favored_v11_phase_target_good(
+                    profile.base_aliases,
+                    profile.gates,
+                    phase,
+                )
+                is_exact_best = env._is_ps_favored_v11_phase_exact_best(
+                    profile.base_aliases,
+                    profile.gates,
+                    phase,
+                )
+                is_target_bad = is_candidate_safe and not is_near_best_good
+            else:
+                is_near_best_good = env._is_ps_favored_near_best_good(
+                    tuple(path),
+                    profile.base_aliases,
+                    profile.gates,
+                )
+                is_exact_best = env._is_ps_favored_exact_best(tuple(path))
+                is_target_bad = env._is_ps_favored_target_bad(
+                    tuple(path),
+                    profile.base_aliases,
+                    profile.gates,
+                )
             is_decoy_branch = env._is_ps_favored_decoy_branch(
                 profile.base_aliases,
                 profile.gates,
@@ -2381,7 +2912,6 @@ def run_one(
                 profile.base_aliases,
                 profile.gates,
             )
-            is_exact_best = env._is_ps_favored_exact_best(tuple(path))
             ps_favored_broad_safe_basin_count += int(is_broad_safe)
             ps_favored_candidate_corridor_count += int(is_candidate_safe)
             ps_favored_near_best_good_count += int(is_near_best_good)
@@ -2450,6 +2980,8 @@ def run_one(
                     "common_epsilon_override": common_epsilon_override,
                     "trap_switch_denominator": trap_switch_denominator,
                     "trap_switch_episode": trap_switch_episode,
+                    "cyclic_switch_count": cyclic_switch_count,
+                    "cyclic_switch_episodes": cyclic_switch_episodes,
                     "direct_eta_override": direct_eta_override,
                     "seed": seed,
                     "cumulative_cost": cumulative_cost,
@@ -2501,6 +3033,8 @@ def run_one(
         "tree_spec_cost_mode": getattr(env, "tree_spec_cost_mode", "default"),
         "trap_switch_denominator": trap_switch_denominator,
         "trap_switch_episode": trap_switch_episode,
+        "cyclic_switch_count": cyclic_switch_count,
+        "cyclic_switch_episodes": cyclic_switch_episodes,
         "seed": seed,
         "method": method,
         "method_label": method_label,
@@ -2640,6 +3174,7 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             row.get("method_label", row["method"]),
             row.get("trap_switch_denominator"),
             row.get("trap_switch_episode"),
+            row.get("cyclic_switch_count"),
             row.get("eta"),
             row.get("eta_shared"),
             row.get("gamma_shared"),
@@ -2666,6 +3201,7 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             method_label,
             trap_switch_denominator,
             trap_switch_episode,
+            cyclic_switch_count,
             eta,
             eta_shared,
             gamma_shared,
@@ -2691,6 +3227,8 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "method_label": method_label,
                 "trap_switch_denominator": trap_switch_denominator,
                 "trap_switch_episode": trap_switch_episode,
+                "cyclic_switch_count": cyclic_switch_count,
+                "cyclic_switch_episodes": group[0].get("cyclic_switch_episodes"),
                 "eta": eta,
                 "eta_shared": eta_shared,
                 "gamma_shared": gamma_shared,
@@ -4789,7 +5327,11 @@ def main() -> None:
             "ps_favored_trap keeps the tree fixed and replaces only leaf costs with a "
             "Bernoulli safe-corridor/trap landscape; "
             "ps_favored_trap_v10_avg_baited adds an early low-cost bait corridor and "
-            "delayed degradation to stress historical-average baselines."
+            "delayed degradation to stress historical-average baselines; "
+            "ps_favored_trap_v11_cyclic_baited repeats evenly spaced switches while "
+            "keeping the target-good safe-suffix class stable and rotating target/bait prefixes; "
+            "ps_favored_trap_v12_gap_compressed_baited keeps the v10 trap switch but "
+            "compresses post-switch non-trap arm gaps."
         ),
     )
     parser.add_argument(
@@ -4826,6 +5368,15 @@ def main() -> None:
         help=(
             "Override the ps_favored_trap switch point to floor(T / denominator). "
             "Other cost rules remain unchanged."
+        ),
+    )
+    parser.add_argument(
+        "--cyclic-switch-count",
+        type=int,
+        default=None,
+        help=(
+            "Number of evenly spaced switches for ps_favored_trap_v11_cyclic_baited. "
+            "For example, --cyclic-switch-count 5 splits the horizon into 6 phases."
         ),
     )
     parser.add_argument("--ix-grid", action="store_true", help="Run the risky_ps_ix eta_shared/gamma_shared grid.")
@@ -4971,6 +5522,7 @@ def main() -> None:
                     tree_spec_role_mode=args.tree_spec_role_mode,
                     tree_spec_cost_mode=args.tree_spec_cost_mode,
                     trap_switch_denominator=args.trap_switch_denominator,
+                    cyclic_switch_count=args.cyclic_switch_count,
                 )
             else:
                 env = ControlledTreeEnv(
@@ -5035,6 +5587,7 @@ def main() -> None:
             tree_spec_role_mode=args.tree_spec_role_mode,
             tree_spec_cost_mode=args.tree_spec_cost_mode,
             trap_switch_denominator=args.trap_switch_denominator,
+            cyclic_switch_count=args.cyclic_switch_count,
         )
         findings = {
             "external_tree_spec": str(args.tree_spec),
@@ -5081,6 +5634,7 @@ def main() -> None:
             "tree_spec_role_mode": args.tree_spec_role_mode,
             "tree_spec_cost_mode": args.tree_spec_cost_mode,
             "trap_switch_denominator": args.trap_switch_denominator,
+            "cyclic_switch_count": args.cyclic_switch_count,
             "common_eta_override": args.common_eta_override,
             "common_epsilon_override": args.common_epsilon_override,
             "direct_eta_override": args.direct_eta_override,

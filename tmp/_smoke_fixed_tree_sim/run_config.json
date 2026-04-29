@@ -1,0 +1,58 @@
+{
+  "created_at": "2026-04-29T00:38:22.990092",
+  "dataset": "data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_lowtransfer_smoke/tasks.json",
+  "dataset_indices": [
+    11,
+    13,
+    16,
+    19,
+    35,
+    40,
+    45,
+    46,
+    51,
+    65
+  ],
+  "repeats": 1,
+  "horizon": 10,
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch",
+  "executor_name": "simulated",
+  "schedule_mode": "trap_switch",
+  "switch_denominator": 4,
+  "schedule_buckets": "analysis/shared_basin_prefix_dedup_profile_switch_lowtransfer_smoke_schedule_buckets.json",
+  "schedule_metadata": {
+    "cycle_length": 10,
+    "total_episodes": 10,
+    "switch_episode": 2,
+    "trap_bucket_size": 10,
+    "target_bucket_size": 10,
+    "specialist_task_count": 9
+  },
+  "model": "simulated",
+  "seed": 0,
+  "methods": [
+    "direct_multistage_exp3",
+    "epsilon_exp3",
+    "risky_ps_linear"
+  ],
+  "policy_kwargs_by_method": {
+    "direct_multistage_exp3": {
+      "eta": 0.3
+    },
+    "epsilon_exp3": {
+      "eta": 0.3,
+      "epsilon": 0.01
+    },
+    "risky_ps_linear": {
+      "eta": 0.3,
+      "epsilon": 0.01
+    }
+  },
+  "common_eta_override": 0.3,
+  "common_epsilon_override": 0.01,
+  "post_switch_fixed_layer1_probs": false,
+  "post_switch_fixed_tree_probs": true,
+  "post_switch_probability_freeze_mode": "full_tree_child_marginal_at_switch",
+  "post_switch_layer1_freeze_mode": null,
+  "parallelism": "method_only"
+}

@@ -1,0 +1,4 @@
+method,snapshot_rows,parent_prefix_count,prefix_depths,freeze_mode
+direct_multistage_exp3,655,216,"0,1,2,3,4",full_tree_child_marginal_at_switch
+epsilon_exp3,655,216,"0,1,2,3,4",full_tree_child_marginal_at_switch
+risky_ps_linear,655,216,"0,1,2,3,4",full_tree_child_marginal_at_switch

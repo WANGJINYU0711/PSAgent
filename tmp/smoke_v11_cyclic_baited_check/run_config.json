@@ -1,0 +1,193 @@
+{
+  "runner": "run_barriershare_controlled_sim.py",
+  "llm_api_used": false,
+  "depth": 5,
+  "branching": 5,
+  "candidate_depth": 3,
+  "candidate_branching": [
+    5,
+    15,
+    25
+  ],
+  "horizon": 60,
+  "seeds": [
+    0
+  ],
+  "cost_noise": 0.02,
+  "specialist_fraction": 0.15,
+  "methods": [
+    "risky_ps_safe_conditional",
+    "risky_ps_ix",
+    "risky_ps_old",
+    "risky_ps_linear",
+    "risky_ps",
+    "risky_ps_direct_cost",
+    "risky_ps_safe_conditional_ix",
+    "direct_multistage_exp3",
+    "direct_multistage_exp3_local",
+    "epsilon_exp3",
+    "naive_mixed_avg",
+    "naive_mixed",
+    "random_path"
+  ],
+  "tree_spec": "analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup.json",
+  "tree_spec_role_mode": "spec_or_agent_id",
+  "tree_spec_cost_mode": "ps_favored_trap_v11_cyclic_baited",
+  "trap_switch_denominator": null,
+  "cyclic_switch_count": 3,
+  "common_eta_override": 0.2,
+  "common_epsilon_override": 0.01,
+  "direct_eta_override": null,
+  "old_reference_dir": "/home/ubuntu/data/PSAgent/outputs/barriershare_controlled_sim_v2_theory_aligned",
+  "old_unique_reference_dir": "/home/ubuntu/data/PSAgent/outputs/barriershare_controlled_sim_unique_agents_4of5_v1",
+  "old_unbound_reference_dir": "/home/ubuntu/data/PSAgent/outputs/barriershare_controlled_sim_unique_agents_fullbranch_unbound_v1",
+  "run_specs": [
+    {
+      "method": "risky_ps_safe_conditional",
+      "method_label": "risky_ps_safe_conditional",
+      "policy_kwargs": {
+        "eta": 0.2,
+        "epsilon": 0.01
+      },
+      "common_eta_override": 0.2,
+      "common_epsilon_override": 0.01
+    },
+    {
+      "method": "risky_ps_ix",
+      "method_label": "risky_ps_ix",
+      "policy_kwargs": {
+        "eta": 0.2,
+        "epsilon": 0.01
+      },
+      "common_eta_override": 0.2,
+      "common_epsilon_override": 0.01
+    },
+    {
+      "method": "risky_ps_old",
+      "method_label": "risky_ps_old",
+      "policy_kwargs": {
+        "eta": 0.2,
+        "epsilon": 0.01
+      },
+      "common_eta_override": 0.2,
+      "common_epsilon_override": 0.01
+    },
+    {
+      "method": "risky_ps_linear",
+      "method_label": "risky_ps_linear",
+      "policy_kwargs": {
+        "eta": 0.2,
+        "epsilon": 0.01
+      },
+      "common_eta_override": 0.2,
+      "common_epsilon_override": 0.01
+    },
+    {
+      "method": "risky_ps",
+      "method_label": "risky_ps",
+      "policy_kwargs": {
+        "eta": 0.2,
+        "epsilon": 0.01
+      },
+      "common_eta_override": 0.2,
+      "common_epsilon_override": 0.01
+    },
+    {
+      "method": "risky_ps_direct_cost",
+      "method_label": "risky_ps_direct_cost",
+      "policy_kwargs": {
+        "eta": 0.2,
+        "epsilon": 0.01
+      },
+      "common_eta_override": 0.2,
+      "common_epsilon_override": 0.01
+    },
+    {
+      "method": "risky_ps_safe_conditional_ix",
+      "method_label": "risky_ps_safe_conditional_ix",
+      "policy_kwargs": {
+        "eta": 0.2,
+        "epsilon": 0.01
+      },
+      "common_eta_override": 0.2,
+      "common_epsilon_override": 0.01
+    },
+    {
+      "method": "direct_multistage_exp3",
+      "method_label": "direct_multistage_exp3",
+      "policy_kwargs": {
+        "eta": 0.2
+      },
+      "common_eta_override": 0.2
+    },
+    {
+      "method": "direct_multistage_exp3_local",
+      "method_label": "direct_multistage_exp3_local",
+      "policy_kwargs": {
+        "eta": 0.2
+      },
+      "common_eta_override": 0.2
+    },
+    {
+      "method": "epsilon_exp3",
+      "method_label": "epsilon_exp3",
+      "policy_kwargs": {
+        "eta": 0.2,
+        "epsilon": 0.01
+      },
+      "common_eta_override": 0.2,
+      "common_epsilon_override": 0.01
+    },
+    {
+      "method": "naive_mixed_avg",
+      "method_label": "naive_mixed_avg",
+      "policy_kwargs": {}
+    },
+    {
+      "method": "naive_mixed",
+      "method_label": "naive_mixed",
+      "policy_kwargs": {}
+    },
+    {
+      "method": "random_path",
+      "method_label": "random_path",
+      "policy_kwargs": {}
+    }
+  ],
+  "ix_grid": false,
+  "denominator_ablation": false,
+  "direct_cost_ablation": false,
+  "ix_eta_shared_values": [
+    0.005,
+    0.01,
+    0.02,
+    0.05
+  ],
+  "ix_gamma_shared_values": [
+    0.0005,
+    0.001,
+    0.002,
+    0.005
+  ],
+  "safe_conditional_gamma_shared": 0.0005,
+  "candidate_scaling_included": false,
+  "settings": [
+    {
+      "name": "shared_basin_strong_4of5_prefix_dedup",
+      "group": "external_tree",
+      "variant": "shared_basin_strong_4of5_prefix_dedup",
+      "depth": null,
+      "branching": null,
+      "sharing_scheme": "external_tree_spec",
+      "risky_depth": null,
+      "tree_spec": "analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup.json"
+    }
+  ],
+  "simulation_design": {
+    "main_variants_full_branching": false,
+    "safe_suffix_full_branching": false,
+    "candidate_scaling_full_branching": false,
+    "latent_role_permutation": false,
+    "cost_landscape": "external_tree_ps_favored_trap_v11_cyclic_baited_bernoulli"
+  }
+}

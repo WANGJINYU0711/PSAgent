@@ -1,0 +1,13 @@
+method,majority_pair,episode_count,terminal_cost_avg,reasoning_cost_avg,total_cost_avg,exact_match_rate,clear_execution_success_rate,assistant_required_count,assistant_execution_success_rate_applicable,actual_majority_distribution,required_majority_distribution
+direct_multistage_exp3,mostly_deep_path__mostly_deep_task,64,11.328125,5.216038515625,16.617115078125,0.140625,0.046875,49,0.0,"{""mostly_deep"": 64}","{""mostly_deep"": 64}"
+direct_multistage_exp3,mostly_deep_path__mostly_fast_task,19,1.6842105263157894,5.598965,7.353533421052631,0.3157894736842105,0.3157894736842105,3,0.0,"{""mostly_deep"": 19}","{""mostly_fast"": 19}"
+direct_multistage_exp3,mostly_fast_path__mostly_deep_task,11,11.681818181818182,5.2723,17.01739090909091,0.0,0.0,11,0.0,"{""mostly_fast"": 11}","{""mostly_deep"": 11}"
+direct_multistage_exp3,mostly_fast_path__mostly_fast_task,6,0.5,4.1929541666666665,4.760270833333333,0.6666666666666666,0.6666666666666666,0,0.0,"{""mostly_fast"": 6}","{""mostly_fast"": 6}"
+epsilon_exp3,mostly_deep_path__mostly_deep_task,66,10.818181818181818,5.141920454545455,16.033511363636364,0.21212121212121213,0.07575757575757576,52,0.0,"{""mostly_deep"": 66}","{""mostly_deep"": 66}"
+epsilon_exp3,mostly_deep_path__mostly_fast_task,21,1.3571428571428572,5.36307380952381,6.790354761904762,0.42857142857142855,0.42857142857142855,3,0.0,"{""mostly_deep"": 21}","{""mostly_fast"": 21}"
+epsilon_exp3,mostly_fast_path__mostly_deep_task,9,12.11111111111111,4.709996111111112,16.88727388888889,0.0,0.0,8,0.0,"{""mostly_fast"": 9}","{""mostly_deep"": 9}"
+epsilon_exp3,mostly_fast_path__mostly_fast_task,4,1.125,4.07942875,5.27072875,0.25,0.25,0,0.0,"{""mostly_fast"": 4}","{""mostly_fast"": 4}"
+risky_ps_linear,mostly_deep_path__mostly_deep_task,53,11.19811320754717,5.155431698113208,16.425309056603773,0.20754716981132076,0.0,44,0.0,"{""mostly_deep"": 53}","{""mostly_deep"": 53}"
+risky_ps_linear,mostly_deep_path__mostly_fast_task,22,1.3636363636363635,5.215319090909091,6.651282727272727,0.4090909090909091,0.4090909090909091,2,0.0,"{""mostly_deep"": 22}","{""mostly_fast"": 22}"
+risky_ps_linear,mostly_fast_path__mostly_deep_task,22,8.25,5.172325,13.48823409090909,0.13636363636363635,0.045454545454545456,16,0.0,"{""mostly_fast"": 22}","{""mostly_deep"": 22}"
+risky_ps_linear,mostly_fast_path__mostly_fast_task,3,3.0,4.965045,8.028911666666668,0.3333333333333333,0.3333333333333333,1,0.0,"{""mostly_fast"": 3}","{""mostly_fast"": 3}"

@@ -1,0 +1,5 @@
+| method | total_cost_mean | raw_total_cost_mean | raw_total_cost_api_mean | raw_total_cost_token_mean | raw_outcome_penalty_mean | raw_policy_penalty_mean | raw_terminal_penalty_mean | raw_path_cost_component_mean | raw_reasoning_cost_component_mean | raw_reasoning_cost_component_api_mean | raw_reasoning_cost_component_token_mean | exact_match_mean | mean_llm_call_count | mean_total_tokens | mean_api_cost_usd_raw | mean_generation_time_seconds | mean_episode_wall_clock_seconds |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| risky_ps_linear | 0.11808678334339166 | 3.913396 | 0.0 | 0.0 | 3.7 | 0.0 | 3.7 | 0.07117000000000001 | 0.14222600000000002 | 0.0 | 0.0 | 0.2 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| epsilon_exp3 | 0.14831550995775497 | 4.915176000000001 | 0.0 | 0.0 | 4.7 | 0.0 | 4.7 | 0.06792000000000001 | 0.147256 | 0.0 | 0.0 | 0.2 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| direct_multistage_exp3 | 0.16656928183464093 | 5.520106 | 0.0 | 0.0 | 5.3 | 0.0 | 5.3 | 0.07039 | 0.14971600000000002 | 0.0 | 0.0 | 0.1 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |

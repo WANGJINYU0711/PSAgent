@@ -1,0 +1,129 @@
+{
+  "total": [
+    {
+      "method": "direct_multistage_exp3",
+      "episode_count": 100,
+      "terminal_cost_avg": 8.885,
+      "reasoning_cost_avg": 5.23359825,
+      "total_cost_avg": 14.18965425,
+      "exact_match_rate": 0.19,
+      "clear_execution_success_rate": 0.13,
+      "assistant_required_count": 63,
+      "assistant_execution_success_rate_applicable": 0.0,
+      "actual_majority_distribution": "{\"mostly_deep\": 83, \"mostly_fast\": 17}",
+      "required_majority_distribution": "{\"mostly_deep\": 75, \"mostly_fast\": 25}"
+    },
+    {
+      "method": "epsilon_exp3",
+      "episode_count": 100,
+      "terminal_cost_avg": 8.56,
+      "reasoning_cost_avg": 5.1069898,
+      "total_cost_avg": 13.7387758,
+      "exact_match_rate": 0.24,
+      "clear_execution_success_rate": 0.15,
+      "assistant_required_count": 63,
+      "assistant_execution_success_rate_applicable": 0.0,
+      "actual_majority_distribution": "{\"mostly_deep\": 87, \"mostly_fast\": 13}",
+      "required_majority_distribution": "{\"mostly_deep\": 75, \"mostly_fast\": 25}"
+    },
+    {
+      "method": "risky_ps_linear",
+      "episode_count": 100,
+      "terminal_cost_avg": 8.14,
+      "reasoning_cost_avg": 5.166611850000001,
+      "total_cost_avg": 13.37697485,
+      "exact_match_rate": 0.24,
+      "clear_execution_success_rate": 0.11,
+      "assistant_required_count": 63,
+      "assistant_execution_success_rate_applicable": 0.0,
+      "actual_majority_distribution": "{\"mostly_deep\": 75, \"mostly_fast\": 25}",
+      "required_majority_distribution": "{\"mostly_deep\": 75, \"mostly_fast\": 25}"
+    }
+  ],
+  "phase": [
+    {
+      "method": "direct_multistage_exp3",
+      "phase": "post_switch",
+      "episode_count": 75,
+      "terminal_cost_avg": 11.38,
+      "reasoning_cost_avg": 5.2242902,
+      "total_cost_avg": 16.6758222,
+      "exact_match_rate": 0.12,
+      "clear_execution_success_rate": 0.04,
+      "assistant_required_count": 60,
+      "assistant_execution_success_rate_applicable": 0.0,
+      "actual_majority_distribution": "{\"mostly_deep\": 64, \"mostly_fast\": 11}",
+      "required_majority_distribution": "{\"mostly_deep\": 75}"
+    },
+    {
+      "method": "direct_multistage_exp3",
+      "phase": "pre_switch",
+      "episode_count": 25,
+      "terminal_cost_avg": 1.4,
+      "reasoning_cost_avg": 5.2615224000000005,
+      "total_cost_avg": 6.731150400000001,
+      "exact_match_rate": 0.4,
+      "clear_execution_success_rate": 0.4,
+      "assistant_required_count": 3,
+      "assistant_execution_success_rate_applicable": 0.0,
+      "actual_majority_distribution": "{\"mostly_deep\": 19, \"mostly_fast\": 6}",
+      "required_majority_distribution": "{\"mostly_fast\": 25}"
+    },
+    {
+      "method": "epsilon_exp3",
+      "phase": "post_switch",
+      "episode_count": 75,
+      "terminal_cost_avg": 10.973333333333333,
+      "reasoning_cost_avg": 5.090089533333333,
+      "total_cost_avg": 16.135962866666667,
+      "exact_match_rate": 0.18666666666666668,
+      "clear_execution_success_rate": 0.06666666666666667,
+      "assistant_required_count": 60,
+      "assistant_execution_success_rate_applicable": 0.0,
+      "actual_majority_distribution": "{\"mostly_deep\": 66, \"mostly_fast\": 9}",
+      "required_majority_distribution": "{\"mostly_deep\": 75}"
+    },
+    {
+      "method": "epsilon_exp3",
+      "phase": "pre_switch",
+      "episode_count": 25,
+      "terminal_cost_avg": 1.32,
+      "reasoning_cost_avg": 5.1576906,
+      "total_cost_avg": 6.5472146,
+      "exact_match_rate": 0.4,
+      "clear_execution_success_rate": 0.4,
+      "assistant_required_count": 3,
+      "assistant_execution_success_rate_applicable": 0.0,
+      "actual_majority_distribution": "{\"mostly_deep\": 21, \"mostly_fast\": 4}",
+      "required_majority_distribution": "{\"mostly_fast\": 25}"
+    },
+    {
+      "method": "risky_ps_linear",
+      "phase": "post_switch",
+      "episode_count": 75,
+      "terminal_cost_avg": 10.333333333333334,
+      "reasoning_cost_avg": 5.160387066666666,
+      "total_cost_avg": 15.563767066666665,
+      "exact_match_rate": 0.18666666666666668,
+      "clear_execution_success_rate": 0.013333333333333334,
+      "assistant_required_count": 60,
+      "assistant_execution_success_rate_applicable": 0.0,
+      "actual_majority_distribution": "{\"mostly_deep\": 53, \"mostly_fast\": 22}",
+      "required_majority_distribution": "{\"mostly_deep\": 75}"
+    },
+    {
+      "method": "risky_ps_linear",
+      "phase": "pre_switch",
+      "episode_count": 25,
+      "terminal_cost_avg": 1.56,
+      "reasoning_cost_avg": 5.1852862,
+      "total_cost_avg": 6.8165982,
+      "exact_match_rate": 0.4,
+      "clear_execution_success_rate": 0.4,
+      "assistant_required_count": 3,
+      "assistant_execution_success_rate_applicable": 0.0,
+      "actual_majority_distribution": "{\"mostly_deep\": 22, \"mostly_fast\": 3}",
+      "required_majority_distribution": "{\"mostly_fast\": 25}"
+    }
+  ]
+}
