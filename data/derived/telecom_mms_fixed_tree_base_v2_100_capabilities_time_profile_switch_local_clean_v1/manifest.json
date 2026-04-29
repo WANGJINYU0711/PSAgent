@@ -1,0 +1,26 @@
+{
+  "created_at": "2026-04-29T00:44:39.555002",
+  "dataset_name": "telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_clean_v1",
+  "tasks": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_clean_v1/tasks.json",
+  "schedule_buckets": "/home/ubuntu/data/PSAgent/analysis/shared_basin_prefix_dedup_profile_switch_local_clean_v1_schedule_buckets.json",
+  "cleaning_report_json": "/home/ubuntu/data/PSAgent/analysis/telecom_mms_profile_switch_local_clean_v1_cleaning_report.json",
+  "cleaning_report_csv": "/home/ubuntu/data/PSAgent/analysis/telecom_mms_profile_switch_local_clean_v1_cleaning_report.csv",
+  "source_dataset": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch/tasks.json",
+  "source_buckets": "/home/ubuntu/data/PSAgent/analysis/shared_basin_prefix_dedup_profile_switch_schedule_buckets.json",
+  "coverage_summary": {
+    "source_task_count": 100,
+    "clean_task_count": 67,
+    "deleted_task_count": 33,
+    "deleted_reason_counts": {
+      "delete_hard_transfer_oracle": 33
+    },
+    "clean_expected_terminal_action_counts": {
+      "repair_all": 33,
+      "repair_subset": 34
+    },
+    "trap_bucket_size": 10,
+    "target_bucket_size": 10,
+    "specialist_bucket_size": 9,
+    "target_transfer_count": 0
+  }
+}

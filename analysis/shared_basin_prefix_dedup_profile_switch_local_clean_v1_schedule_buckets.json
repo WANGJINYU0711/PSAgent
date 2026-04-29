@@ -1,0 +1,85 @@
+{
+  "schema_version": "profile_switch_local_clean_v1",
+  "source_dataset": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch/tasks.json",
+  "source_buckets": "/home/ubuntu/data/PSAgent/analysis/shared_basin_prefix_dedup_profile_switch_schedule_buckets.json",
+  "clean_dataset": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_clean_v1/tasks.json",
+  "selection_criteria": {
+    "dataset_level": [
+      "delete expected_terminal_action=transfer",
+      "delete repairability=transfer_required",
+      "delete contains_hybrid_action=true",
+      "delete invalid Stage 5 oracle selected/deferred partition",
+      "require complete fast/deep deliberation_requirement_summary"
+    ],
+    "trap_favoring": [
+      "kept in original trap bucket",
+      "repairability=repairable",
+      "expected_terminal_action=repair_all",
+      "contains_assistant_side_action=false",
+      "required modes are fast/fast/fast/fast/fast"
+    ],
+    "target_favoring": [
+      "kept in original target bucket after deleting transfer cases",
+      "expected_terminal_action in repair_all/repair_subset",
+      "required modes are fast/deep/deep/deep/deep"
+    ],
+    "bucket_size": 10,
+    "tie_break": "preserve source bucket order"
+  },
+  "trap_favoring_task_ids": [
+    "[mms_issue]airplane_mode_on|bad_network_preference|break_app_sms_permission[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_wifi_calling|break_app_sms_permission[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_wifi_calling|break_app_storage_permission[PERSONA:Easy]",
+    "[mms_issue]airplane_mode_on|break_app_storage_permission[PERSONA:Easy]",
+    "[mms_issue]bad_network_preference[PERSONA:None]",
+    "[mms_issue]bad_network_preference|break_app_storage_permission[PERSONA:None]",
+    "[mms_issue]bad_wifi_calling[PERSONA:Easy]",
+    "[mms_issue]bad_wifi_calling|break_app_storage_permission[PERSONA:Easy]",
+    "[mms_issue]break_app_both_permissions[PERSONA:Hard]",
+    "[mms_issue]break_app_sms_permission[PERSONA:None]"
+  ],
+  "target_favoring_task_ids": [
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Easy]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Easy]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|unseat_sim_card[PERSONA:Easy]"
+  ],
+  "specialist_task_ids": [
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Easy]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Easy]"
+  ],
+  "coverage_summary": {
+    "source_task_count": 100,
+    "clean_task_count": 67,
+    "deleted_task_count": 33,
+    "deleted_reason_counts": {
+      "delete_hard_transfer_oracle": 33
+    },
+    "clean_expected_terminal_action_counts": {
+      "repair_all": 33,
+      "repair_subset": 34
+    },
+    "trap_bucket_size": 10,
+    "target_bucket_size": 10,
+    "specialist_bucket_size": 9,
+    "target_transfer_count": 0
+  },
+  "bucket_labels": {
+    "trap_favoring": "clean_fast_path_pre_switch",
+    "target_favoring": "clean_deep_local_post_switch",
+    "specialist": "clean_deep_local_specialist_subset"
+  }
+}

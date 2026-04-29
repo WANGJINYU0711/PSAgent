@@ -1,0 +1,61 @@
+{
+  "created_at": "2026-04-29T06:28:01.199352",
+  "dataset_name": "telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_exec_clean_v2_100",
+  "schema_version": "profile_switch_local_exec_clean_v2_100",
+  "task_count": 100,
+  "target_clean_count": 100,
+  "target_reached": true,
+  "tasks": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_exec_clean_v2_100/tasks.json",
+  "schedule_buckets": "/home/ubuntu/data/PSAgent/analysis/shared_basin_prefix_dedup_profile_switch_local_exec_clean_v2_100_schedule_buckets.json",
+  "source_dataset": "/home/ubuntu/data/PSAgent/tau2-bench/data/tau2/domains/telecom/tasks.json",
+  "source_split_tasks": "/home/ubuntu/data/PSAgent/tau2-bench/data/tau2/domains/telecom/split_tasks.json",
+  "source_db": "/home/ubuntu/data/PSAgent/tau2-bench/data/tau2/domains/telecom/db.toml",
+  "prior_seed_dataset": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_exec_clean_v1/tasks.json",
+  "execution_report_csv": "/home/ubuntu/data/PSAgent/analysis/telecom_mms_profile_switch_local_exec_clean_v2_100_execution_report.csv",
+  "execution_report_json": "/home/ubuntu/data/PSAgent/analysis/telecom_mms_profile_switch_local_exec_clean_v2_100_execution_report.json",
+  "candidate_prefilter_csv": "/home/ubuntu/data/PSAgent/analysis/telecom_mms_profile_switch_local_exec_clean_v2_100_candidate_prefilter.csv",
+  "execution_records_jsonl": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_exec_clean_v2_100/execution_calibration_records.jsonl",
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch",
+  "model": "gpt-4o-mini",
+  "parallelism": 6,
+  "terminal_threshold": 2.0,
+  "raw_mms_task_count": 1984,
+  "static_candidate_count": 1323,
+  "max_new_executions": 650,
+  "new_executed_count": 216,
+  "prior_reused_count": 17,
+  "coverage_summary": {
+    "clean_task_count": 100,
+    "decision_counts": {
+      "keep": 100,
+      "delete": 129,
+      "not_selected_after_target_full": 4
+    },
+    "delete_reason_counts": {
+      "clear_success_false;repair_task_subset_clean_false": 72,
+      "terminal_cost_gt_2;clear_success_false;repair_task_subset_clean_false": 57
+    },
+    "clean_expected_terminal_action_counts": {
+      "repair_all": 94,
+      "repair_subset": 6
+    },
+    "clean_requirement_counts": {
+      "deep/fast/deep/deep/deep": 5,
+      "fast/fast/fast/fast/fast": 19,
+      "fast/deep/deep/deep/deep": 73,
+      "deep/deep/deep/deep/deep": 3
+    },
+    "trap_bucket_size": 19,
+    "target_bucket_size": 19,
+    "specialist_bucket_size": 4,
+    "all_target_profile_count": 73,
+    "all_trap_profile_count": 19
+  },
+  "kept_execution_metric_rates": {
+    "exact_match": 1.0,
+    "subset_clean": 1.0,
+    "clear_success": 1.0,
+    "auxiliary_success": 0.94,
+    "strict_clean": 0.94
+  }
+}
