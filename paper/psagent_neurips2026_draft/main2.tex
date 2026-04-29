@@ -39,16 +39,21 @@ Experiments on simulation and fixed-stage agent workflows evaluate whether these
 
 \section{Introduction}
 
-Multi-stage agent workflows are becoming a common design pattern for practical language-agent systems~\citep{kulkarni2025agents,nandi2025sopbench}.
-Many deployed agents do not act as unconstrained planners, but instead operate through structured decision procedures with domain-specific tools, policy constraints, and workflow-like stages~\citep{kulkarni2025agents,yao2024tau}.
-For example, web agents have been studied through workflow-guided exploration, where demonstrations induce high-level workflows that constrain action choices over multi-step web tasks such as booking flights or replying to emails~\citep{liu2018workflow}.
-Recent tool-agent benchmarks such as $\tau$-bench further emphasize realistic customer-service interactions, in which agents must converse with users, use domain-specific API tools, and follow policy guidelines in airline and retail domains~\citep{yao2024tau}.
-These settings motivate viewing an agent run as a structured trajectory through stages such as user grounding, entity resolution, evidence retrieval, policy interpretation, adjudication, and final execution.
-In our abstraction, an externally specified feedback-sharing policy determines whether the update induced by a terminal observation is admissible for a shared prefix or must remain local to a branch.
-This distinction matters because treating all induced updates as local wastes reusable supervision, while treating all persistent updates as globally shared can expose provider-specific or specialist participation patterns.
-This raises a basic question for workflow-constrained agents: when can terminal feedback be reused as a shared learning signal across a hierarchy, and when should the information used for learning remain local?
+Multi-stage agent workflows are becoming a common design pattern for practical language-agent systems.
+Many deployed agents do not act as unconstrained planners, but instead operate through structured decision procedures with domain-specific tools, policy constraints, and workflow-defined stages.
+This structure appears in prior web-agent and tool-agent settings, although in different forms.
+For example, workflow-guided exploration induces high-level workflows from demonstrations to constrain action choices in multi-step web tasks such as booking flights or replying to emails~\cite{liu2018workflow}.
+Similarly, $\tau$-bench studies realistic customer-service interactions in which language agents must converse with users, invoke domain-specific API tools, and follow policy guidelines in airline and retail domains~\cite{yao2024tau}.
+These works do not prescribe our tree model, but they motivate the view that agent execution is often a structured trajectory rather than a flat action choice.
+We abstract such trajectories as fixed-stage workflows, with stages such as user grounding, entity resolution, evidence retrieval, policy interpretation, adjudication, and terminal execution.
 
-A natural formal lens for such systems is multi-stage online learning with terminal-only feedback, where a learner selects a full path through a hierarchy and observes only the realized terminal cost~\citep{hou2024distributed}.
+In this abstraction, each completed path produces a terminal scalar cost, which can still be used by the selected path through local bandit updates.
+The additional question is whether the persistent update induced by this cost can be accumulated into shared ancestor weights.
+An externally specified feedback-sharing policy determines whether this induced update is admissible for a shared prefix, or whether it must remain local to a branch.
+This distinction matters because treating all induced updates as local wastes reusable statistical signal, while treating all persistent updates as globally shared can expose provider-specific or specialist participation patterns.
+This raises a basic question for workflow-constrained agents: when can the update induced by terminal feedback be reused as a shared hierarchical learning signal, and when should it remain local?
+
+A natural formal lens for such systems is multi-stage online learning with terminal-only feedback, where a learner selects a full path through a hierarchy and observes only the realized terminal cost~\cite{hou2024distributed}.
 This end-to-end bandit formulation is a robust and conservative starting point: it assumes no more than the cost of the executed path and learns through local bandit estimates along the realized trajectory.
 However, it does not model when the same terminal observation may induce a persistent aggregate update that is reusable by other policies inside a feedback-admissible subtree, while being blocked at structural barriers.
 \textbf{L1: Structural flattening.}
@@ -56,28 +61,33 @@ The realized terminal cost is used only through the sampled trajectory, without 
 \textbf{L2: Missing barrier-limited sharing.}
 Existing end-to-end bandit formulations do not capture the intermediate regime where the sampled cost can support local bandit learning, while the persistent shared update is allowed to propagate only inside a barrier-free region.
 
-\emph{When a terminal outcome is admissible for a prefix or subtree under a given feedback-sharing policy, how should a hierarchical learner reuse it without violating structural barriers?}
+\emph{When a terminal outcome is admissible for a prefix or subtree under a given feedback-sharing policy, how should a hierarchical learner reuse the induced update without violating structural barriers?}
 Our key insight is that feedback reuse should be governed by structural admissibility.
-Conceptually, terminal feedback can be aggregated inside policy-admissible safe regions, but propagation must stop at privacy-policy, ownership, telemetry, provider, or specialist barriers.
+Conceptually, terminal feedback can induce aggregate updates inside policy-admissible safe regions, but propagation must stop at ownership, telemetry, provider, or specialist barriers.
 Algorithmically, BarrierShare realizes this principle through an exponential-weight delta.
 When a selected leaf is updated, its accumulated score changes, which induces a change in its exponential weight; this induced weight change defines a \emph{delta} that can be added to admissible ancestor aggregate weights.
 This shared delta differs from the current-round scalar cost used in a local bandit update: over time, accumulated deltas determine the subtree weights used by ancestor decisions, thereby forming a persistent statistical profile of downstream branches.
 When sharing is complete within a subtree, recursive aggregation makes the subtree behave like a single leaf-level adversarial bandit over its leaves, so the regret depends on the number of leaves in that safe subtree rather than accumulating an education penalty across every internal layer.
 When a structural barrier is encountered, the shared delta must stop, and the upstream decision must instead rely on local bandit-style estimation.
 
-Such barriers are natural in agent workflows with data-silo boundaries, provider boundaries, contractual constraints, or telemetry restrictions.
+Such barriers are natural in agent workflows with data-silo, provider, contractual, or telemetry restrictions.
 A downstream module may return the current task output and scalar cost, while still prohibiting a globally visible long-run update trace.
-For example, cumulative shared deltas from a private retrieval specialist, clinical-data agent, enterprise knowledge module, or third-party provider may reveal the data domain, provider identity, task distribution, or specialization profile behind that branch.
-We do not aim to provide a formal privacy guarantee; rather, these examples motivate a learning model that respects an externally specified feedback-sharing policy while exploiting all feedback that is structurally admissible.
-The relevant regime is therefore neither ``share everything'' nor ``share nothing'': current terminal costs may remain usable through local bandit channels, while persistent shared deltas may propagate upward only until the first structural barrier.
+This distinction is motivated by analogous leakage risks in collaborative learning, where shared updates can reveal unintended properties of a participant's data or membership information~\cite{melis2019unintended}, and in gradient-based distributed learning, where gradients can even reconstruct private training examples~\cite{zhu2019deep}.
+It is also relevant to deployed model services, where repeated black-box queries can expose commercially valuable model behavior or enable model extraction~\cite{tramer2016stealing}.
+In sensitive domains such as healthcare, multi-institutional learning is often designed to avoid direct patient-data sharing across silos~\cite{sheller2020federated}.
+By analogy, cumulative shared deltas from a private retrieval specialist, clinical-data module, enterprise knowledge component, or third-party provider may reveal the data domain, provider identity, task distribution, or specialization profile behind that branch.
+We therefore model these interfaces as externally specified feedback-sharing barriers, not as a formal privacy guarantee.
+The relevant regime is neither ``share everything'' nor ``share nothing'': current terminal costs may remain usable through local bandit channels, while persistent shared deltas may propagate upward only until the first structural barrier.
 To address this setting, we propose \textbf{BarrierShare}, a hierarchical online learning algorithm that performs shared delta aggregation inside barrier-free regions and switches to local bandit learning at risky or barrier-limited interfaces.
 Figure~\ref{fig:overview} illustrates this progression from end-to-end bandit feedback to full-share propagation and finally to the barrier-limited regime studied in this paper.
 
 \textbf{Our contributions are summarized as follows.}
-\textbf{(1) Barrier-limited feedback sharing.}
-We formalize an intermediate feedback regime between end-to-end bandit feedback and unrestricted sharing, where current terminal costs can support local bandit learning, but persistent shared deltas can propagate only within structurally admissible regions of a hierarchy.
-\textbf{(2) BarrierShare algorithm.}
-We propose \textbf{BarrierShare}, which performs recursive exponential-weight aggregation inside safe subtrees and switches to local bandit updates at barrier-limited risky interfaces.
+\textbf{(1) A barrier-limited feedback model.}
+We formalize an intermediate hierarchical feedback regime in which terminal scalar costs remain usable for local bandit learning, but the persistent shared deltas induced by those costs can propagate only within structurally admissible regions.
+This model separates current-round cost feedback from long-run aggregate update traces, and introduces safe regions, structural barriers, and risky depth as the key objects of analysis.
+\textbf{(2) The BarrierShare algorithm.}
+We propose \textbf{BarrierShare}, a single hierarchical online learning algorithm that combines recursive exponential-weight aggregation inside safe subtrees with local bandit updates at barrier-limited risky interfaces.
+A selected shared leaf updates its exponential weight, propagates the induced delta through admissible ancestors, and stops the propagation at the first structural barrier.
 \textbf{(3) Risky-depth regret and validation.}
 We prove regret bounds governed by the risky skeleton depth \(R\), showing how BarrierShare interpolates between fully shared safe aggregation and depth-dependent bandit learning.
 In particular, long safe suffixes reduce the effective depth in the leading bandit term from the full workflow depth \(L\) to the risky depth \(R\), up to safe-subtree aggregation terms.
@@ -85,20 +95,85 @@ We validate these predictions through regret-aligned simulations, including long
 
 \section{Related Work}
 
-\towrite{Keep this section in the main paper because the paper sits between online learning theory and agent workflows. The section should be functional rather than catalog-like: each subsection should first state what role that literature plays in the paper, then summarize the closest work, and finally close with a different positioning sentence. The three roles are: theoretical starting point, feedback-structure bridge, and practical agent motivation.}
+BarrierShare is related to three lines of work, distinguished primarily by their information structure.
+First, multi-stage bandits study terminal-only feedback in distributed hierarchies, but use the realized outcome only through local bandit updates.
+Second, feedback-graph, semi-bandit, combinatorial bandit, and partial-monitoring models enrich the current-round observation, whereas BarrierShare keeps terminal-only observations and controls the propagation of the induced update.
+Third, workflow-constrained agents motivate fixed-stage policies and terminal evaluation, but typically optimize execution within a trajectory rather than repeated online selection among workflow policies.
+Table~\ref{tab:feedback_regimes} summarizes these regimes.
 
-\subsection{Multi-Stage Online Learning with End-to-End Bandit Feedback}
+\begin{table}[t]
+\centering
+\small
+\caption{Feedback regimes relevant to BarrierShare. Unlike stronger-feedback models, BarrierShare does not enrich the current-round observation; it restricts the scope over which the terminal-cost-induced update trace may be reused.}
+\label{tab:feedback_regimes}
+\begin{tabular}{lllll}
+\toprule
+Regime & Observation & Reused object & Reuse scope & Example \\
+\midrule
+End-to-end bandit & sampled terminal cost & none & none & \citet{hou2024distributed} \\
+Complete / one-hop & child/action-level feedback & current-round estimates & local node & Hou complete feedback \\
+Full-share endpoint & sampled terminal cost & weight delta & all ancestors & conceptual endpoint \\
+BarrierShare & sampled terminal cost & weight delta & safe subtrees & ours \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\towrite{Opening function sentence: this line is the closest theoretical starting point for BarrierShare. Discuss multi-stage systems where a policy selects a sequence of decisions and observes only terminal loss, with Hou-style distributed no-regret learning as the primary reference. Explain that these works formalize the conservative bandit-only endpoint: the learner can update from the selected terminal cost but cannot reuse that feedback as prefix-level shared supervision. Closing positioning sentence: unlike this line of work, BarrierShare studies what changes when terminal feedback can propagate upward through part of the hierarchy before a barrier stops it.}
+\subsection{Multi-Stage Bandits and Distributed Online Learning}
 
-\subsection{Structured Feedback in Hierarchical Online Learning}
+Classical adversarial bandits study a single learner that selects one action and observes only the loss of the selected action, with algorithms such as EXP3 providing no-regret guarantees in the one-stage setting~\citep{auer2002nonstochastic}.
+Multi-stage systems introduce a qualitatively different difficulty: the terminal outcome is determined by a sequence of decisions across stages, and upstream decisions affect not only immediate performance but also whether downstream learners receive enough traffic to learn.
+This creates the education--exploration--exploitation trilemma formalized by \citet{hou2024distributed}.
 
-\towrite{Opening function sentence: this literature provides the feedback-structure perspective needed to interpret full-share as an idealized endpoint. Keep the boundary narrow: do not review all full-information learning. Focus on settings where feedback is reusable, structured, hierarchical, or informative for more than the sampled action. The key contrast is whether terminal feedback can be converted into a shared delta for common prefixes or safe subtrees. Closing positioning sentence: prior structured-feedback views do not isolate barrier-limited upward propagation as its own hierarchical learning regime, where shared aggregation is valid below some interfaces but invalid above them.}
+The closest theoretical baseline for BarrierShare is Hou's multi-stage bandit model.
+In that formulation, a system is represented as a tree: each internal node selects a child, each leaf produces a terminal cost, and the selected path observes only the realized end-to-end outcome.
+The $\epsilon$-EXP3 algorithm addresses the education problem by mixing uniform exploration with local exponential-weights updates, yielding regret of order \(O(T^{L/(L+1)})\) for an \(L\)-stage system.
+This is the conservative endpoint for our work: terminal feedback is available, but it is used only through local bandit-style updates along the sampled trajectory.
 
-\subsection{Fixed-Stage Agent Workflows and Workflow-Constrained Agents}
+Hou also studies a stronger complete one-hop feedback setting, where each node can observe richer feedback about all of its actions and normalized-EG-type updates become possible.
+This setting is fundamentally different from BarrierShare: it enriches current-round observations, whereas our model keeps terminal-only scalar feedback and restricts whether the induced persistent update trace can be shared upward.
 
-\towrite{Opening function sentence: this literature motivates why the barrier-limited feedback model is practically relevant for agents. Focus on fixed-stage, workflow-constrained, SOP-like, or tool-orchestrated agent systems; mention open-ended agent benchmarks only as contrast and keep benchmark discussion secondary. The point is that many deployed agents are not unconstrained planners: they pass through structured stages, organizational boundaries, restricted tools, and specialist modules. Closing positioning sentence: existing agent workflow and benchmark papers motivate selective feedback propagation, but they typically evaluate planning or execution quality rather than formulate and analyze the online learning problem created by barrier-limited terminal feedback.}
+The two-stage model of \citet{singla2018learning} is related in that a central forecaster interacts with learning experts and can coordinate their learning by blocking whether the selected expert observes feedback.
+However, this feedback blocking controls the learning state of selected experts in a two-level expert-advice problem, whereas BarrierShare studies arbitrary-depth hierarchies in which terminal costs remain locally usable but the induced persistent update delta may propagate only through structurally admissible ancestors.
 
+Our setting is also distinct from adversarial MDP and tree-search formulations.
+Although a hierarchy can be viewed as a tree of states, these methods typically assume transition-level state observations, simulator access, value estimates, or centralized coordination.
+Unlike adversarial MDP formulations, our learner does not observe intermediate states or rewards along the trajectory, and the regret comparator is a stationary root-to-leaf workflow policy rather than an adaptive Markov policy.
+Unlike tree-search methods, our tree is a fixed high-level workflow-policy family rather than a low-level action expansion tree, and learning occurs across repeated terminal-cost observations rather than through within-trajectory search.
+
+\subsection{Feedback Regimes in Hierarchical Learning}
+
+A broad online learning literature studies how regret changes when the learner receives feedback beyond the loss of the selected action.
+Full-information learning reveals all action losses; semi-bandit and combinatorial bandit models reveal component-level feedback; partial-monitoring and feedback-graph models specify which side observations become available after each action~\citep{cesa2006prediction, mannor2011bandits, audibert2014regret, alon2015online}.
+These settings improve learning by enriching the information available in the current round.
+
+BarrierShare differs in the object being reused.
+We do not reveal losses of unselected leaves or child-level costs; the only observed scalar remains the terminal cost of the sampled path.
+In a shareable region, this cost induces an exponential-weight delta at the sampled leaf, and this delta updates admissible ancestor aggregates that determine future hierarchical sampling probabilities.
+Thus, the question is not which additional losses are observed in the current round, but how far the induced update trace may propagate.
+
+Path and combinatorial bandits also consider actions with internal structure, such as paths, subsets, or other combinatorial objects~\citep{cesa2012combinatorial, audibert2014regret}.
+However, semi-bandit variants typically reveal component losses, and bandit variants treat the entire path as a flat arm without providing a mechanism for recursively reusing terminal feedback across safe prefixes.
+BarrierShare lies between these extremes: it never observes component-level losses, but it also avoids flattening the hierarchy whenever the induced update is admissible for a safe subtree.
+
+As a useful conceptual endpoint, unrestricted full-share recursive aggregation would allow a selected shareable leaf to update all ancestor aggregates through its weight delta.
+BarrierShare retains this mechanism only inside structurally admissible regions; once a barrier is reached, upstream decisions revert to local bandit learning.
+Our motivation is also consistent with observations from collaborative and federated learning that shared updates may expose information about data, participants, or model behavior~\citep{melis2019unintended, zhu2019deep, tramer2016stealing, sheller2020federated}.
+We do not claim a privacy guarantee: barriers are externally specified sharing constraints, and our goal is to characterize their online-learning consequences.
+
+\subsection{Workflow-Constrained Language Agents}
+
+Recent language-agent systems increasingly structure execution through tools, search, verifiers, memory, or workflow modules.
+Tool-using and reasoning-acting agents interleave reasoning, actions, and observations when interacting with external environments~\citep{yao2022react, schick2023toolformer}.
+Web-agent and computer-use benchmarks expose long-horizon tasks with tool calls, state tracking, policy constraints, and terminal success criteria~\citep{zhou2023webarena, yao2024tau}.
+These works motivate the view that many agent executions are organized around constrained decision points rather than a single flat action.
+
+Importantly, the tree in our formulation is not a low-level action tree over clicks, tokens, or simulator states; it is a fixed high-level policy family whose leaves are complete workflow policies or macro-strategies.
+A workflow policy may choose among prompts, tools, specialist modules, API calls, or standard operating procedures at different stages.
+Thus, our abstraction is closer to repeated selection among candidate workflow policies than to online search over low-level environment actions.
+
+Recent agent work improves trajectory execution through workflow guidance, process reward models and verifiers, value-guided search, memory retrieval, distillation, or computer-use data engines~\citep{liu2018workflow, chae2025webshepherd, mendes2025selftaught, kang2025agentdistillation, zhang2025gmemory, wang2025opencua}.
+These methods change how an agent executes, evaluates, retrieves, or learns within a trajectory.
+Unlike prior agent works that improve the executor, verifier, reward model, search procedure, or memory within a trajectory, BarrierShare studies the learning layer above execution: how to repeatedly select among fixed-stage workflow policies when only terminal costs are observed and only part of the induced update trace can be propagated upward.
 \section{Problem Formulation}
 
 We study hierarchical online learning on a rooted decision tree under three feedback regimes: the conservative end-to-end bandit regime, an idealized full-share endpoint, and the barrier-limited sharing regime that is the focus of this paper. This section defines the game, the feedback semantics, and the regret objective, without introducing the BarrierShare algorithm itself.
