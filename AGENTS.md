@@ -113,6 +113,49 @@ Recent local-only diagnostic output:
 The current suspected remaining bottleneck is Stage 4 deep/target upstream
 completeness on local repair chains, not Stage 5 closure.
 
+Recent v4 smoke run:
+
+- Output directory:
+  `tmp/llm_repeated_smoke_profile_switch_lowtransfer_v4_10x10_n7_eta02_eps001_gpt4omini/`
+- Experiment label:
+  `telecom_mms_lowtransfer_v4_10x10_n7_eta02_eps001_gpt4omini_13methods`
+- Executor setting:
+  `telecom_mms_agent_profile_only_clean_v4_hard_transfer_contract`
+- Model:
+  `gpt-4o-mini`
+- Dataset:
+  `data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_lowtransfer_smoke/tasks.json`
+- Buckets:
+  `analysis/shared_basin_prefix_dedup_profile_switch_lowtransfer_smoke_schedule_buckets.json`
+- Config:
+  `repeats=10`, `horizon=100`, `schedule_mode=trap_switch`,
+  `switch_denominator=7`, `eta=0.2`, `epsilon=0.01`, 13 methods in parallel.
+- Dataset composition:
+  68 unique tasks, `repair_all=33`, `repair_subset=34`, `transfer=1`
+  (`transfer` rate about 1.47%).
+- Actual schedule composition:
+  100 episodes, `trap_pre_switch=14`, `target_post_switch=86`,
+  `specialist_task_count=78`.
+- Main result:
+  `direct_multistage_exp3` ranked first by `raw_total_cost_mean`
+  (`14.188`) and by post-switch/specialist costs.
+  Best PS variants were `risky_ps_safe_conditional` (`14.673`, rank 2)
+  and `risky_ps_ix` (`14.810`, rank 3).
+- Safety result:
+  all methods output `final_action=transfer` for all 8 repeated
+  transfer-oracle episodes. The repeated smoke export does not currently expose
+  per-episode `clean_success_no_fallback`, `hard_transfer_guard_applied`, or
+  completion-pass diagnostics, so do not claim those rates from this run alone.
+- Interpretation:
+  v4 appears to have removed the major "fast/trap wins by conservative transfer"
+  failure mode on the low-transfer track, but PS is not yet the best method.
+  The likely remaining issue is that post-switch local repair execution is still
+  noisy/hard: specialist exact match remains low even for the best method.
+
+For a fuller write-up of the run, see:
+
+- `notes/telecom_mms_v4_lowtransfer_smoke_2026-04-27.md`
+
 ## Fast Cost And Token Penalty
 
 Fast token diagnostics were added because fast paths may exceed their intended
@@ -212,4 +255,3 @@ Search fast/token or Stage 4 completion logic:
 rg -n "FAST_TOKEN|stage4_completion|completion_pass|hard_nonlocal|raw_total_cost_with_token_penalty" \
   envs/executors scripts
 ```
-

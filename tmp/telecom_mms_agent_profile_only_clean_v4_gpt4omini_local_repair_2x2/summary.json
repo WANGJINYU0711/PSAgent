@@ -1,0 +1,1403 @@
+{
+  "experiment_name": "telecom_mms_agent_profile_only_clean_v4_gpt4omini_local_repair_2x2",
+  "base_experiment_setting": "telecom_mms_agent_profile_only_clean_v4_hard_transfer_contract",
+  "model": "gpt-4o-mini",
+  "data_path": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_nontransfer_smoke/tasks.json",
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch",
+  "seed": 0,
+  "runs": [
+    {
+      "run_id": "fast_requirement__fast_trap_path",
+      "task_kind": "fast_requirement",
+      "original_task_id": "[mms_issue]airplane_mode_on|bad_wifi_calling|break_app_storage_permission[PERSONA:Easy]",
+      "task_metadata": {
+        "domain": "telecom",
+        "family_version": "telecom_mms_fixed_tree_v1",
+        "subset_version": "base_v2_100",
+        "source_split": "all_mms_issue",
+        "source_subsplit": "unknown",
+        "problem_family": "mms_issue",
+        "persona_level": "Easy",
+        "num_blockers": 3,
+        "blocker_layers_present": [
+          "mms_app",
+          "service"
+        ],
+        "contains_assistant_side_action": false,
+        "contains_user_side_action": true,
+        "contains_hybrid_action": false,
+        "requires_roaming_account_check": false,
+        "requires_data_refuel": false,
+        "expected_terminal_action": "repair_all",
+        "target_success_signal": "can_send_mms_true",
+        "smoke_candidate": false,
+        "builder_version": "v1",
+        "stage2_oracle_mode": "static_precomputed_v1",
+        "stage3_oracle_mode": "heuristic_precomputed_v1",
+        "repairability": "repairable",
+        "repair_owner_set": [
+          "user"
+        ],
+        "decision_policy_version": "first_pass_v1",
+        "num_selected_blockers": 3,
+        "num_deferred_blockers": 0,
+        "capability_requirement_version": "telecom_stage_capabilities_v1",
+        "deliberation_requirement_version": "telecom_stage_deliberation_v1",
+        "deliberation_requirement_summary": {
+          "stage1": "fast",
+          "stage2": "fast",
+          "stage3": "fast",
+          "stage4": "fast",
+          "stage5": "fast"
+        },
+        "profile_switch_version": "profile_switch_v1",
+        "profile_switch_profile": "trap_pre_switch",
+        "profile_switch_blockers": [
+          "airplane_mode_on",
+          "bad_wifi_calling",
+          "break_app_storage_permission"
+        ],
+        "profile_switch_bucket": "trap_favoring",
+        "profile_switch_profile_display": "fast_path_pre_switch",
+        "profile_switch_profile_note": "Pre-switch path: fast, shallow, and early-closure friendly. These tasks reward compact evidence chains and tolerate earlier stop decisions.",
+        "profile_switch_bucket_display": "fast_path_favoring",
+        "profile_switch_bucket_note": "Fast/shallow/early-closure-friendly pre-switch bucket.",
+        "profile_switch_stage_behavior": {
+          "stage1": "Fast grounding path: do the minimum identity and line grounding needed for downstream execution.",
+          "stage2": "Fast resolution path: stabilize the customer and line quickly without speculative extra validation.",
+          "stage3": "Shallow diagnosis path: validate only the highest-yield blocker families and leave long-tail branches unopened.",
+          "stage4": "Fast repair path: act only on clear blocker evidence and avoid long precondition chains.",
+          "stage5": "Fast closure path: use a compact verification floor and close quickly once a defensible local action is supported."
+        }
+      },
+      "stage_deliberation_requirements_for_offline_reference_only": {
+        "stage1": "fast",
+        "stage2": "fast",
+        "stage3": "fast",
+        "stage4": "fast",
+        "stage5": "fast"
+      },
+      "path_class": "pure_trap",
+      "path_rank": 2,
+      "path_match": 1.0,
+      "path_agent_modes": [
+        "fast",
+        "fast",
+        "fast",
+        "fast",
+        "fast"
+      ],
+      "path_lane_sequence": [
+        "general",
+        "trap",
+        "trap",
+        "trap",
+        "trap"
+      ],
+      "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n3|trap_stage2_router|trap_lane -> stage3:stage3_n4|trap_stage3_network|trap_lane -> stage4:stage4_n4|trap_stage4_execute|trap_lane -> stage5:stage5_n4|trap_stage5_terminal|trap_lane",
+      "final_action": "repair_all",
+      "oracle_action": "repair_all",
+      "success": true,
+      "raw_terminal_penalty": 0.0,
+      "raw_path_cost_component": 0.05880000000000001,
+      "raw_reasoning_cost_component": 2.96361,
+      "raw_total_cost": 3.0224100000000003,
+      "raw_total_cost_with_token_penalty": 36.27241,
+      "prompt_tokens_total": 31262.0,
+      "completion_tokens_total": 901.0,
+      "total_tokens_total": 32163.0,
+      "api_cost_total_usd_raw": 0.0046347,
+      "selected_blocker_ids": [
+        "airplane_mode_on",
+        "bad_wifi_calling",
+        "break_app_storage_permission"
+      ],
+      "deferred_blocker_ids": [],
+      "stage4_repairability": "repairable",
+      "stage4_selected_after_normalization": [
+        "airplane_mode_on",
+        "bad_wifi_calling",
+        "break_app_storage_permission"
+      ],
+      "stage4_deferred_after_normalization": [],
+      "stage4_completion_pass_applied": false,
+      "stage4_completion_added_blockers": [],
+      "llm_call_count_total": 10,
+      "json_retry_count_total": 0,
+      "fallback_count_total": 0,
+      "replay_tool_call_count_total": 3,
+      "token_over_budget_penalty_total": 33.25,
+      "fast_llm_call_count_total": 10,
+      "fast_prompt_tokens_total": 31262.0,
+      "fast_completion_tokens_total": 901.0,
+      "fast_total_tokens_total": 32163.0,
+      "fast_json_retry_count_total": 0,
+      "fast_fallback_count_total": 0,
+      "fast_replay_tool_call_count_total": 3,
+      "fast_token_over_budget_total": 26163.0,
+      "fast_token_over_budget_penalty_total": 33.25,
+      "fast_llm_call_count_over_base_budget_total": 0,
+      "fallback_penalty_breakdown": {
+        "stage3_diagnostic_fallback_penalty": 0.0,
+        "stage3_account_fallback_penalty": 0.0,
+        "stage4_fallback_penalty": 0.0,
+        "stage5_verification_fallback_penalty": 0.0
+      },
+      "fallback_penalty_total": 0.0,
+      "raw_total_cost_with_fallback_penalty": 3.02241,
+      "fallback_or_completion_dirty": false,
+      "safety_guard_applied": false,
+      "safety_guard_reason": null,
+      "safety_guard_blockers": [],
+      "clean_success_no_fallback": true,
+      "oracle_leak_free_success": true,
+      "legacy_clean_success": true,
+      "stage_modes": {
+        "stage1": "fast",
+        "stage2": "fast",
+        "stage3": "fast",
+        "stage4": "fast",
+        "stage5": "fast"
+      },
+      "stage_tool_counts": {
+        "stage1": 2,
+        "stage2": 4,
+        "stage3": 8,
+        "stage4": 3,
+        "stage5": 4
+      },
+      "stage3_observed_state": {
+        "can_send_mms": false,
+        "service_status": "no_service",
+        "mobile_data_working": false,
+        "mobile_data_enabled": true,
+        "internet_speed_desc": "No Connection",
+        "is_abroad": false,
+        "roaming_enabled_on_device": false,
+        "roaming_enabled_on_account": true,
+        "airplane_mode": true,
+        "sim_status": "active",
+        "network_mode_preference": "4g_5g_preferred",
+        "wifi_calling_enabled": true,
+        "apn_mms_ok": true,
+        "messaging_sms_permission": true,
+        "messaging_storage_permission": false,
+        "data_usage_exceeded": null
+      },
+      "stage3_blocker_ids": [
+        "airplane_mode_on",
+        "bad_wifi_calling",
+        "break_app_storage_permission"
+      ],
+      "stage3_diagnostic_fallback_used": false,
+      "stage4_transfer_reason": null,
+      "stage4_decision_valid": true,
+      "stage4_error_state": null,
+      "stage4_invalid_reason": null,
+      "stage4_repair_decision_source": "valid_stage4_json",
+      "stage4_fallback_penalty": 0.0,
+      "stage4_normalizer_changed_output": false,
+      "stage4_safety_normalizer_changed_output": false,
+      "hard_transfer_guard_applied": false,
+      "hard_transfer_guard_blockers": [],
+      "hard_transfer_guard_reason": null,
+      "stage4_completion_blocked_by_hard_transfer_guard": [],
+      "stage4_tool_names": [
+        "toggle_airplane_mode",
+        "toggle_wifi_calling",
+        "grant_app_permission"
+      ],
+      "stage4_executed_tool_calls": [
+        {
+          "id": "stage4_exec_airplane_mode_on_1",
+          "name": "toggle_airplane_mode",
+          "arguments": {},
+          "requestor": "user"
+        },
+        {
+          "id": "stage4_exec_bad_wifi_calling_1",
+          "name": "toggle_wifi_calling",
+          "arguments": {},
+          "requestor": "user"
+        },
+        {
+          "id": "stage4_exec_break_app_storage_permission_1",
+          "name": "grant_app_permission",
+          "arguments": {
+            "app_name": "messaging",
+            "permission": "storage"
+          },
+          "requestor": "user"
+        }
+      ],
+      "stage4_raw_json_extracted": {
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "break_app_storage_permission",
+            "should_repair": true
+          }
+        ],
+        "repairability": "repairable",
+        "transfer_reason": null,
+        "decision_policy_version": "first_pass_v1"
+      },
+      "stage4_raw_llm_replies": [
+        {
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_bPkeGABM55jkmRVvcdqoXSjF",
+              "name": "toggle_airplane_mode",
+              "arguments": {},
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_l3oGjAspnkbAmYG6ouL3FZlC",
+              "name": "toggle_wifi_calling",
+              "arguments": {},
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_BmNckiaBWZu3a69yaAfvdU64",
+              "name": "grant_app_permission",
+              "arguments": {
+                "app_name": "messaging",
+                "permission": "storage"
+              },
+              "requestor": "assistant"
+            }
+          ],
+          "cost": 0.0008449499999999999,
+          "usage": {
+            "completion_tokens": 65,
+            "prompt_tokens": 5373
+          },
+          "generation_time_seconds": 3.6914343759417534,
+          "round_trip_seconds": 3.6989647690206766,
+          "usage_breakdown": {
+            "prompt_tokens": 5373.0,
+            "completion_tokens": 65.0,
+            "total_tokens": 5438.0
+          },
+          "token_usage_available": true,
+          "estimated_total_tokens": 98.0
+        },
+        {
+          "content": "{\"per_blocker\":[{\"blocker_id\":\"airplane_mode_on\",\"should_repair\":true},{\"blocker_id\":\"bad_wifi_calling\",\"should_repair\":true},{\"blocker_id\":\"break_app_storage_permission\",\"should_repair\":true}],\"repairability\":\"repairable\",\"transfer_reason\":null,\"decision_policy_version\":\"first_pass_v1\"}",
+          "tool_calls": [],
+          "cost": 0.0008856,
+          "usage": {
+            "completion_tokens": 74,
+            "prompt_tokens": 5608
+          },
+          "generation_time_seconds": 2.4739341866225004,
+          "round_trip_seconds": 2.4778086952865124,
+          "usage_breakdown": {
+            "prompt_tokens": 5608.0,
+            "completion_tokens": 74.0,
+            "total_tokens": 5682.0
+          },
+          "token_usage_available": true,
+          "estimated_total_tokens": 72.0
+        }
+      ],
+      "stage5_final_action": "repair_all",
+      "stage5_terminal_decision_source": null,
+      "stage5_transfer_reason": null,
+      "stage5_selected_blocker_ids": [
+        "airplane_mode_on",
+        "bad_wifi_calling",
+        "break_app_storage_permission"
+      ],
+      "stage5_deferred_blocker_ids": [],
+      "stage5_verification_fallback_used": false
+    },
+    {
+      "run_id": "fast_requirement__deep_target_path",
+      "task_kind": "fast_requirement",
+      "original_task_id": "[mms_issue]airplane_mode_on|bad_wifi_calling|break_app_storage_permission[PERSONA:Easy]",
+      "task_metadata": {
+        "domain": "telecom",
+        "family_version": "telecom_mms_fixed_tree_v1",
+        "subset_version": "base_v2_100",
+        "source_split": "all_mms_issue",
+        "source_subsplit": "unknown",
+        "problem_family": "mms_issue",
+        "persona_level": "Easy",
+        "num_blockers": 3,
+        "blocker_layers_present": [
+          "mms_app",
+          "service"
+        ],
+        "contains_assistant_side_action": false,
+        "contains_user_side_action": true,
+        "contains_hybrid_action": false,
+        "requires_roaming_account_check": false,
+        "requires_data_refuel": false,
+        "expected_terminal_action": "repair_all",
+        "target_success_signal": "can_send_mms_true",
+        "smoke_candidate": false,
+        "builder_version": "v1",
+        "stage2_oracle_mode": "static_precomputed_v1",
+        "stage3_oracle_mode": "heuristic_precomputed_v1",
+        "repairability": "repairable",
+        "repair_owner_set": [
+          "user"
+        ],
+        "decision_policy_version": "first_pass_v1",
+        "num_selected_blockers": 3,
+        "num_deferred_blockers": 0,
+        "capability_requirement_version": "telecom_stage_capabilities_v1",
+        "deliberation_requirement_version": "telecom_stage_deliberation_v1",
+        "deliberation_requirement_summary": {
+          "stage1": "fast",
+          "stage2": "fast",
+          "stage3": "fast",
+          "stage4": "fast",
+          "stage5": "fast"
+        },
+        "profile_switch_version": "profile_switch_v1",
+        "profile_switch_profile": "trap_pre_switch",
+        "profile_switch_blockers": [
+          "airplane_mode_on",
+          "bad_wifi_calling",
+          "break_app_storage_permission"
+        ],
+        "profile_switch_bucket": "trap_favoring",
+        "profile_switch_profile_display": "fast_path_pre_switch",
+        "profile_switch_profile_note": "Pre-switch path: fast, shallow, and early-closure friendly. These tasks reward compact evidence chains and tolerate earlier stop decisions.",
+        "profile_switch_bucket_display": "fast_path_favoring",
+        "profile_switch_bucket_note": "Fast/shallow/early-closure-friendly pre-switch bucket.",
+        "profile_switch_stage_behavior": {
+          "stage1": "Fast grounding path: do the minimum identity and line grounding needed for downstream execution.",
+          "stage2": "Fast resolution path: stabilize the customer and line quickly without speculative extra validation.",
+          "stage3": "Shallow diagnosis path: validate only the highest-yield blocker families and leave long-tail branches unopened.",
+          "stage4": "Fast repair path: act only on clear blocker evidence and avoid long precondition chains.",
+          "stage5": "Fast closure path: use a compact verification floor and close quickly once a defensible local action is supported."
+        }
+      },
+      "stage_deliberation_requirements_for_offline_reference_only": {
+        "stage1": "fast",
+        "stage2": "fast",
+        "stage3": "fast",
+        "stage4": "fast",
+        "stage5": "fast"
+      },
+      "path_class": "pure_target",
+      "path_rank": 157,
+      "path_match": 0.4,
+      "path_agent_modes": [
+        "fast",
+        "fast",
+        "deep",
+        "deep",
+        "deep"
+      ],
+      "path_lane_sequence": [
+        "general",
+        "general",
+        "target_specialist",
+        "target_specialist",
+        "target_specialist"
+      ],
+      "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n2|general_stage2_core|general_shared -> stage3:stage3_n2|target_stage3_roaming|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+      "final_action": "repair_all",
+      "oracle_action": "repair_all",
+      "success": true,
+      "raw_terminal_penalty": 0.0,
+      "raw_path_cost_component": 0.0742,
+      "raw_reasoning_cost_component": 3.976185,
+      "raw_total_cost": 4.050385,
+      "raw_total_cost_with_token_penalty": 10.050385,
+      "prompt_tokens_total": 32183.0,
+      "completion_tokens_total": 1081.0,
+      "total_tokens_total": 33264.0,
+      "api_cost_total_usd_raw": 0.005245649999999999,
+      "selected_blocker_ids": [
+        "airplane_mode_on",
+        "bad_wifi_calling",
+        "break_app_storage_permission"
+      ],
+      "deferred_blocker_ids": [],
+      "stage4_repairability": "repairable",
+      "stage4_selected_after_normalization": [
+        "airplane_mode_on",
+        "bad_wifi_calling",
+        "break_app_storage_permission"
+      ],
+      "stage4_deferred_after_normalization": [],
+      "stage4_completion_pass_applied": false,
+      "stage4_completion_added_blockers": [],
+      "llm_call_count_total": 10,
+      "json_retry_count_total": 0,
+      "fallback_count_total": 0,
+      "replay_tool_call_count_total": 3,
+      "token_over_budget_penalty_total": 6.0,
+      "fast_llm_call_count_total": 4,
+      "fast_prompt_tokens_total": 6860.0,
+      "fast_completion_tokens_total": 136.0,
+      "fast_total_tokens_total": 6996.0,
+      "fast_json_retry_count_total": 0,
+      "fast_fallback_count_total": 0,
+      "fast_replay_tool_call_count_total": 0,
+      "fast_token_over_budget_total": 4596.0,
+      "fast_token_over_budget_penalty_total": 6.0,
+      "fast_llm_call_count_over_base_budget_total": 0,
+      "fallback_penalty_breakdown": {
+        "stage3_diagnostic_fallback_penalty": 0.0,
+        "stage3_account_fallback_penalty": 0.0,
+        "stage4_fallback_penalty": 0.0,
+        "stage5_verification_fallback_penalty": 0.0
+      },
+      "fallback_penalty_total": 0.0,
+      "raw_total_cost_with_fallback_penalty": 4.050385,
+      "fallback_or_completion_dirty": false,
+      "safety_guard_applied": false,
+      "safety_guard_reason": null,
+      "safety_guard_blockers": [],
+      "clean_success_no_fallback": true,
+      "oracle_leak_free_success": true,
+      "legacy_clean_success": true,
+      "stage_modes": {
+        "stage1": "fast",
+        "stage2": "fast",
+        "stage3": "deep",
+        "stage4": "deep",
+        "stage5": "deep"
+      },
+      "stage_tool_counts": {
+        "stage1": 2,
+        "stage2": 4,
+        "stage3": 8,
+        "stage4": 3,
+        "stage5": 4
+      },
+      "stage3_observed_state": {
+        "can_send_mms": false,
+        "service_status": "no_service",
+        "mobile_data_working": false,
+        "mobile_data_enabled": true,
+        "internet_speed_desc": "No Connection",
+        "is_abroad": false,
+        "roaming_enabled_on_device": false,
+        "roaming_enabled_on_account": true,
+        "airplane_mode": true,
+        "sim_status": "active",
+        "network_mode_preference": "4g_5g_preferred",
+        "wifi_calling_enabled": true,
+        "apn_mms_ok": true,
+        "messaging_sms_permission": true,
+        "messaging_storage_permission": false,
+        "data_usage_exceeded": null
+      },
+      "stage3_blocker_ids": [
+        "airplane_mode_on",
+        "bad_wifi_calling",
+        "break_app_storage_permission"
+      ],
+      "stage3_diagnostic_fallback_used": false,
+      "stage4_transfer_reason": null,
+      "stage4_decision_valid": true,
+      "stage4_error_state": null,
+      "stage4_invalid_reason": null,
+      "stage4_repair_decision_source": "valid_stage4_json",
+      "stage4_fallback_penalty": 0.0,
+      "stage4_normalizer_changed_output": false,
+      "stage4_safety_normalizer_changed_output": false,
+      "hard_transfer_guard_applied": false,
+      "hard_transfer_guard_blockers": [],
+      "hard_transfer_guard_reason": null,
+      "stage4_completion_blocked_by_hard_transfer_guard": [],
+      "stage4_tool_names": [
+        "toggle_airplane_mode",
+        "toggle_wifi_calling",
+        "grant_app_permission"
+      ],
+      "stage4_executed_tool_calls": [
+        {
+          "id": "stage4_exec_airplane_mode_on_1",
+          "name": "toggle_airplane_mode",
+          "arguments": {},
+          "requestor": "user"
+        },
+        {
+          "id": "stage4_exec_bad_wifi_calling_1",
+          "name": "toggle_wifi_calling",
+          "arguments": {},
+          "requestor": "user"
+        },
+        {
+          "id": "stage4_exec_break_app_storage_permission_1",
+          "name": "grant_app_permission",
+          "arguments": {
+            "app_name": "messaging",
+            "permission": "storage"
+          },
+          "requestor": "user"
+        }
+      ],
+      "stage4_raw_json_extracted": {
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "break_app_storage_permission",
+            "should_repair": true
+          }
+        ],
+        "repairability": "repairable",
+        "transfer_reason": null,
+        "decision_policy_version": "first_pass_v1"
+      },
+      "stage4_raw_llm_replies": [
+        {
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_Jb61ev7OO4vCnYfsn6cuZtyo",
+              "name": "toggle_airplane_mode",
+              "arguments": {},
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_a0AkjiZcoATe3ZpakbIcC2j6",
+              "name": "toggle_wifi_calling",
+              "arguments": {},
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_3TwVcw5xYcXE47qxYgL7ncEo",
+              "name": "grant_app_permission",
+              "arguments": {
+                "app_name": "messaging",
+                "permission": "storage"
+              },
+              "requestor": "assistant"
+            }
+          ],
+          "cost": 0.0008837999999999999,
+          "usage": {
+            "completion_tokens": 65,
+            "prompt_tokens": 5632
+          },
+          "generation_time_seconds": 3.322648163884878,
+          "round_trip_seconds": 3.3284897543489933,
+          "usage_breakdown": {
+            "prompt_tokens": 5632.0,
+            "completion_tokens": 65.0,
+            "total_tokens": 5697.0
+          },
+          "token_usage_available": true,
+          "estimated_total_tokens": 98.0
+        },
+        {
+          "content": "{\n  \"per_blocker\": [\n    {\n      \"blocker_id\": \"airplane_mode_on\",\n      \"should_repair\": true\n    },\n    {\n      \"blocker_id\": \"bad_wifi_calling\",\n      \"should_repair\": true\n    },\n    {\n      \"blocker_id\": \"break_app_storage_permission\",\n      \"should_repair\": true\n    }\n  ],\n  \"repairability\": \"repairable\",\n  \"transfer_reason\": null,\n  \"decision_policy_version\": \"first_pass_v1\"\n}",
+          "tool_calls": [],
+          "cost": 0.00094785,
+          "usage": {
+            "completion_tokens": 113,
+            "prompt_tokens": 5867
+          },
+          "generation_time_seconds": 2.7130599319934845,
+          "round_trip_seconds": 2.7172636725008488,
+          "usage_breakdown": {
+            "prompt_tokens": 5867.0,
+            "completion_tokens": 113.0,
+            "total_tokens": 5980.0
+          },
+          "token_usage_available": true,
+          "estimated_total_tokens": 97.0
+        }
+      ],
+      "stage5_final_action": "repair_all",
+      "stage5_terminal_decision_source": null,
+      "stage5_transfer_reason": null,
+      "stage5_selected_blocker_ids": [
+        "airplane_mode_on",
+        "bad_wifi_calling",
+        "break_app_storage_permission"
+      ],
+      "stage5_deferred_blocker_ids": [],
+      "stage5_verification_fallback_used": false
+    },
+    {
+      "run_id": "deep_requirement__fast_trap_path",
+      "task_kind": "deep_requirement",
+      "original_task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|unseat_sim_card[PERSONA:Easy]",
+      "task_metadata": {
+        "domain": "telecom",
+        "family_version": "telecom_mms_fixed_tree_v1",
+        "subset_version": "base_v2_100",
+        "source_split": "all_mms_issue",
+        "source_subsplit": "unknown",
+        "problem_family": "mms_issue",
+        "persona_level": "Easy",
+        "num_blockers": 6,
+        "blocker_layers_present": [
+          "data",
+          "mms_app",
+          "service"
+        ],
+        "contains_assistant_side_action": false,
+        "contains_user_side_action": true,
+        "contains_hybrid_action": false,
+        "requires_roaming_account_check": false,
+        "requires_data_refuel": false,
+        "expected_terminal_action": "repair_all",
+        "target_success_signal": "can_send_mms_true",
+        "smoke_candidate": false,
+        "builder_version": "v1",
+        "stage2_oracle_mode": "static_precomputed_v1",
+        "stage3_oracle_mode": "heuristic_precomputed_v1",
+        "repairability": "repairable",
+        "repair_owner_set": [
+          "user"
+        ],
+        "decision_policy_version": "first_pass_v1",
+        "num_selected_blockers": 6,
+        "num_deferred_blockers": 0,
+        "capability_requirement_version": "telecom_stage_capabilities_v1",
+        "deliberation_requirement_version": "telecom_stage_deliberation_v1",
+        "deliberation_requirement_summary": {
+          "stage1": "fast",
+          "stage2": "deep",
+          "stage3": "deep",
+          "stage4": "deep",
+          "stage5": "deep"
+        },
+        "profile_switch_version": "profile_switch_v1",
+        "profile_switch_profile": "target_post_switch",
+        "profile_switch_blockers": [
+          "airplane_mode_on",
+          "bad_network_preference",
+          "bad_wifi_calling",
+          "break_apn_mms_setting",
+          "break_app_storage_permission",
+          "unseat_sim_card"
+        ],
+        "profile_switch_bucket": "target_favoring",
+        "profile_switch_profile_display": "deep_path_post_switch",
+        "profile_switch_profile_note": "Post-switch path: deeper reasoning and repair-precondition completion matter more than route labels or archetypes. These tasks reward fuller evidence chains and cautious closure.",
+        "profile_switch_bucket_display": "deep_path_favoring",
+        "profile_switch_bucket_note": "Post-switch deep-path bucket where deeper reasoning, fuller verification, and cautious closure should pay off.",
+        "profile_switch_stage_behavior": {
+          "stage1": "Grounding remains compact, but the post-switch path starts preserving enough structure for later deep verification.",
+          "stage2": "Deep path entry: establish a sturdier account and line evidence chain before diagnosis widens.",
+          "stage3": "Deep diagnosis path: keep high-risk APN, roaming, SIM, and downstream blocker families open until decisive evidence resolves them.",
+          "stage4": "Verification-heavy repair path: complete blocker-specific repair preconditions before mutation and prefer supported repair subsets over blanket escalation.",
+          "stage5": "Cautious terminal path: verify decisive post-repair evidence, distinguish local evidence gaps from true external/manual blockers, and close only when the evidence chain supports the final action."
+        }
+      },
+      "stage_deliberation_requirements_for_offline_reference_only": {
+        "stage1": "fast",
+        "stage2": "deep",
+        "stage3": "deep",
+        "stage4": "deep",
+        "stage5": "deep"
+      },
+      "path_class": "pure_trap",
+      "path_rank": 409,
+      "path_match": 0.2,
+      "path_agent_modes": [
+        "fast",
+        "fast",
+        "fast",
+        "fast",
+        "fast"
+      ],
+      "path_lane_sequence": [
+        "general",
+        "trap",
+        "trap",
+        "trap",
+        "trap"
+      ],
+      "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n3|trap_stage2_router|trap_lane -> stage3:stage3_n4|trap_stage3_network|trap_lane -> stage4:stage4_n4|trap_stage4_execute|trap_lane -> stage5:stage5_n4|trap_stage5_terminal|trap_lane",
+      "final_action": "repair_subset",
+      "oracle_action": "repair_all",
+      "success": false,
+      "raw_terminal_penalty": 5.0,
+      "raw_path_cost_component": 0.05880000000000001,
+      "raw_reasoning_cost_component": 5.08871,
+      "raw_total_cost": 10.14751,
+      "raw_total_cost_with_token_penalty": 49.14751,
+      "prompt_tokens_total": 36094.0,
+      "completion_tokens_total": 743.0,
+      "total_tokens_total": 36837.0,
+      "api_cost_total_usd_raw": 0.005485499999999999,
+      "selected_blocker_ids": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "bad_network_preference",
+        "bad_wifi_calling",
+        "break_apn_mms_setting"
+      ],
+      "deferred_blocker_ids": [
+        "break_app_storage_permission"
+      ],
+      "stage4_repairability": "partially_repairable",
+      "stage4_selected_after_normalization": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "bad_network_preference",
+        "bad_wifi_calling",
+        "break_apn_mms_setting"
+      ],
+      "stage4_deferred_after_normalization": [
+        "break_app_storage_permission"
+      ],
+      "stage4_completion_pass_applied": false,
+      "stage4_completion_added_blockers": [],
+      "llm_call_count_total": 10,
+      "json_retry_count_total": 0,
+      "fallback_count_total": 1,
+      "replay_tool_call_count_total": 6,
+      "token_over_budget_penalty_total": 39.0,
+      "fast_llm_call_count_total": 10,
+      "fast_prompt_tokens_total": 36094.0,
+      "fast_completion_tokens_total": 743.0,
+      "fast_total_tokens_total": 36837.0,
+      "fast_json_retry_count_total": 0,
+      "fast_fallback_count_total": 1,
+      "fast_replay_tool_call_count_total": 6,
+      "fast_token_over_budget_total": 30837.0,
+      "fast_token_over_budget_penalty_total": 39.0,
+      "fast_llm_call_count_over_base_budget_total": 0,
+      "fallback_penalty_breakdown": {
+        "stage3_diagnostic_fallback_penalty": 0.0,
+        "stage3_account_fallback_penalty": 0.0,
+        "stage4_fallback_penalty": 100.0,
+        "stage5_verification_fallback_penalty": 0.0
+      },
+      "fallback_penalty_total": 100.0,
+      "raw_total_cost_with_fallback_penalty": 110.14751,
+      "fallback_or_completion_dirty": true,
+      "safety_guard_applied": false,
+      "safety_guard_reason": null,
+      "safety_guard_blockers": [],
+      "clean_success_no_fallback": false,
+      "oracle_leak_free_success": false,
+      "legacy_clean_success": false,
+      "stage_modes": {
+        "stage1": "fast",
+        "stage2": "fast",
+        "stage3": "fast",
+        "stage4": "fast",
+        "stage5": "fast"
+      },
+      "stage_tool_counts": {
+        "stage1": 2,
+        "stage2": 4,
+        "stage3": 7,
+        "stage4": 6,
+        "stage5": 6
+      },
+      "stage3_observed_state": {
+        "can_send_mms": false,
+        "service_status": "no_service",
+        "mobile_data_working": false,
+        "mobile_data_enabled": true,
+        "internet_speed_desc": "Unknown",
+        "is_abroad": false,
+        "roaming_enabled_on_device": false,
+        "roaming_enabled_on_account": true,
+        "airplane_mode": true,
+        "sim_status": "missing",
+        "network_mode_preference": "2g_only",
+        "wifi_calling_enabled": true,
+        "apn_mms_ok": false,
+        "messaging_sms_permission": true,
+        "messaging_storage_permission": false,
+        "data_usage_exceeded": null
+      },
+      "stage3_blocker_ids": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "bad_network_preference",
+        "bad_wifi_calling",
+        "break_apn_mms_setting",
+        "break_app_storage_permission"
+      ],
+      "stage3_diagnostic_fallback_used": false,
+      "stage4_transfer_reason": null,
+      "stage4_decision_valid": false,
+      "stage4_error_state": "repair_subset_from_executed_tools_only",
+      "stage4_invalid_reason": "missing_final_json",
+      "stage4_repair_decision_source": "executed_tools_only_no_valid_json_v1",
+      "stage4_fallback_penalty": 100.0,
+      "stage4_normalizer_changed_output": true,
+      "stage4_safety_normalizer_changed_output": false,
+      "hard_transfer_guard_applied": false,
+      "hard_transfer_guard_blockers": [],
+      "hard_transfer_guard_reason": null,
+      "stage4_completion_blocked_by_hard_transfer_guard": [],
+      "stage4_tool_names": [
+        "toggle_airplane_mode",
+        "reseat_sim_card",
+        "set_network_mode_preference",
+        "toggle_wifi_calling",
+        "reset_apn_settings",
+        "reboot_device"
+      ],
+      "stage4_executed_tool_calls": [
+        {
+          "id": "call_Gzy2ZhxqsrZIEBVJHMb9CmWM",
+          "name": "toggle_airplane_mode",
+          "arguments": {},
+          "requestor": "user",
+          "wall_clock_seconds": 0.00043758004903793335
+        },
+        {
+          "id": "call_TuHt92p1oTK7dQ1Cc2yFxiqj",
+          "name": "reseat_sim_card",
+          "arguments": {},
+          "requestor": "user",
+          "wall_clock_seconds": 0.0002943035215139389
+        },
+        {
+          "id": "call_zkg3jZDG1hVRL1gldXKaXWfo",
+          "name": "set_network_mode_preference",
+          "arguments": {
+            "mode": "4g_5g_preferred"
+          },
+          "requestor": "user",
+          "wall_clock_seconds": 0.0014765337109565735
+        },
+        {
+          "id": "call_07EkdebdprdhZqjVUiV4WH2v",
+          "name": "toggle_wifi_calling",
+          "arguments": {},
+          "requestor": "user",
+          "wall_clock_seconds": 0.0001659821718931198
+        },
+        {
+          "id": "call_q1LELT6FaWaXMEiiMllajkqF",
+          "name": "reset_apn_settings",
+          "arguments": {},
+          "requestor": "user",
+          "wall_clock_seconds": 0.00015236623585224152
+        },
+        {
+          "id": "call_R2vQfc2ZvLuwtkhEl1bVbDJ6",
+          "name": "reboot_device",
+          "arguments": {},
+          "requestor": "user",
+          "wall_clock_seconds": 0.00015792623162269592
+        }
+      ],
+      "stage4_raw_json_extracted": null,
+      "stage4_raw_llm_replies": [
+        {
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_Gzy2ZhxqsrZIEBVJHMb9CmWM",
+              "name": "toggle_airplane_mode",
+              "arguments": {},
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_TuHt92p1oTK7dQ1Cc2yFxiqj",
+              "name": "reseat_sim_card",
+              "arguments": {},
+              "requestor": "assistant"
+            }
+          ],
+          "cost": 0.00103575,
+          "usage": {
+            "completion_tokens": 44,
+            "prompt_tokens": 6729
+          },
+          "generation_time_seconds": 3.205322954803705,
+          "round_trip_seconds": 3.2113965414464474,
+          "usage_breakdown": {
+            "prompt_tokens": 6729.0,
+            "completion_tokens": 44.0,
+            "total_tokens": 6773.0
+          },
+          "token_usage_available": true,
+          "estimated_total_tokens": 56.0
+        },
+        {
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_zkg3jZDG1hVRL1gldXKaXWfo",
+              "name": "set_network_mode_preference",
+              "arguments": {
+                "mode": "4g_5g_preferred"
+              },
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_07EkdebdprdhZqjVUiV4WH2v",
+              "name": "toggle_wifi_calling",
+              "arguments": {},
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_q1LELT6FaWaXMEiiMllajkqF",
+              "name": "reset_apn_settings",
+              "arguments": {},
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_R2vQfc2ZvLuwtkhEl1bVbDJ6",
+              "name": "reboot_device",
+              "arguments": {},
+              "requestor": "assistant"
+            }
+          ],
+          "cost": 0.0010793999999999999,
+          "usage": {
+            "completion_tokens": 79,
+            "prompt_tokens": 6880
+          },
+          "generation_time_seconds": 2.9586966689676046,
+          "round_trip_seconds": 2.965254483744502,
+          "usage_breakdown": {
+            "prompt_tokens": 6880.0,
+            "completion_tokens": 79.0,
+            "total_tokens": 6959.0
+          },
+          "token_usage_available": true,
+          "estimated_total_tokens": 121.0
+        }
+      ],
+      "stage5_final_action": "repair_subset",
+      "stage5_terminal_decision_source": null,
+      "stage5_transfer_reason": null,
+      "stage5_selected_blocker_ids": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "bad_network_preference",
+        "bad_wifi_calling",
+        "break_apn_mms_setting"
+      ],
+      "stage5_deferred_blocker_ids": [
+        "break_app_storage_permission"
+      ],
+      "stage5_verification_fallback_used": false
+    },
+    {
+      "run_id": "deep_requirement__deep_target_path",
+      "task_kind": "deep_requirement",
+      "original_task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|unseat_sim_card[PERSONA:Easy]",
+      "task_metadata": {
+        "domain": "telecom",
+        "family_version": "telecom_mms_fixed_tree_v1",
+        "subset_version": "base_v2_100",
+        "source_split": "all_mms_issue",
+        "source_subsplit": "unknown",
+        "problem_family": "mms_issue",
+        "persona_level": "Easy",
+        "num_blockers": 6,
+        "blocker_layers_present": [
+          "data",
+          "mms_app",
+          "service"
+        ],
+        "contains_assistant_side_action": false,
+        "contains_user_side_action": true,
+        "contains_hybrid_action": false,
+        "requires_roaming_account_check": false,
+        "requires_data_refuel": false,
+        "expected_terminal_action": "repair_all",
+        "target_success_signal": "can_send_mms_true",
+        "smoke_candidate": false,
+        "builder_version": "v1",
+        "stage2_oracle_mode": "static_precomputed_v1",
+        "stage3_oracle_mode": "heuristic_precomputed_v1",
+        "repairability": "repairable",
+        "repair_owner_set": [
+          "user"
+        ],
+        "decision_policy_version": "first_pass_v1",
+        "num_selected_blockers": 6,
+        "num_deferred_blockers": 0,
+        "capability_requirement_version": "telecom_stage_capabilities_v1",
+        "deliberation_requirement_version": "telecom_stage_deliberation_v1",
+        "deliberation_requirement_summary": {
+          "stage1": "fast",
+          "stage2": "deep",
+          "stage3": "deep",
+          "stage4": "deep",
+          "stage5": "deep"
+        },
+        "profile_switch_version": "profile_switch_v1",
+        "profile_switch_profile": "target_post_switch",
+        "profile_switch_blockers": [
+          "airplane_mode_on",
+          "bad_network_preference",
+          "bad_wifi_calling",
+          "break_apn_mms_setting",
+          "break_app_storage_permission",
+          "unseat_sim_card"
+        ],
+        "profile_switch_bucket": "target_favoring",
+        "profile_switch_profile_display": "deep_path_post_switch",
+        "profile_switch_profile_note": "Post-switch path: deeper reasoning and repair-precondition completion matter more than route labels or archetypes. These tasks reward fuller evidence chains and cautious closure.",
+        "profile_switch_bucket_display": "deep_path_favoring",
+        "profile_switch_bucket_note": "Post-switch deep-path bucket where deeper reasoning, fuller verification, and cautious closure should pay off.",
+        "profile_switch_stage_behavior": {
+          "stage1": "Grounding remains compact, but the post-switch path starts preserving enough structure for later deep verification.",
+          "stage2": "Deep path entry: establish a sturdier account and line evidence chain before diagnosis widens.",
+          "stage3": "Deep diagnosis path: keep high-risk APN, roaming, SIM, and downstream blocker families open until decisive evidence resolves them.",
+          "stage4": "Verification-heavy repair path: complete blocker-specific repair preconditions before mutation and prefer supported repair subsets over blanket escalation.",
+          "stage5": "Cautious terminal path: verify decisive post-repair evidence, distinguish local evidence gaps from true external/manual blockers, and close only when the evidence chain supports the final action."
+        }
+      },
+      "stage_deliberation_requirements_for_offline_reference_only": {
+        "stage1": "fast",
+        "stage2": "deep",
+        "stage3": "deep",
+        "stage4": "deep",
+        "stage5": "deep"
+      },
+      "path_class": "pure_target",
+      "path_rank": 1,
+      "path_match": 1.0,
+      "path_agent_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ],
+      "path_lane_sequence": [
+        "general",
+        "target_specialist",
+        "target_specialist",
+        "target_specialist",
+        "target_specialist"
+      ],
+      "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n1|target_stage2_router|target_specialist -> stage3:stage3_n1|target_stage3_apn|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+      "final_action": "repair_subset",
+      "oracle_action": "repair_all",
+      "success": false,
+      "raw_terminal_penalty": 5.0,
+      "raw_path_cost_component": 0.07750000000000001,
+      "raw_reasoning_cost_component": 4.87305,
+      "raw_total_cost": 9.95055,
+      "raw_total_cost_with_token_penalty": 12.95055,
+      "prompt_tokens_total": 51650.0,
+      "completion_tokens_total": 1420.0,
+      "total_tokens_total": 53070.0,
+      "api_cost_total_usd_raw": 0.0072267,
+      "selected_blocker_ids": [
+        "bad_network_preference",
+        "bad_wifi_calling",
+        "break_apn_mms_setting",
+        "break_app_storage_permission"
+      ],
+      "deferred_blocker_ids": [
+        "airplane_mode_on",
+        "unseat_sim_card"
+      ],
+      "stage4_repairability": "partially_repairable",
+      "stage4_selected_after_normalization": [
+        "bad_network_preference",
+        "bad_wifi_calling",
+        "break_apn_mms_setting",
+        "break_app_storage_permission"
+      ],
+      "stage4_deferred_after_normalization": [
+        "airplane_mode_on",
+        "unseat_sim_card"
+      ],
+      "stage4_completion_pass_applied": false,
+      "stage4_completion_added_blockers": [],
+      "llm_call_count_total": 13,
+      "json_retry_count_total": 0,
+      "fallback_count_total": 0,
+      "replay_tool_call_count_total": 5,
+      "token_over_budget_penalty_total": 3.0,
+      "fast_llm_call_count_total": 2,
+      "fast_prompt_tokens_total": 3536.0,
+      "fast_completion_tokens_total": 42.0,
+      "fast_total_tokens_total": 3578.0,
+      "fast_json_retry_count_total": 0,
+      "fast_fallback_count_total": 0,
+      "fast_replay_tool_call_count_total": 0,
+      "fast_token_over_budget_total": 2378.0,
+      "fast_token_over_budget_penalty_total": 3.0,
+      "fast_llm_call_count_over_base_budget_total": 0,
+      "fallback_penalty_breakdown": {
+        "stage3_diagnostic_fallback_penalty": 0.0,
+        "stage3_account_fallback_penalty": 0.0,
+        "stage4_fallback_penalty": 0.0,
+        "stage5_verification_fallback_penalty": 0.0
+      },
+      "fallback_penalty_total": 0.0,
+      "raw_total_cost_with_fallback_penalty": 9.95055,
+      "fallback_or_completion_dirty": false,
+      "safety_guard_applied": false,
+      "safety_guard_reason": null,
+      "safety_guard_blockers": [],
+      "clean_success_no_fallback": false,
+      "oracle_leak_free_success": false,
+      "legacy_clean_success": false,
+      "stage_modes": {
+        "stage1": "fast",
+        "stage2": "deep",
+        "stage3": "deep",
+        "stage4": "deep",
+        "stage5": "deep"
+      },
+      "stage_tool_counts": {
+        "stage1": 2,
+        "stage2": 4,
+        "stage3": 8,
+        "stage4": 5,
+        "stage5": 7
+      },
+      "stage3_observed_state": {
+        "can_send_mms": false,
+        "service_status": "no_service",
+        "mobile_data_working": false,
+        "mobile_data_enabled": true,
+        "internet_speed_desc": "No Connection",
+        "is_abroad": false,
+        "roaming_enabled_on_device": false,
+        "roaming_enabled_on_account": true,
+        "airplane_mode": true,
+        "sim_status": "missing",
+        "network_mode_preference": "2g_only",
+        "wifi_calling_enabled": true,
+        "apn_mms_ok": false,
+        "messaging_sms_permission": true,
+        "messaging_storage_permission": false,
+        "data_usage_exceeded": null
+      },
+      "stage3_blocker_ids": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "bad_network_preference",
+        "bad_wifi_calling",
+        "break_apn_mms_setting",
+        "break_app_storage_permission"
+      ],
+      "stage3_diagnostic_fallback_used": false,
+      "stage4_transfer_reason": null,
+      "stage4_decision_valid": true,
+      "stage4_error_state": null,
+      "stage4_invalid_reason": null,
+      "stage4_repair_decision_source": "valid_stage4_json",
+      "stage4_fallback_penalty": 0.0,
+      "stage4_normalizer_changed_output": true,
+      "stage4_safety_normalizer_changed_output": false,
+      "hard_transfer_guard_applied": false,
+      "hard_transfer_guard_blockers": [],
+      "hard_transfer_guard_reason": null,
+      "stage4_completion_blocked_by_hard_transfer_guard": [],
+      "stage4_tool_names": [
+        "set_network_mode_preference",
+        "toggle_wifi_calling",
+        "reset_apn_settings",
+        "reboot_device",
+        "grant_app_permission"
+      ],
+      "stage4_executed_tool_calls": [
+        {
+          "id": "stage4_exec_bad_network_preference_1",
+          "name": "set_network_mode_preference",
+          "arguments": {
+            "mode": "4g_5g_preferred"
+          },
+          "requestor": "user"
+        },
+        {
+          "id": "stage4_exec_bad_wifi_calling_1",
+          "name": "toggle_wifi_calling",
+          "arguments": {},
+          "requestor": "user"
+        },
+        {
+          "id": "stage4_exec_break_apn_mms_setting_1",
+          "name": "reset_apn_settings",
+          "arguments": {},
+          "requestor": "user"
+        },
+        {
+          "id": "stage4_exec_break_apn_mms_setting_2",
+          "name": "reboot_device",
+          "arguments": {},
+          "requestor": "user"
+        },
+        {
+          "id": "stage4_exec_break_app_storage_permission_1",
+          "name": "grant_app_permission",
+          "arguments": {
+            "app_name": "messaging",
+            "permission": "storage"
+          },
+          "requestor": "user"
+        }
+      ],
+      "stage4_raw_json_extracted": {
+        "per_blocker": [
+          {
+            "blocker_id": "airplane_mode_on",
+            "should_repair": false
+          },
+          {
+            "blocker_id": "unseat_sim_card",
+            "should_repair": false
+          },
+          {
+            "blocker_id": "bad_network_preference",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "bad_wifi_calling",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "break_apn_mms_setting",
+            "should_repair": true
+          },
+          {
+            "blocker_id": "break_app_storage_permission",
+            "should_repair": true
+          }
+        ],
+        "repairability": "repairable",
+        "transfer_reason": null,
+        "decision_policy_version": "first_pass_v1"
+      },
+      "stage4_raw_llm_replies": [
+        {
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_vcKFyt8Z5Z4E0qIA3xoJLv1p",
+              "name": "toggle_airplane_mode",
+              "arguments": {},
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_SClVBQInd8EaWr5Rni16CjwX",
+              "name": "reseat_sim_card",
+              "arguments": {},
+              "requestor": "assistant"
+            }
+          ],
+          "cost": 0.00107475,
+          "usage": {
+            "completion_tokens": 44,
+            "prompt_tokens": 6989
+          },
+          "generation_time_seconds": 3.7952474914491177,
+          "round_trip_seconds": 3.80097889713943,
+          "usage_breakdown": {
+            "prompt_tokens": 6989.0,
+            "completion_tokens": 44.0,
+            "total_tokens": 7033.0
+          },
+          "token_usage_available": true,
+          "estimated_total_tokens": 56.0
+        },
+        {
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_DSxmF1uhoMgATk5Bs4uJIhlw",
+              "name": "set_network_mode_preference",
+              "arguments": {
+                "mode": "4g_5g_preferred"
+              },
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_4hnjnd1tvS4BpbeNtuLbL7pM",
+              "name": "toggle_wifi_calling",
+              "arguments": {},
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_u5OS9dUSmqWB5xLWlJ7uOohl",
+              "name": "reset_apn_settings",
+              "arguments": {},
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_WhWcbhPM1M25TWr9jAaMnp3h",
+              "name": "reboot_device",
+              "arguments": {},
+              "requestor": "assistant"
+            },
+            {
+              "id": "call_04zGCLYNzylPcFBZfAPSWbkh",
+              "name": "grant_app_permission",
+              "arguments": {
+                "app_name": "messaging",
+                "permission": "storage"
+              },
+              "requestor": "assistant"
+            }
+          ],
+          "cost": 0.0006126,
+          "usage": {
+            "completion_tokens": 100,
+            "prompt_tokens": 7140
+          },
+          "generation_time_seconds": 2.7817953191697598,
+          "round_trip_seconds": 2.7864933982491493,
+          "usage_breakdown": {
+            "prompt_tokens": 7140.0,
+            "completion_tokens": 100.0,
+            "total_tokens": 7240.0
+          },
+          "token_usage_available": true,
+          "estimated_total_tokens": 162.0
+        },
+        {
+          "content": "{\n  \"per_blocker\": [\n    {\n      \"blocker_id\": \"airplane_mode_on\",\n      \"should_repair\": false\n    },\n    {\n      \"blocker_id\": \"unseat_sim_card\",\n      \"should_repair\": false\n    },\n    {\n      \"blocker_id\": \"bad_network_preference\",\n      \"should_repair\": true\n    },\n    {\n      \"blocker_id\": \"bad_wifi_calling\",\n      \"should_repair\": true\n    },\n    {\n      \"blocker_id\": \"break_apn_mms_setting\",\n      \"should_repair\": true\n    },\n    {\n      \"blocker_id\": \"break_app_storage_permission\",\n      \"should_repair\": true\n    }\n  ],\n  \"repairability\": \"repairable\",\n  \"transfer_reason\": null,\n  \"decision_policy_version\": \"first_pass_v1\"\n}",
+          "tool_calls": [],
+          "cost": 0.00110655,
+          "usage": {
+            "completion_tokens": 187,
+            "prompt_tokens": 7525
+          },
+          "generation_time_seconds": 3.637130355462432,
+          "round_trip_seconds": 3.641111295670271,
+          "usage_breakdown": {
+            "prompt_tokens": 7525.0,
+            "completion_tokens": 187.0,
+            "total_tokens": 7712.0
+          },
+          "token_usage_available": true,
+          "estimated_total_tokens": 160.0
+        }
+      ],
+      "stage5_final_action": "repair_subset",
+      "stage5_terminal_decision_source": null,
+      "stage5_transfer_reason": null,
+      "stage5_selected_blocker_ids": [
+        "bad_network_preference",
+        "bad_wifi_calling",
+        "break_apn_mms_setting",
+        "break_app_storage_permission"
+      ],
+      "stage5_deferred_blocker_ids": [
+        "airplane_mode_on",
+        "unseat_sim_card"
+      ],
+      "stage5_verification_fallback_used": false
+    }
+  ]
+}

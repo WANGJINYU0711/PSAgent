@@ -13,7 +13,7 @@ from .bench_backed_executor import BenchBackedExecutor
 from tree_family.specs import AgentSpec, TaskDescriptor
 
 
-DEFAULT_LLM_MODEL = os.environ.get("PSAGENT_LLM_BENCH_MODEL", "gpt-4.1-2025-04-14")
+DEFAULT_LLM_MODEL = os.environ.get("PSAGENT_LLM_BENCH_MODEL", "gpt-4o-mini")
 
 
 class LLMBenchExecutor(BenchBackedExecutor):

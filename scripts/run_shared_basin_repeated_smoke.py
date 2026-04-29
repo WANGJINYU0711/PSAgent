@@ -21,6 +21,7 @@ import sys
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
+from types import MethodType
 from typing import Any
 
 
@@ -108,6 +109,8 @@ COMMON_EPSILON_METHODS = frozenset(
         "risky_ps_direct_cost",
     }
 )
+POST_SWITCH_FREEZE_LAYER1_MODE = "root_direct_child_marginal_at_switch"
+POST_SWITCH_FREEZE_TREE_MODE = "full_tree_child_marginal_at_switch"
 
 DEFAULT_METHODS = [
     "risky_ps",
@@ -120,6 +123,23 @@ DEFAULT_METHODS = [
     "epsilon_exp3",
     "random_path",
 ]
+
+
+def resolve_post_switch_probability_freeze_mode(
+    *,
+    post_switch_fixed_layer1_probs: bool = False,
+    post_switch_fixed_tree_probs: bool = False,
+) -> str | None:
+    if post_switch_fixed_layer1_probs and post_switch_fixed_tree_probs:
+        raise ValueError(
+            "--post-switch-fixed-layer1-probs and --post-switch-fixed-tree-probs "
+            "are mutually exclusive."
+        )
+    if post_switch_fixed_tree_probs:
+        return POST_SWITCH_FREEZE_TREE_MODE
+    if post_switch_fixed_layer1_probs:
+        return POST_SWITCH_FREEZE_LAYER1_MODE
+    return None
 
 
 def validate_methods(methods: list[str]) -> None:
@@ -547,6 +567,214 @@ def mean_vector(vectors: list[list[float]]) -> list[float]:
     return result
 
 
+def normalize_probs(probs: list[float]) -> list[float]:
+    cleaned = [max(0.0, float(prob)) for prob in probs]
+    total = sum(cleaned)
+    if total <= 0.0:
+        return [1.0 / len(cleaned) for _ in cleaned]
+    return [prob / total for prob in cleaned]
+
+
+def sample_index_from_probs(probs: list[float], draw: float) -> int:
+    cumulative = 0.0
+    for idx, prob in enumerate(probs):
+        cumulative += prob
+        if draw <= cumulative:
+            return idx
+    return len(probs) - 1
+
+
+def direct_child_prefixes(
+    policy: Any,
+    env: FixedTreeEnvironment,
+    prefix: tuple[str, ...],
+) -> list[tuple[str, ...]]:
+    depth = len(prefix)
+    if depth >= len(env.STAGE_NAMES):
+        return []
+    stage_name = env.STAGE_NAMES[depth]
+    if hasattr(policy, "_sample_stage_child"):
+        agent_ids = policy._legal_agent_ids_for_prefix(prefix, stage_name, env)
+        return list(policy._child_prefixes(prefix, agent_ids))
+    return list(policy._child_prefixes(prefix, stage_name, env))
+
+
+def child_distribution(
+    policy: Any,
+    env: FixedTreeEnvironment,
+    prefix: tuple[str, ...],
+) -> tuple[list[tuple[str, ...]], list[float], str]:
+    child_prefixes = direct_child_prefixes(policy, env, prefix)
+    if not child_prefixes:
+        raise RuntimeError(
+            "No children available for post-switch probability freeze. "
+            f"prefix={list(prefix)}"
+        )
+    if hasattr(policy, "_stage_probs"):
+        probs = normalize_probs(list(policy._stage_probs(prefix, child_prefixes)))
+        return child_prefixes, probs, "stagewise_marginal_mixture"
+    if getattr(policy, "safe_prefixes", {}).get(prefix, False):
+        probs = normalize_probs(list(policy._safe_child_probs(prefix, child_prefixes)))
+        return child_prefixes, probs, "ps_safe_prefix_mass"
+    exploit_probs = list(policy._risky_child_probs(prefix, child_prefixes))
+    epsilon = min(1.0, max(0.0, float(getattr(policy, "epsilon", 0.0))))
+    uniform_prob = 1.0 / len(child_prefixes)
+    probs = normalize_probs(
+        [(1.0 - epsilon) * prob + epsilon * uniform_prob for prob in exploit_probs]
+    )
+    return child_prefixes, probs, "ps_risky_marginal_mixture"
+
+
+def snapshot_child_distributions(
+    *,
+    policy: Any,
+    env: FixedTreeEnvironment,
+    method: str,
+    episode_index: int,
+    freeze_mode: str,
+) -> tuple[dict[tuple[str, ...], dict[tuple[str, ...], float]], list[dict[str, Any]]]:
+    if freeze_mode == POST_SWITCH_FREEZE_LAYER1_MODE:
+        prefixes = [()]
+    elif freeze_mode == POST_SWITCH_FREEZE_TREE_MODE:
+        prefixes: list[tuple[str, ...]] = []
+        frontier: list[tuple[str, ...]] = [()]
+        while frontier:
+            prefix = frontier.pop(0)
+            child_prefixes = direct_child_prefixes(policy, env, prefix)
+            if not child_prefixes:
+                continue
+            prefixes.append(prefix)
+            frontier.extend(child_prefixes)
+    else:
+        raise ValueError(f"Unknown post-switch freeze mode: {freeze_mode}")
+
+    frozen: dict[tuple[str, ...], dict[tuple[str, ...], float]] = {}
+    rows: list[dict[str, Any]] = []
+    for prefix in prefixes:
+        child_prefixes, probs, distribution_kind = child_distribution(policy, env, prefix)
+        frozen[prefix] = {
+            tuple(child_prefix): float(prob)
+            for child_prefix, prob in zip(child_prefixes, probs)
+        }
+        for rank, (child_prefix, prob) in enumerate(zip(child_prefixes, probs), start=1):
+            rows.append(
+                {
+                    "method": method,
+                    "snapshot_episode_index": episode_index,
+                    "snapshot_episode_1based": episode_index + 1,
+                    "prefix_depth": len(prefix),
+                    "prefix": list(prefix),
+                    "parent_id": prefix[-1] if prefix else "ROOT",
+                    "rank": rank,
+                    "child_id": child_prefix[-1],
+                    "child_prefix": list(child_prefix),
+                    "prob": float(prob),
+                    "child_count": len(child_prefixes),
+                    "distribution_kind": distribution_kind,
+                    "freeze_mode": freeze_mode,
+                }
+            )
+    return frozen, rows
+
+
+def _sample_stage_child_with_probability_freeze(
+    self: Any,
+    current_prefix: tuple[str, ...],
+    child_prefixes: list[tuple[str, ...]],
+) -> tuple[tuple[str, ...], dict[str, Any]]:
+    prefix = tuple(current_prefix)
+    if getattr(self, "_post_switch_probability_freeze_active", False):
+        frozen_by_prefix = getattr(self, "_post_switch_frozen_child_probs_by_prefix", None)
+        frozen = frozen_by_prefix.get(prefix) if frozen_by_prefix else None
+        if frozen is not None:
+            probs = normalize_probs(
+                [float(frozen[tuple(child_prefix)]) for child_prefix in child_prefixes]
+            )
+            selected_idx = sample_index_from_probs(probs, self.rng.random())
+            selected = child_prefixes[selected_idx]
+            prob = probs[selected_idx]
+            freeze_mode = getattr(self, "_post_switch_probability_freeze_mode", None)
+            return selected, {
+                "epsilon": getattr(self, "epsilon", None),
+                "epsilon_mode": "F",
+                "selection_mode": (
+                    "frozen_tree_post_switch"
+                    if freeze_mode == POST_SWITCH_FREEZE_TREE_MODE
+                    else "frozen_root_post_switch"
+                ),
+                "branch_conditional_prob": prob,
+                "conditional_prob": prob,
+                "mixture_conditional_prob": prob,
+                "softmax_conditional_prob": None,
+                "uniform_conditional_prob": None,
+            }
+    return type(self)._sample_stage_child(self, current_prefix, child_prefixes)
+
+
+def _sample_child_prefix_with_probability_freeze(
+    self: Any,
+    current_prefix: tuple[str, ...],
+    stage_name: str,
+    env: FixedTreeEnvironment,
+) -> tuple[tuple[str, ...], float, dict[str, Any]]:
+    prefix = tuple(current_prefix)
+    if getattr(self, "_post_switch_probability_freeze_active", False):
+        child_prefixes = self._child_prefixes(current_prefix, stage_name, env)
+        frozen_by_prefix = getattr(self, "_post_switch_frozen_child_probs_by_prefix", None)
+        frozen = frozen_by_prefix.get(prefix) if frozen_by_prefix else None
+        if frozen is not None:
+            probs = normalize_probs(
+                [float(frozen[tuple(child_prefix)]) for child_prefix in child_prefixes]
+            )
+            selected_idx = sample_index_from_probs(probs, self.rng.random())
+            selected = child_prefixes[selected_idx]
+            prob = probs[selected_idx]
+            freeze_mode = getattr(self, "_post_switch_probability_freeze_mode", None)
+            return selected, prob, {
+                "epsilon": getattr(self, "epsilon", None),
+                "epsilon_mode": "F",
+                "selection_mode": (
+                    "frozen_tree_post_switch"
+                    if freeze_mode == POST_SWITCH_FREEZE_TREE_MODE
+                    else "frozen_root_post_switch"
+                ),
+                "branch_conditional_prob": prob,
+                "conditional_prob": prob,
+                "mixture_conditional_prob": prob,
+                "softmax_conditional_prob": None,
+                "uniform_conditional_prob": None,
+                "estimated_loss_denominator": "branch_edge_prob",
+                "estimator_scope": (
+                    "frozen_tree_post_switch_branch_probability"
+                    if freeze_mode == POST_SWITCH_FREEZE_TREE_MODE
+                    else "frozen_root_post_switch_branch_probability"
+                ),
+            }
+    return type(self)._sample_child_prefix(self, current_prefix, stage_name, env)
+
+
+def install_post_switch_probability_freeze(policy: Any) -> None:
+    if getattr(policy, "_post_switch_probability_freeze_installed", False):
+        return
+    if hasattr(policy, "_sample_stage_child"):
+        policy._sample_stage_child = MethodType(_sample_stage_child_with_probability_freeze, policy)
+    elif hasattr(policy, "_sample_child_prefix"):
+        policy._sample_child_prefix = MethodType(_sample_child_prefix_with_probability_freeze, policy)
+    else:
+        raise TypeError(
+            f"Unsupported policy type for post-switch probability freeze: {type(policy).__name__}"
+        )
+    policy._post_switch_probability_freeze_installed = True
+    policy._post_switch_probability_freeze_active = False
+    policy._post_switch_probability_freeze_mode = None
+    policy._post_switch_frozen_child_probs_by_prefix = None
+
+
+def stage_edge_rows(selection_info: dict[str, Any]) -> list[dict[str, Any]]:
+    edges = selection_info.get("selected_edges") or selection_info.get("sampled_edges") or []
+    return list(edges) if isinstance(edges, list) else []
+
+
 def flatten_episode(
     *,
     episode_index: int,
@@ -560,6 +788,8 @@ def flatten_episode(
 ) -> dict[str, Any]:
     instance = row["instance"]
     log = result.episode_log or {}
+    selected_edges = stage_edge_rows(selection_info)
+    root_edge = selected_edges[0] if selected_edges else {}
     stage_trace = {
         stage_row["stage_name"]: stage_row for stage_row in log.get("stage_trace", [])
     }
@@ -652,6 +882,23 @@ def flatten_episode(
         "leaf_type": leaf_type,
         "selected_shared_path": shared_path,
         "selected_unshared_path": not shared_path,
+        "schedule_phase": row.get("schedule_phase"),
+        "task_bucket": row.get("task_bucket"),
+        "family_behavior_archetype": log.get("family_behavior_archetype"),
+        "family_schedule_phase": log.get("family_schedule_phase"),
+        "family_task_bucket": log.get("family_task_bucket"),
+        "family_route_labels": list(log.get("family_route_labels", []) or []),
+        "family_deliberation_modes": list(log.get("family_deliberation_modes", []) or []),
+        "family_node_semantics": list(log.get("family_node_semantics", []) or []),
+        "family_fast_stage_count": log.get("family_fast_stage_count"),
+        "family_trap_label_count": log.get("family_trap_label_count"),
+        "family_target_label_count": log.get("family_target_label_count"),
+        "family_general_label_count": log.get("family_general_label_count"),
+        "family_barrier_label_count": log.get("family_barrier_label_count"),
+        "family_trap_like_path": log.get("family_trap_like_path"),
+        "family_target_safe_subtree": log.get("family_target_safe_subtree"),
+        "family_exact_target_good": log.get("family_exact_target_good"),
+        "family_decoy_path": log.get("family_decoy_path"),
         "oracle_action": result.oracle_action,
         "final_action": result.final_action,
         "exact_match": bool(result.success),
@@ -660,6 +907,31 @@ def flatten_episode(
         "raw_outcome_penalty": float(log.get("raw_outcome_penalty", 0.0) or 0.0),
         "raw_policy_penalty": float(log.get("raw_policy_penalty", 0.0) or 0.0),
         "raw_terminal_penalty": float(result.raw_terminal_penalty),
+        "legacy_raw_terminal_penalty": float(
+            log.get("legacy_raw_terminal_penalty", result.raw_terminal_penalty) or 0.0
+        ),
+        "raw_terminal_penalty_exec_clean_v4": (
+            float(log.get("raw_terminal_penalty_exec_clean_v4"))
+            if log.get("raw_terminal_penalty_exec_clean_v4") is not None
+            else None
+        ),
+        "terminal_adjustment_enabled": bool(
+            log.get("terminal_adjustment_enabled", False)
+        ),
+        "terminal_adjustment_floor": log.get("terminal_adjustment_floor"),
+        "terminal_adjustment_reasons": list(
+            log.get("terminal_adjustment_reasons", []) or []
+        ),
+        "terminal_clear_success_proxy": bool(
+            log.get("clear_success_proxy", bool(result.success))
+        ),
+        "terminal_auxiliary_success_proxy": bool(
+            log.get(
+                "auxiliary_success_proxy",
+                int(log.get("policy_violation_count", 0) or 0) == 0,
+            )
+        ),
+        "terminal_majority_pair": log.get("terminal_majority_pair"),
         "total_cost": float(result.total_cost),
         "raw_total_cost": float(result.raw_total_cost),
         "raw_total_cost_api": (
@@ -674,6 +946,18 @@ def flatten_episode(
         ),
         "raw_path_cost_component": float(result.raw_path_cost_component),
         "raw_reasoning_cost_component": float(result.raw_reasoning_cost_component),
+        "raw_mode_mismatch_cost_component": float(
+            log.get("raw_mode_mismatch_cost_component", 0.0) or 0.0
+        ),
+        "mode_mismatch_cost_enabled": bool(
+            log.get("mode_mismatch_cost_enabled", False)
+        ),
+        "mode_mismatch_fast_on_deep_cost": float(
+            log.get("mode_mismatch_fast_on_deep_cost", 0.0) or 0.0
+        ),
+        "mode_mismatch_deep_on_fast_cost": float(
+            log.get("mode_mismatch_deep_on_fast_cost", 0.0) or 0.0
+        ),
         "raw_reasoning_cost_component_api": (
             float(log.get("raw_reasoning_cost_component_api"))
             if log.get("raw_reasoning_cost_component_api") is not None
@@ -741,6 +1025,22 @@ def flatten_episode(
             log.get("legal_child_count_per_stage", []) or []
         ),
         "selection_path_prob": selection_info.get("path_prob"),
+        "selection_stage_probs": dict(selection_info.get("stage_probs", {}) or {}),
+        "root_child_id": result.selected_path[0] if result.selected_path else None,
+        "root_selection_mode": root_edge.get("selection_mode"),
+        "root_conditional_prob": root_edge.get("conditional_prob"),
+        "root_branch_conditional_prob": root_edge.get("branch_conditional_prob"),
+        "root_mixture_conditional_prob": root_edge.get("mixture_conditional_prob"),
+        "post_switch_probability_freeze_active": bool(
+            selection_info.get("post_switch_probability_freeze_active", False)
+        ),
+        "post_switch_probability_freeze_mode": selection_info.get(
+            "post_switch_probability_freeze_mode"
+        ),
+        "post_switch_layer1_freeze_active": bool(
+            selection_info.get("post_switch_layer1_freeze_active", False)
+        ),
+        "post_switch_layer1_freeze_mode": selection_info.get("post_switch_layer1_freeze_mode"),
         "shared_branch_triggered": bool(update_info.get("shared_leaf_updated", False)),
         "unshared_branch_triggered": str(update_info.get("leaf_type")) == "unshared",
         "shared_update_count": len(shared_updates),
@@ -817,6 +1117,12 @@ def build_summary(
         "raw_outcome_penalty_mean": mean([ep["raw_outcome_penalty"] for ep in episodes]),
         "raw_policy_penalty_mean": mean([ep["raw_policy_penalty"] for ep in episodes]),
         "raw_terminal_penalty_mean": mean([ep["raw_terminal_penalty"] for ep in episodes]),
+        "legacy_raw_terminal_penalty_mean": mean(
+            [ep.get("legacy_raw_terminal_penalty", ep["raw_terminal_penalty"]) for ep in episodes]
+        ),
+        "raw_terminal_penalty_exec_clean_v4_mean": mean_present(
+            [ep.get("raw_terminal_penalty_exec_clean_v4") for ep in episodes]
+        ),
         "total_cost_mean": mean([ep["total_cost"] for ep in episodes]),
         "raw_total_cost_mean": mean([ep["raw_total_cost"] for ep in episodes]),
         "raw_total_cost_api_mean": mean_present([ep["raw_total_cost_api"] for ep in episodes]),
@@ -825,6 +1131,9 @@ def build_summary(
         ),
         "reasoning_cost_mean": mean([ep["reasoning_cost"] for ep in episodes]),
         "raw_reasoning_cost_component_mean": mean([ep["raw_reasoning_cost_component"] for ep in episodes]),
+        "raw_mode_mismatch_cost_component_mean": mean(
+            [ep.get("raw_mode_mismatch_cost_component", 0.0) for ep in episodes]
+        ),
         "raw_reasoning_cost_component_api_mean": mean_present(
             [ep["raw_reasoning_cost_component_api"] for ep in episodes]
         ),
@@ -839,8 +1148,15 @@ def build_summary(
         "raw_outcome_penalty_cumulative": sum(ep["raw_outcome_penalty"] for ep in episodes),
         "raw_policy_penalty_cumulative": sum(ep["raw_policy_penalty"] for ep in episodes),
         "raw_terminal_penalty_cumulative": sum(ep["raw_terminal_penalty"] for ep in episodes),
+        "legacy_raw_terminal_penalty_cumulative": sum(
+            ep.get("legacy_raw_terminal_penalty", ep["raw_terminal_penalty"])
+            for ep in episodes
+        ),
         "raw_path_cost_component_cumulative": sum(ep["raw_path_cost_component"] for ep in episodes),
         "raw_reasoning_cost_component_cumulative": sum(ep["raw_reasoning_cost_component"] for ep in episodes),
+        "raw_mode_mismatch_cost_component_cumulative": sum(
+            ep.get("raw_mode_mismatch_cost_component", 0.0) for ep in episodes
+        ),
         "mean_llm_call_count": mean([ep["llm_call_count"] for ep in episodes]),
         "mean_prompt_tokens": mean([ep["prompt_tokens_total"] for ep in episodes]),
         "mean_completion_tokens": mean(
@@ -1055,8 +1371,20 @@ def build_compare_rows(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "raw_outcome_penalty_mean": summary["raw_outcome_penalty_mean"],
             "raw_policy_penalty_mean": summary["raw_policy_penalty_mean"],
             "raw_terminal_penalty_mean": summary["raw_terminal_penalty_mean"],
+            "legacy_raw_terminal_penalty_mean": summary.get(
+                "legacy_raw_terminal_penalty_mean",
+                summary["raw_terminal_penalty_mean"],
+            ),
+            "raw_terminal_penalty_exec_clean_v4_mean": summary.get(
+                "raw_terminal_penalty_exec_clean_v4_mean",
+                0.0,
+            ),
             "raw_path_cost_component_mean": summary["raw_path_cost_component_mean"],
             "raw_reasoning_cost_component_mean": summary["raw_reasoning_cost_component_mean"],
+            "raw_mode_mismatch_cost_component_mean": summary.get(
+                "raw_mode_mismatch_cost_component_mean",
+                0.0,
+            ),
             "raw_reasoning_cost_component_api_mean": summary[
                 "raw_reasoning_cost_component_api_mean"
             ],
@@ -1159,8 +1487,14 @@ def _assert_existing_run_compatible(
     common_eta_override: float | None,
     common_epsilon_override: float | None,
     executor_name: str,
+    post_switch_fixed_layer1_probs: bool,
+    post_switch_fixed_tree_probs: bool,
 ) -> None:
     mismatches: list[str] = []
+    requested_freeze_mode = resolve_post_switch_probability_freeze_mode(
+        post_switch_fixed_layer1_probs=post_switch_fixed_layer1_probs,
+        post_switch_fixed_tree_probs=post_switch_fixed_tree_probs,
+    )
     if str(run_config.get("dataset")) != str(data_path):
         mismatches.append(
             f"dataset existing={run_config.get('dataset')} requested={data_path}"
@@ -1181,6 +1515,30 @@ def _assert_existing_run_compatible(
     if str(run_config.get("executor_name", DEFAULT_EXECUTOR_NAME)) != executor_name:
         mismatches.append(
             f"executor_name existing={run_config.get('executor_name')} requested={executor_name}"
+        )
+    if bool(run_config.get("post_switch_fixed_layer1_probs", False)) != bool(
+        post_switch_fixed_layer1_probs
+    ):
+        mismatches.append(
+            "post_switch_fixed_layer1_probs "
+            f"existing={run_config.get('post_switch_fixed_layer1_probs', False)} "
+            f"requested={post_switch_fixed_layer1_probs}"
+        )
+    if bool(run_config.get("post_switch_fixed_tree_probs", False)) != bool(
+        post_switch_fixed_tree_probs
+    ):
+        mismatches.append(
+            "post_switch_fixed_tree_probs "
+            f"existing={run_config.get('post_switch_fixed_tree_probs', False)} "
+            f"requested={post_switch_fixed_tree_probs}"
+        )
+    existing_freeze_mode = run_config.get("post_switch_probability_freeze_mode")
+    if existing_freeze_mode is None and bool(run_config.get("post_switch_fixed_layer1_probs", False)):
+        existing_freeze_mode = POST_SWITCH_FREEZE_LAYER1_MODE
+    if existing_freeze_mode != requested_freeze_mode:
+        mismatches.append(
+            "post_switch_probability_freeze_mode "
+            f"existing={existing_freeze_mode} requested={requested_freeze_mode}"
         )
     if str(run_config.get("schedule_mode", SCHEDULE_MODE_STATIONARY)) != schedule_mode:
         mismatches.append(
@@ -1260,8 +1618,14 @@ def initialize_run(
     common_eta_override: float | None,
     common_epsilon_override: float | None,
     executor_name: str,
+    post_switch_fixed_layer1_probs: bool,
+    post_switch_fixed_tree_probs: bool,
 ) -> Path:
     validate_methods(methods)
+    post_switch_probability_freeze_mode = resolve_post_switch_probability_freeze_mode(
+        post_switch_fixed_layer1_probs=post_switch_fixed_layer1_probs,
+        post_switch_fixed_tree_probs=post_switch_fixed_tree_probs,
+    )
     policy_kwargs_by_method = build_policy_kwargs_by_method(
         methods,
         common_eta_override=common_eta_override,
@@ -1287,6 +1651,8 @@ def initialize_run(
             common_eta_override=common_eta_override,
             common_epsilon_override=common_epsilon_override,
             executor_name=executor_name,
+            post_switch_fixed_layer1_probs=post_switch_fixed_layer1_probs,
+            post_switch_fixed_tree_probs=post_switch_fixed_tree_probs,
         )
         return output_dir
 
@@ -1329,6 +1695,14 @@ def initialize_run(
             "policy_kwargs_by_method": policy_kwargs_by_method,
             "common_eta_override": common_eta_override,
             "common_epsilon_override": common_epsilon_override,
+            "post_switch_fixed_layer1_probs": post_switch_fixed_layer1_probs,
+            "post_switch_fixed_tree_probs": post_switch_fixed_tree_probs,
+            "post_switch_probability_freeze_mode": post_switch_probability_freeze_mode,
+            "post_switch_layer1_freeze_mode": (
+                POST_SWITCH_FREEZE_LAYER1_MODE
+                if post_switch_fixed_layer1_probs
+                else None
+            ),
             "parallelism": "method_only",
         },
     )
@@ -1453,6 +1827,13 @@ def run_policy_method(
         policy = POLICY_REGISTRY[method](seed=SEED, **policy_kwargs)
         policy.bind_env(env)
         policy.reset()
+    post_switch_probability_freeze_mode = run_config.get("post_switch_probability_freeze_mode")
+    if post_switch_probability_freeze_mode is None and bool(
+        run_config.get("post_switch_fixed_layer1_probs", False)
+    ):
+        post_switch_probability_freeze_mode = POST_SWITCH_FREEZE_LAYER1_MODE
+    if post_switch_probability_freeze_mode is not None:
+        install_post_switch_probability_freeze(policy)
 
     completed_count = len(episodes)
     if completed_count >= total_episodes:
@@ -1476,6 +1857,36 @@ def run_policy_method(
         row = selected[local_offset]
         episode_index = int(row["episode_index"])
         runtime_instance = attach_schedule_metadata(row["instance"], row)
+        if post_switch_probability_freeze_mode is not None:
+            switch_episode = int(
+                (run_config.get("schedule_metadata") or {}).get(
+                    "switch_episode",
+                    max(1, total_episodes // int(run_config.get("switch_denominator") or 3)),
+                )
+            )
+            if episode_index == switch_episode and not getattr(
+                policy,
+                "_post_switch_probability_freeze_active",
+                False,
+            ):
+                frozen, snapshot_rows = snapshot_child_distributions(
+                    policy=policy,
+                    env=env,
+                    method=method,
+                    episode_index=episode_index,
+                    freeze_mode=str(post_switch_probability_freeze_mode),
+                )
+                policy._post_switch_frozen_child_probs_by_prefix = frozen
+                policy._post_switch_probability_freeze_active = True
+                policy._post_switch_probability_freeze_mode = post_switch_probability_freeze_mode
+                write_json(method_dir / "post_switch_probability_snapshot.json", snapshot_rows)
+                write_csv(method_dir / "post_switch_probability_snapshot.csv", snapshot_rows)
+                if post_switch_probability_freeze_mode == POST_SWITCH_FREEZE_TREE_MODE:
+                    write_json(method_dir / "post_switch_tree_probability_snapshot.json", snapshot_rows)
+                    write_csv(method_dir / "post_switch_tree_probability_snapshot.csv", snapshot_rows)
+                elif post_switch_probability_freeze_mode == POST_SWITCH_FREEZE_LAYER1_MODE:
+                    write_json(method_dir / "post_switch_layer1_probability_snapshot.json", snapshot_rows)
+                    write_csv(method_dir / "post_switch_layer1_probability_snapshot.csv", snapshot_rows)
         print(
             f"[run] method={method} episode={episode_index + 1}/{len(selected)} "
             f"repeat={row['repeat_index'] + 1} pos={row['position_in_cycle']} dataset_index={row['dataset_index']}",
@@ -1483,6 +1894,26 @@ def run_policy_method(
         )
         path = policy.select_path(runtime_instance, env)
         selection_info = policy.get_last_selection_info() if hasattr(policy, "get_last_selection_info") else {}
+        if isinstance(selection_info, dict):
+            selection_info = dict(selection_info)
+            freeze_active = bool(
+                getattr(policy, "_post_switch_probability_freeze_active", False)
+            )
+            active_freeze_mode = (
+                getattr(policy, "_post_switch_probability_freeze_mode", None)
+                if freeze_active
+                else None
+            )
+            selection_info["post_switch_probability_freeze_active"] = freeze_active
+            selection_info["post_switch_probability_freeze_mode"] = active_freeze_mode
+            selection_info["post_switch_layer1_freeze_active"] = bool(
+                freeze_active and active_freeze_mode == POST_SWITCH_FREEZE_LAYER1_MODE
+            )
+            selection_info["post_switch_layer1_freeze_mode"] = (
+                POST_SWITCH_FREEZE_LAYER1_MODE
+                if freeze_active and active_freeze_mode == POST_SWITCH_FREEZE_LAYER1_MODE
+                else None
+            )
         env.reset(runtime_instance)
         result = env.run_path(path)
         policy.update(result)
@@ -1631,6 +2062,8 @@ def orchestrate_run(
     common_eta_override: float | None,
     common_epsilon_override: float | None,
     executor_name: str,
+    post_switch_fixed_layer1_probs: bool,
+    post_switch_fixed_tree_probs: bool,
 ) -> Path:
     model_name = resolve_model_name_for_executor(executor_name)
     validate_methods(methods)
@@ -1647,6 +2080,8 @@ def orchestrate_run(
         common_eta_override=common_eta_override,
         common_epsilon_override=common_epsilon_override,
         executor_name=executor_name,
+        post_switch_fixed_layer1_probs=post_switch_fixed_layer1_probs,
+        post_switch_fixed_tree_probs=post_switch_fixed_tree_probs,
     )
     script_path = Path(__file__).resolve()
     launched: list[tuple[str, subprocess.Popen[Any], Any]] = []
@@ -1716,6 +2151,23 @@ def build_cli() -> argparse.ArgumentParser:
     common_run.add_argument("--common-eta-override", type=float)
     common_run.add_argument("--common-epsilon-override", type=float)
     common_run.add_argument(
+        "--post-switch-fixed-layer1-probs",
+        action="store_true",
+        help=(
+            "At the trap-switch boundary, snapshot each policy's root/direct-child "
+            "marginal distribution and reuse it for all post-switch root choices."
+        ),
+    )
+    common_run.add_argument(
+        "--post-switch-fixed-tree-probs",
+        action="store_true",
+        help=(
+            "At the trap-switch boundary, snapshot each policy's distribution from "
+            "every internal prefix to its direct children and reuse those frozen "
+            "distributions for all post-switch tree choices."
+        ),
+    )
+    common_run.add_argument(
         "--executor-name",
         type=str,
         default=DEFAULT_EXECUTOR_NAME,
@@ -1752,6 +2204,11 @@ def main() -> None:
     if not argv or argv[0] not in known_commands:
         argv = ["orchestrate", *argv]
     args = parser.parse_args(argv)
+    if hasattr(args, "post_switch_fixed_layer1_probs"):
+        resolve_post_switch_probability_freeze_mode(
+            post_switch_fixed_layer1_probs=args.post_switch_fixed_layer1_probs,
+            post_switch_fixed_tree_probs=args.post_switch_fixed_tree_probs,
+        )
 
     if args.command == "setup":
         model_name = resolve_model_name_for_executor(args.executor_name)
@@ -1769,6 +2226,8 @@ def main() -> None:
             common_eta_override=args.common_eta_override,
             common_epsilon_override=args.common_epsilon_override,
             executor_name=args.executor_name,
+            post_switch_fixed_layer1_probs=args.post_switch_fixed_layer1_probs,
+            post_switch_fixed_tree_probs=args.post_switch_fixed_tree_probs,
         )
         print(str(run_dir))
         return
@@ -1787,6 +2246,8 @@ def main() -> None:
             common_eta_override=args.common_eta_override,
             common_epsilon_override=args.common_epsilon_override,
             executor_name=args.executor_name,
+            post_switch_fixed_layer1_probs=args.post_switch_fixed_layer1_probs,
+            post_switch_fixed_tree_probs=args.post_switch_fixed_tree_probs,
         )
         print(str(run_dir))
         return

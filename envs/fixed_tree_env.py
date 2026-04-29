@@ -13,6 +13,7 @@ supports:
 
 from __future__ import annotations
 
+import os
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Sequence
@@ -47,6 +48,9 @@ LLM_BENCH_REASONING_DEFAULT_MODE = "token"
 LLM_BENCH_REASONING_MATCH_DISCOUNT = 0.85
 LLM_BENCH_REASONING_MISMATCH_PENALTY_DEEP_REQUIRED = 1.35
 LLM_BENCH_REASONING_MISMATCH_PENALTY_FAST_REQUIRED = 1.15
+TELECOM_EXEC_CLEAN_V4_TERMINAL_UPPER_BOUND = 32.0
+TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2 = 1.5
+TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2 = 0.5
 TELECOM_MMS_REASONING_INPUT_TOKEN_BUDGET_V2 = 20_000.0
 TELECOM_MMS_REASONING_OUTPUT_TOKEN_BUDGET_V2 = 7_500.0
 TELECOM_MMS_REASONING_API_COST_BUDGET_USD_V2 = 0.05
@@ -68,6 +72,10 @@ TELECOM_MMS_TOTAL_UPPER_BOUND_V2_DEFAULT = (
     + TELECOM_MMS_PATH_UPPER_BOUND_V2
     + TELECOM_MMS_REASONING_UPPER_BOUND_DEFAULT_V2
 )
+
+
+def _env_flag(name: str) -> bool:
+    return str(os.environ.get(name, "")).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def leaf_starts_shared_upload(
@@ -360,6 +368,24 @@ class FixedTreeEnvironment:
         else:
             raise ValueError(f"Unsupported executor_name: {self.executor_name}")
 
+        flat_profile_switch_path_cost = (
+            family_kind == "shared_basin_strong_prefix_dedup_profile_switch"
+            and str(os.environ.get("PSAGENT_PROFILE_SWITCH_FLAT_PATH_COST", "")).strip()
+            in {"1", "true", "True", "yes", "on"}
+        )
+        flat_stage_costs: dict[str, float] = {}
+        if flat_profile_switch_path_cost:
+            for stage_name in family_spec.stages:
+                stage_costs = [
+                    float(family_agent_map[agent_id].base_cost)
+                    for agent_id in family_spec.stage_agents[stage_name]
+                ]
+                flat_stage_costs[stage_name] = (
+                    round(sum(stage_costs) / len(stage_costs), 6)
+                    if stage_costs
+                    else 0.0
+                )
+
         runtime_catalog: list[AgentSpec] = []
         for stage_name in family_spec.stages:
             for agent_id in family_spec.stage_agents[stage_name]:
@@ -370,7 +396,11 @@ class FixedTreeEnvironment:
                         stage_name=stage_name,
                         g=family_agent.g,
                         kind="family",
-                        cost=family_agent.base_cost,
+                        cost=(
+                            flat_stage_costs[stage_name]
+                            if flat_profile_switch_path_cost
+                            else family_agent.base_cost
+                        ),
                     )
                 )
         return runtime_catalog
@@ -534,6 +564,29 @@ class FixedTreeEnvironment:
             "raw_outcome_penalty": cost_metrics["raw_outcome_penalty"],
             "raw_policy_penalty": cost_metrics["raw_policy_penalty"],
             "raw_terminal_penalty": cost_metrics["raw_terminal_penalty"],
+            "legacy_raw_terminal_penalty": cost_metrics["legacy_raw_terminal_penalty"],
+            "raw_terminal_penalty_exec_clean_v4": cost_metrics[
+                "raw_terminal_penalty_exec_clean_v4"
+            ],
+            "terminal_adjustment": deepcopy(cost_metrics["terminal_adjustment"]),
+            "terminal_adjustment_enabled": bool(
+                cost_metrics["terminal_adjustment"].get("enabled")
+            ),
+            "terminal_adjustment_floor": cost_metrics["terminal_adjustment"].get(
+                "applied_floor"
+            ),
+            "terminal_adjustment_reasons": list(
+                cost_metrics["terminal_adjustment"].get("applied_floor_reasons", [])
+            ),
+            "clear_success_proxy": bool(
+                cost_metrics["terminal_adjustment"].get("clear_success_proxy", success)
+            ),
+            "auxiliary_success_proxy": bool(
+                cost_metrics["terminal_adjustment"].get("auxiliary_success_proxy", True)
+            ),
+            "terminal_majority_pair": cost_metrics["terminal_adjustment"].get(
+                "majority_pair"
+            ),
             "raw_path_cost_component": cost_metrics["raw_path_cost_component"],
             "raw_reasoning_cost_component_api": cost_metrics[
                 "raw_reasoning_cost_component_api"
@@ -554,6 +607,18 @@ class FixedTreeEnvironment:
             "cost_scale_version": cost_metrics["cost_scale_version"],
             "reasoning_cost": cost_metrics["raw_reasoning_cost_component"],
             "reasoning_cost_mode_default": cost_metrics["reasoning_cost_mode_default"],
+            "raw_mode_mismatch_cost_component": float(
+                reasoning_metrics.get("raw_mode_mismatch_cost_component", 0.0) or 0.0
+            ),
+            "mode_mismatch_cost_enabled": bool(
+                reasoning_metrics.get("mode_mismatch_cost_enabled", False)
+            ),
+            "mode_mismatch_fast_on_deep_cost": float(
+                reasoning_metrics.get("mode_mismatch_fast_on_deep_cost", 0.0) or 0.0
+            ),
+            "mode_mismatch_deep_on_fast_cost": float(
+                reasoning_metrics.get("mode_mismatch_deep_on_fast_cost", 0.0) or 0.0
+            ),
             "prompt_tokens_total": reasoning_metrics["prompt_tokens_total"],
             "completion_tokens_total": reasoning_metrics["completion_tokens_total"],
             "total_tokens_total": reasoning_metrics["total_tokens_total"],
@@ -659,14 +724,16 @@ class FixedTreeEnvironment:
             agent_map=self.family_agent_map,
             raw_instance=self.current_instance,
         )
-        execution = self._apply_family_behavior_to_execution(path, execution)
         stage_outputs = self._family_stage_outputs_from_execution(execution)
         evaluator_result = self.evaluate_terminal_outcome(
             stage_outputs,
             path,
             execution=execution,
         )
-        path_agent_cost = float(execution["path_agent_cost"])
+        if self._profile_switch_flat_path_cost_enabled():
+            path_agent_cost = sum(self.agent_catalog[agent_id].cost for agent_id in path)
+        else:
+            path_agent_cost = float(execution["path_agent_cost"])
         reasoning_metrics = self._compute_family_reasoning_cost(
             path,
             stage_trace=execution.get("stage_trace", []),
@@ -692,6 +759,8 @@ class FixedTreeEnvironment:
             execution.get("stage_trace", []),
             evaluator_result,
         )
+        behavior_context = self._prefix_dedup_behavior_context(path)
+        family_path_metadata = self._family_path_metadata(path, behavior_context)
         episode_log = {
             "instance_id": self.current_instance_id,
             "selected_path": list(path),
@@ -720,9 +789,33 @@ class FixedTreeEnvironment:
                 evaluator_result.get("terminal_cost_breakdown", {})
             ),
             "family_kind": self.family_kind,
+            **family_path_metadata,
             "raw_outcome_penalty": cost_metrics["raw_outcome_penalty"],
             "raw_policy_penalty": cost_metrics["raw_policy_penalty"],
             "raw_terminal_penalty": cost_metrics["raw_terminal_penalty"],
+            "legacy_raw_terminal_penalty": cost_metrics["legacy_raw_terminal_penalty"],
+            "raw_terminal_penalty_exec_clean_v4": cost_metrics[
+                "raw_terminal_penalty_exec_clean_v4"
+            ],
+            "terminal_adjustment": deepcopy(cost_metrics["terminal_adjustment"]),
+            "terminal_adjustment_enabled": bool(
+                cost_metrics["terminal_adjustment"].get("enabled")
+            ),
+            "terminal_adjustment_floor": cost_metrics["terminal_adjustment"].get(
+                "applied_floor"
+            ),
+            "terminal_adjustment_reasons": list(
+                cost_metrics["terminal_adjustment"].get("applied_floor_reasons", [])
+            ),
+            "clear_success_proxy": bool(
+                cost_metrics["terminal_adjustment"].get("clear_success_proxy", success)
+            ),
+            "auxiliary_success_proxy": bool(
+                cost_metrics["terminal_adjustment"].get("auxiliary_success_proxy", True)
+            ),
+            "terminal_majority_pair": cost_metrics["terminal_adjustment"].get(
+                "majority_pair"
+            ),
             "raw_path_cost_component": cost_metrics["raw_path_cost_component"],
             "raw_reasoning_cost_component_api": cost_metrics[
                 "raw_reasoning_cost_component_api"
@@ -744,6 +837,18 @@ class FixedTreeEnvironment:
             "reasoning_cost": cost_metrics["raw_reasoning_cost_component"],
             "reasoning_trace": deepcopy(reasoning_metrics["trace"]),
             "reasoning_cost_mode_default": cost_metrics["reasoning_cost_mode_default"],
+            "raw_mode_mismatch_cost_component": float(
+                reasoning_metrics.get("raw_mode_mismatch_cost_component", 0.0) or 0.0
+            ),
+            "mode_mismatch_cost_enabled": bool(
+                reasoning_metrics.get("mode_mismatch_cost_enabled", False)
+            ),
+            "mode_mismatch_fast_on_deep_cost": float(
+                reasoning_metrics.get("mode_mismatch_fast_on_deep_cost", 0.0) or 0.0
+            ),
+            "mode_mismatch_deep_on_fast_cost": float(
+                reasoning_metrics.get("mode_mismatch_deep_on_fast_cost", 0.0) or 0.0
+            ),
             "prompt_tokens_total": reasoning_metrics["prompt_tokens_total"],
             "completion_tokens_total": reasoning_metrics["completion_tokens_total"],
             "total_tokens_total": reasoning_metrics["total_tokens_total"],
@@ -939,6 +1044,12 @@ class FixedTreeEnvironment:
         return AirlineTaskAdapter()
 
     def _path_agent_cost_weight(self) -> float:
+        override = os.environ.get("PSAGENT_PATH_AGENT_COST_WEIGHT")
+        if override is not None and override.strip():
+            value = float(override)
+            if value < 0:
+                raise ValueError("PSAGENT_PATH_AGENT_COST_WEIGHT must be non-negative.")
+            return value
         if self.current_instance and self.current_instance.get("family") == "telecom_mms_recovery":
             return TELECOM_DEFAULT_COST_SPEC.path_agent_cost_weight
         return DEFAULT_COST_SPEC.path_agent_cost_weight
@@ -1183,12 +1294,113 @@ class FixedTreeEnvironment:
     ) -> JsonDict:
         raw_outcome_penalty = float(evaluator_result.get("raw_outcome_penalty", 0.0) or 0.0)
         raw_policy_penalty = float(evaluator_result.get("raw_policy_penalty", 0.0) or 0.0)
-        raw_terminal_penalty = float(
+        legacy_raw_terminal_penalty = float(
             evaluator_result.get(
                 "raw_terminal_penalty",
                 evaluator_result.get("terminal_penalty", raw_outcome_penalty + raw_policy_penalty),
             )
         )
+        raw_terminal_penalty = legacy_raw_terminal_penalty
+        terminal_adjustment: JsonDict = {
+            "enabled": False,
+            "version": "legacy",
+            "legacy_raw_terminal_penalty": legacy_raw_terminal_penalty,
+            "raw_terminal_penalty_exec_clean_v4": None,
+            "applied_floor": None,
+            "applied_floor_reasons": [],
+            "subset_mismatch_base_penalty": 0.0,
+            "clear_success_proxy": bool(evaluator_result.get("exact_match", False))
+            and not bool(evaluator_result.get("subset_mismatch", False)),
+            "auxiliary_success_proxy": int(
+                evaluator_result.get("policy_violation_count", 0) or 0
+            )
+            == 0,
+            "actual_majority_mode": None,
+            "required_majority_mode": None,
+            "majority_pair": None,
+        }
+
+        if (
+            self.current_instance
+            and self.current_instance.get("family") == "telecom_mms_recovery"
+            and _env_flag("PSAGENT_TELECOM_EXEC_CLEAN_TERMINAL_V4")
+        ):
+            trace = list(reasoning_metrics.get("trace", []) or [])
+            actual_modes = [
+                self._normalize_deliberation_mode(row.get("deliberation_mode", "deep"))
+                for row in trace
+            ]
+            required_modes = [
+                self._normalize_deliberation_mode(
+                    row.get("deliberation_requirement", "deep")
+                )
+                for row in trace
+            ]
+            actual_majority = (
+                "mostly_fast"
+                if actual_modes.count("fast") > actual_modes.count("deep")
+                else "mostly_deep"
+            )
+            required_majority = (
+                "mostly_fast_required"
+                if required_modes.count("fast") > required_modes.count("deep")
+                else "mostly_deep_required"
+            )
+            majority_pair = f"{actual_majority}_vs_{required_majority}"
+            clear_success = bool(evaluator_result.get("exact_match", False)) and not bool(
+                evaluator_result.get("subset_mismatch", False)
+            )
+            auxiliary_success = int(evaluator_result.get("policy_violation_count", 0) or 0) == 0
+            oracle_action = str(evaluator_result.get("oracle_final_action", ""))
+            predicted_action = str(evaluator_result.get("predicted_final_action", ""))
+            local_repair_task = oracle_action in {"repair_all", "repair_subset"}
+            subset_mismatch = bool(evaluator_result.get("subset_mismatch", False))
+
+            candidate_terminal = legacy_raw_terminal_penalty
+            floor = 0.0
+            reasons: list[str] = []
+            subset_mismatch_base_penalty = 0.0
+
+            if local_repair_task and subset_mismatch:
+                subset_mismatch_base_penalty = 4.0
+                candidate_terminal += subset_mismatch_base_penalty
+                reasons.append("subset_mismatch_base_plus_linear")
+            if local_repair_task and not clear_success:
+                floor = max(floor, 10.0)
+                reasons.append("local_clear_failure_floor_10")
+            if local_repair_task and (not clear_success) and (not auxiliary_success):
+                floor = max(floor, 12.0)
+                reasons.append("local_clear_and_aux_failure_floor_12")
+            if (
+                local_repair_task
+                and required_majority == "mostly_deep_required"
+                and actual_majority == "mostly_fast"
+                and not clear_success
+            ):
+                floor = max(floor, 14.0)
+                reasons.append("fast_path_on_deep_required_clear_failure_floor_14")
+            if local_repair_task and predicted_action == "transfer":
+                floor = max(floor, 18.0)
+                reasons.append("invalid_local_transfer_floor_18")
+            if local_repair_task and clear_success and not auxiliary_success:
+                floor = max(floor, 6.0)
+                reasons.append("clear_but_aux_failure_floor_6")
+
+            raw_terminal_penalty = max(candidate_terminal, floor)
+            terminal_adjustment = {
+                "enabled": True,
+                "version": "exec_clean_terminal_v4",
+                "legacy_raw_terminal_penalty": legacy_raw_terminal_penalty,
+                "raw_terminal_penalty_exec_clean_v4": raw_terminal_penalty,
+                "applied_floor": floor if floor > 0.0 else None,
+                "applied_floor_reasons": reasons,
+                "subset_mismatch_base_penalty": subset_mismatch_base_penalty,
+                "clear_success_proxy": clear_success,
+                "auxiliary_success_proxy": auxiliary_success,
+                "actual_majority_mode": actual_majority,
+                "required_majority_mode": required_majority,
+                "majority_pair": majority_pair,
+            }
         raw_path_cost_component = self._path_agent_cost_weight() * float(path_agent_cost)
         raw_reasoning_cost_component = float(
             reasoning_metrics.get("raw_reasoning_cost_component", 0.0) or 0.0
@@ -1225,6 +1437,11 @@ class FixedTreeEnvironment:
                     TELECOM_MMS_TERMINAL_UPPER_BOUND_V2,
                 )
             )
+            if terminal_adjustment.get("enabled"):
+                terminal_cost_upper_bound = max(
+                    terminal_cost_upper_bound,
+                    TELECOM_EXEC_CLEAN_V4_TERMINAL_UPPER_BOUND,
+                )
             path_cost_upper_bound = TELECOM_MMS_PATH_UPPER_BOUND_V2
             if reasoning_metrics.get("reasoning_cost_mode_default") == "api":
                 reasoning_cost_upper_bound = TELECOM_MMS_REASONING_UPPER_BOUND_API_V2
@@ -1243,6 +1460,10 @@ class FixedTreeEnvironment:
             cost_scale_version = (
                 f"{TELECOM_MMS_COST_SCALE_VERSION}_{reasoning_metrics.get('reasoning_cost_mode_default', 'default')}"
             )
+            if terminal_adjustment.get("enabled"):
+                cost_scale_version = f"{cost_scale_version}_exec_clean_terminal_v4"
+            if reasoning_metrics.get("mode_mismatch_cost_enabled"):
+                cost_scale_version = f"{cost_scale_version}_mode_mismatch_cost_v2"
         else:
             normalized_terminal_penalty = raw_terminal_penalty
             normalized_total_cost = raw_total_cost
@@ -1253,6 +1474,11 @@ class FixedTreeEnvironment:
             "raw_outcome_penalty": raw_outcome_penalty,
             "raw_policy_penalty": raw_policy_penalty,
             "raw_terminal_penalty": raw_terminal_penalty,
+            "legacy_raw_terminal_penalty": legacy_raw_terminal_penalty,
+            "raw_terminal_penalty_exec_clean_v4": terminal_adjustment.get(
+                "raw_terminal_penalty_exec_clean_v4"
+            ),
+            "terminal_adjustment": terminal_adjustment,
             "raw_path_cost_component": raw_path_cost_component,
             "raw_reasoning_cost_component": raw_reasoning_cost_component,
             "raw_reasoning_cost_component_api": raw_reasoning_cost_component_api,
@@ -1302,6 +1528,10 @@ class FixedTreeEnvironment:
             reasoning_trace: list[JsonDict] = []
             raw_reasoning_cost_component_api = 0.0
             raw_reasoning_cost_component_token = 0.0
+            mode_mismatch_cost_enabled = _env_flag(
+                "PSAGENT_TELECOM_MODE_MISMATCH_COST_V2"
+            )
+            raw_mode_mismatch_cost_component = 0.0
 
             for stage_name, agent_id in zip(self._family_stages, path):
                 snapshot = self._stage_resource_snapshot(stage_trace_map.get(stage_name, {}))
@@ -1326,19 +1556,34 @@ class FixedTreeEnvironment:
                 base_stage_token = float(
                     stage_reasoning_components.get("raw_reasoning_cost_component_token", 0.0) or 0.0
                 )
+                normalized_requirement = self._normalize_deliberation_mode(requirement)
+                normalized_mode = self._normalize_deliberation_mode(realized_mode)
+                mode_mismatch_stage_cost = 0.0
+                if mode_mismatch_cost_enabled:
+                    if normalized_requirement == "deep" and normalized_mode == "fast":
+                        mode_mismatch_stage_cost = TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2
+                    elif normalized_requirement == "fast" and normalized_mode == "deep":
+                        mode_mismatch_stage_cost = TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2
                 weighted_stage_api = round(base_stage_api * multiplier, 6)
                 weighted_stage_token = round(base_stage_token * multiplier, 6)
+                if mode_mismatch_stage_cost:
+                    weighted_stage_api = round(weighted_stage_api + mode_mismatch_stage_cost, 6)
+                    weighted_stage_token = round(
+                        weighted_stage_token + mode_mismatch_stage_cost,
+                        6,
+                    )
                 raw_reasoning_cost_component_api += weighted_stage_api
                 raw_reasoning_cost_component_token += weighted_stage_token
+                raw_mode_mismatch_cost_component += mode_mismatch_stage_cost
                 reasoning_trace.append(
                     {
                         "stage_name": stage_name,
                         "agent_id": agent_id,
-                        "deliberation_requirement": self._normalize_deliberation_mode(
-                            requirement
-                        ),
-                        "deliberation_mode": self._normalize_deliberation_mode(realized_mode),
+                        "deliberation_requirement": normalized_requirement,
+                        "deliberation_mode": normalized_mode,
                         "reasoning_match_multiplier": multiplier,
+                        "mode_mismatch_cost_enabled": mode_mismatch_cost_enabled,
+                        "mode_mismatch_stage_cost": mode_mismatch_stage_cost,
                         "base_reasoning_cost_api": round(base_stage_api, 6),
                         "base_reasoning_cost_token": round(base_stage_token, 6),
                         "weighted_reasoning_cost_api": weighted_stage_api,
@@ -1364,6 +1609,21 @@ class FixedTreeEnvironment:
                 ),
                 "raw_reasoning_cost_component_token": round(
                     raw_reasoning_cost_component_token, 6
+                ),
+                "raw_mode_mismatch_cost_component": round(
+                    raw_mode_mismatch_cost_component,
+                    6,
+                ),
+                "mode_mismatch_cost_enabled": mode_mismatch_cost_enabled,
+                "mode_mismatch_fast_on_deep_cost": (
+                    TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2
+                    if mode_mismatch_cost_enabled
+                    else 0.0
+                ),
+                "mode_mismatch_deep_on_fast_cost": (
+                    TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2
+                    if mode_mismatch_cost_enabled
+                    else 0.0
                 ),
             }
             return {
@@ -1434,30 +1694,6 @@ class FixedTreeEnvironment:
                 }
             )
 
-        behavior_context = self._prefix_dedup_behavior_context(path)
-        if behavior_context is not None:
-            total = 0.0
-            for row in trace:
-                multiplier = self._prefix_dedup_reasoning_stage_multiplier(
-                    behavior_context["archetype"],
-                    str(row["stage_name"]),
-                )
-                row["family_behavior_archetype"] = behavior_context["archetype"]
-                row["family_reasoning_multiplier"] = multiplier
-                row["base_reasoning_cost"] = round(
-                    float(row["base_reasoning_cost"]) * multiplier,
-                    6,
-                )
-                row["mismatch_penalty"] = round(
-                    float(row["mismatch_penalty"]) * multiplier,
-                    6,
-                )
-                row["stage_reasoning_cost"] = round(
-                    float(row["stage_reasoning_cost"]) * multiplier,
-                    6,
-                )
-                total += float(row["stage_reasoning_cost"])
-
         return {
             "raw_reasoning_cost_component": round(total, 6),
             "raw_reasoning_cost_component_api": None,
@@ -1518,115 +1754,13 @@ class FixedTreeEnvironment:
             return LLM_BENCH_REASONING_MISMATCH_PENALTY_DEEP_REQUIRED
         return LLM_BENCH_REASONING_MISMATCH_PENALTY_FAST_REQUIRED
 
-    def _apply_family_behavior_to_execution(
-        self,
-        path: list[str],
-        execution: JsonDict,
-    ) -> JsonDict:
-        behavior_context = self._prefix_dedup_behavior_context(path)
-        if behavior_context is None or behavior_context["archetype"] == "neutral":
-            return execution
-
-        adjusted = deepcopy(execution)
-        adjusted["family_behavior"] = deepcopy(behavior_context)
-        stage_trace = adjusted.get("stage_trace", [])
-        if not isinstance(stage_trace, list):
-            stage_trace = []
-            adjusted["stage_trace"] = stage_trace
-        self._apply_prefix_dedup_stage_trace_adjustments(stage_trace, behavior_context)
-
-        stage5_output = self._behavioral_stage5_output(behavior_context)
-        stage5_row = next(
-            (row for row in stage_trace if row.get("stage_name") == "stage5"),
-            None,
-        )
-        if isinstance(stage5_row, dict):
-            stage5_row["output"] = deepcopy(stage5_output)
-
-        stage_outputs = adjusted.get("stage_outputs")
-        if isinstance(stage_outputs, dict):
-            stage5_payload = stage_outputs.setdefault("stage5", {})
-            if isinstance(stage5_payload, dict):
-                stage5_payload["output"] = deepcopy(stage5_output)
-
-        adjusted["final_action"] = stage5_output["final_action"]
-        adjusted["selected_blocker_ids"] = list(stage5_output["selected_blocker_ids"])
-        adjusted["deferred_blocker_ids"] = list(stage5_output["deferred_blocker_ids"])
-        adjusted["cancelled_reservation_ids"] = list(stage5_output["cancelled_reservation_ids"])
-        adjusted["refused_reservation_ids"] = list(stage5_output["refused_reservation_ids"])
-        if isinstance(adjusted.get("bench_aux_eval"), dict):
-            adjusted["bench_aux_eval"]["family_behavior_archetype"] = behavior_context[
-                "archetype"
-            ]
-            adjusted["bench_aux_eval"]["family_schedule_phase"] = behavior_context[
-                "schedule_phase"
-            ]
-        return adjusted
-
-    def _apply_prefix_dedup_stage_trace_adjustments(
-        self,
-        stage_trace: list[JsonDict],
-        behavior_context: JsonDict,
-    ) -> None:
-        for row in stage_trace:
-            stage_name = str(row.get("stage_name", ""))
-            multiplier = self._prefix_dedup_reasoning_stage_multiplier(
-                behavior_context["archetype"],
-                stage_name,
-            )
-            row["family_behavior_archetype"] = behavior_context["archetype"]
-            row["family_schedule_phase"] = behavior_context["schedule_phase"]
-            row["family_resource_multiplier"] = multiplier
-            row["family_path_signature"] = behavior_context["base_aliases"]
-            if multiplier == 1.0:
-                continue
-
-            llm_call_count = row.get("llm_call_count_stage")
-            if llm_call_count is not None:
-                scaled_calls = int(round(float(llm_call_count) * multiplier))
-                row["llm_call_count_stage"] = max(
-                    1 if float(llm_call_count) > 0 else 0,
-                    scaled_calls,
-                )
-
-            for field_name in (
-                "prompt_tokens_total_stage",
-                "completion_tokens_total_stage",
-                "total_tokens_total_stage",
-                "api_cost_total_usd_stage",
-                "generation_time_total_seconds_stage",
-                "llm_round_trip_total_seconds_stage",
-                "tool_wall_clock_total_seconds_stage",
-                "stage_wall_clock_seconds",
-            ):
-                field_value = row.get(field_name)
-                if field_value is None:
-                    continue
-                row[field_name] = round(float(field_value) * multiplier, 6)
-
-            usage_breakdown = row.get("usage_breakdown_stage")
-            if isinstance(usage_breakdown, dict):
-                for field_name in (
-                    "prompt_tokens_total",
-                    "completion_tokens_total",
-                    "total_tokens_total",
-                ):
-                    if field_name in usage_breakdown:
-                        usage_breakdown[field_name] = round(
-                            float(usage_breakdown[field_name]) * multiplier,
-                            6,
-                        )
-
-            cost_breakdown = row.get("cost_breakdown_stage")
-            if isinstance(cost_breakdown, dict) and "api_cost_total_usd_raw" in cost_breakdown:
-                cost_breakdown["api_cost_total_usd_raw"] = round(
-                    float(cost_breakdown["api_cost_total_usd_raw"]) * multiplier,
-                    6,
-                )
-
     def _prefix_dedup_behavior_context(self, path: list[str]) -> JsonDict | None:
         if (
-            self.family_kind != "shared_basin_strong_prefix_dedup"
+            self.family_kind
+            not in {
+                "shared_basin_strong_prefix_dedup",
+                "shared_basin_strong_prefix_dedup_profile_switch",
+            }
             or self.current_instance is None
             or self.family_agent_map is None
         ):
@@ -1644,23 +1778,51 @@ class FixedTreeEnvironment:
         node_semantics = [str(getattr(agent, "node_semantic", "")) for agent in family_agents]
         safe_prefix = node_semantics[0] == "safe_core"
         trap_like_path = base_aliases[0] == "stage1_n4" or route_labels[0] == "mixed_stage1_intake"
-        target_safe_subtree = (
-            safe_prefix
-            and route_labels[3] in {"public_stage4_core", "public_stage4_verify"}
-            and route_labels[4] in {"public_stage5_verify", "public_stage5_decision"}
-        )
-        exact_target_good = (
-            target_safe_subtree
-            and route_labels[3] == "public_stage4_verify"
-            and route_labels[4] == "public_stage5_verify"
-        )
-        decoy_path = (
-            base_aliases[0] in {"stage1_n2", "stage1_n3", "stage1_n5"}
-            and (
-                route_labels[3] == "mixed_stage4_lane"
-                or route_labels[4] in {"mixed_stage5_transfer", "private_stage5_edge"}
+        if self.family_kind == "shared_basin_strong_prefix_dedup_profile_switch":
+            trap_like_path = trap_like_path or route_labels[0] == "trap_stage1_intake"
+            target_stage5_labels = {"target_stage5_verify", "target_stage5_decision"}
+            profile_shared_or_target_prefix = route_labels[0] in {
+                "general_stage1_intake",
+                "general_stage1_verify",
+                "target_stage1_handoff",
+            }
+            profile_clean_target_route = (
+                profile_shared_or_target_prefix
+                and not any(label.startswith("trap_") for label in route_labels)
+                and not any(label.startswith("barrier_") for label in route_labels)
             )
-        )
+            exact_target_good = (
+                profile_clean_target_route
+                and route_labels[3] == "target_stage4_repair"
+                and route_labels[4] in target_stage5_labels
+            )
+            target_safe_subtree = exact_target_good or (
+                profile_clean_target_route
+                and route_labels[3] in {"general_stage4_repair", "general_stage4_verify"}
+                and route_labels[4] in target_stage5_labels
+            )
+            decoy_path = (
+                route_labels[3].startswith("barrier_stage4_")
+                or route_labels[4].startswith("barrier_stage5_")
+            )
+        else:
+            target_safe_subtree = (
+                safe_prefix
+                and route_labels[3] in {"public_stage4_core", "public_stage4_verify"}
+                and route_labels[4] in {"public_stage5_verify", "public_stage5_decision"}
+            )
+            exact_target_good = (
+                target_safe_subtree
+                and route_labels[3] == "public_stage4_verify"
+                and route_labels[4] == "public_stage5_verify"
+            )
+            decoy_path = (
+                base_aliases[0] in {"stage1_n2", "stage1_n3", "stage1_n5"}
+                and (
+                    route_labels[3] == "mixed_stage4_lane"
+                    or route_labels[4] in {"mixed_stage5_transfer", "private_stage5_edge"}
+                )
+            )
 
         is_trap_task = schedule_phase == "trap_pre_switch" or task_bucket == "trap_favoring"
         is_target_task = (
@@ -1693,138 +1855,52 @@ class FixedTreeEnvironment:
             "target_safe_subtree": target_safe_subtree,
             "exact_target_good": exact_target_good,
             "decoy_path": decoy_path,
-            "oracle_stage5": self._normalize_stage5_blocker_output(
-                self.current_instance.get("stage5", {}).get("oracle_output", {})
-            ),
         }
 
-    def _prefix_dedup_reasoning_stage_multiplier(
-        self,
-        archetype: str,
-        stage_name: str,
-    ) -> float:
-        if archetype in {"trap_like_good", "target_safe_specialist_good"}:
-            return 0.92 if stage_name in {"stage3", "stage4", "stage5"} else 0.97
-        if archetype == "trap_like_bad":
-            return 1.18 if stage_name in {"stage3", "stage4", "stage5"} else 1.08
-        if archetype == "target_safe_majority_bad":
-            return 1.12 if stage_name in {"stage4", "stage5"} else 1.05
-        if archetype in {"target_decoy_medium", "trap_safe_overcautious"}:
-            return 1.05 if stage_name in {"stage3", "stage4", "stage5"} else 1.0
-        return 1.0
+    def _profile_switch_flat_path_cost_enabled(self) -> bool:
+        return (
+            self.family_kind == "shared_basin_strong_prefix_dedup_profile_switch"
+            and str(os.environ.get("PSAGENT_PROFILE_SWITCH_FLAT_PATH_COST", "")).strip()
+            in {"1", "true", "True", "yes", "on"}
+        )
 
-    def _behavioral_stage5_output(self, behavior_context: JsonDict) -> JsonDict:
-        oracle_output = deepcopy(behavior_context["oracle_stage5"])
-        archetype = str(behavior_context["archetype"])
-        if archetype in {"trap_like_good", "target_safe_specialist_good", "neutral"}:
-            return oracle_output
-        if archetype in {"target_decoy_medium", "trap_safe_overcautious"}:
-            if len(oracle_output["selected_blocker_ids"]) <= 1:
-                return oracle_output
-            return self._downgrade_stage5_output(
-                oracle_output,
-                drop_count=1,
-                force_transfer=False,
-            )
-        if archetype == "target_safe_majority_bad":
-            selected_count = len(oracle_output["selected_blocker_ids"])
-            if selected_count <= 1:
-                return self._downgrade_stage5_output(
-                    oracle_output,
-                    drop_count=selected_count,
-                    force_transfer=selected_count > 0,
-                )
-            return self._downgrade_stage5_output(
-                oracle_output,
-                drop_count=max(1, selected_count // 2),
-                force_transfer=False,
-            )
-        if archetype == "trap_like_bad":
-            return self._downgrade_stage5_output(
-                oracle_output,
-                drop_count=len(oracle_output["selected_blocker_ids"]),
-                force_transfer=True,
-            )
-        return oracle_output
-
-    def _downgrade_stage5_output(
+    def _family_path_metadata(
         self,
-        oracle_output: JsonDict,
-        *,
-        drop_count: int,
-        force_transfer: bool,
+        path: list[str],
+        behavior_context: JsonDict | None = None,
     ) -> JsonDict:
-        selected = list(oracle_output["selected_blocker_ids"])
-        deferred = list(oracle_output["deferred_blocker_ids"])
-        if force_transfer:
-            return self._normalize_stage5_blocker_output(
+        if self.family_agent_map is None:
+            return {}
+        family_agents = [self.family_agent_map[agent_id] for agent_id in path]
+        route_labels = [str(getattr(agent, "route_label", "")) for agent in family_agents]
+        deliberation_modes = [
+            self._normalize_deliberation_mode(getattr(agent, "deliberation_mode", "deep"))
+            for agent in family_agents
+        ]
+        node_semantics = [str(getattr(agent, "node_semantic", "")) for agent in family_agents]
+        payload: JsonDict = {
+            "family_route_labels": route_labels,
+            "family_deliberation_modes": deliberation_modes,
+            "family_node_semantics": node_semantics,
+            "family_fast_stage_count": sum(mode == "fast" for mode in deliberation_modes),
+            "family_trap_label_count": sum(label.startswith("trap_") for label in route_labels),
+            "family_target_label_count": sum(label.startswith("target_") for label in route_labels),
+            "family_general_label_count": sum(label.startswith("general_") for label in route_labels),
+            "family_barrier_label_count": sum(label.startswith("barrier_") for label in route_labels),
+        }
+        if behavior_context is not None:
+            payload.update(
                 {
-                    "final_action": "transfer",
-                    "selected_blocker_ids": [],
-                    "deferred_blocker_ids": self._dedup_preserve_order(
-                        [*selected, *deferred]
-                    ),
+                    "family_behavior_archetype": behavior_context.get("archetype"),
+                    "family_schedule_phase": behavior_context.get("schedule_phase"),
+                    "family_task_bucket": behavior_context.get("task_bucket"),
+                    "family_trap_like_path": behavior_context.get("trap_like_path"),
+                    "family_target_safe_subtree": behavior_context.get("target_safe_subtree"),
+                    "family_exact_target_good": behavior_context.get("exact_target_good"),
+                    "family_decoy_path": behavior_context.get("decoy_path"),
                 }
             )
-        if not selected or drop_count <= 0:
-            return deepcopy(oracle_output)
-        if drop_count >= len(selected):
-            moved = list(selected)
-            selected = []
-        else:
-            moved = selected[-drop_count:]
-            selected = selected[:-drop_count]
-        return self._normalize_stage5_blocker_output(
-            {
-                "selected_blocker_ids": selected,
-                "deferred_blocker_ids": self._dedup_preserve_order([*deferred, *moved]),
-            }
-        )
-
-    def _normalize_stage5_blocker_output(self, output: Mapping[str, Any]) -> JsonDict:
-        selected = self._dedup_preserve_order(
-            output.get("selected_blocker_ids")
-            or output.get("cancelled_reservation_ids")
-            or []
-        )
-        deferred = self._dedup_preserve_order(
-            output.get("deferred_blocker_ids")
-            or output.get("refused_reservation_ids")
-            or []
-        )
-        final_action = str(
-            output.get("final_action")
-            or self._infer_stage5_action_from_blockers(selected, deferred)
-        )
-        return {
-            "final_action": final_action,
-            "selected_blocker_ids": list(selected),
-            "deferred_blocker_ids": list(deferred),
-            "cancelled_reservation_ids": list(selected),
-            "refused_reservation_ids": list(deferred),
-        }
-
-    def _infer_stage5_action_from_blockers(
-        self,
-        selected_blocker_ids: Sequence[str],
-        deferred_blocker_ids: Sequence[str],
-    ) -> str:
-        if selected_blocker_ids and deferred_blocker_ids:
-            return "repair_subset"
-        if selected_blocker_ids:
-            return "repair_all"
-        return "transfer"
-
-    def _dedup_preserve_order(self, values: Sequence[Any]) -> list[str]:
-        seen: set[str] = set()
-        ordered: list[str] = []
-        for value in values:
-            value_str = str(value)
-            if not value_str or value_str in seen:
-                continue
-            seen.add(value_str)
-            ordered.append(value_str)
-        return ordered
+        return payload
 
     def _prefix_dedup_base_alias(self, agent_id: str) -> str:
         parts = agent_id.split("__from__", 1)
