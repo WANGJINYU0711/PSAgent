@@ -48,6 +48,8 @@ from risky_ps_const_init import (  # noqa: E402
     RiskyPSIXConstInitPolicy,
     RiskyPSLinearConstInitPolicy,
     RiskyPSOldConstInitPolicy,
+    RiskyPSOldFixedInitPolicy,
+    RiskyPSOldRandomInitPolicy,
 )
 from risky_ps_old import RiskyPSOldPolicy  # noqa: E402
 from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
@@ -62,6 +64,8 @@ from risky_ps_safe_conditional import (  # noqa: E402
 METHODS = {
     "risky_ps_old": RiskyPSOldPolicy,
     "risky_ps_old_const_init": RiskyPSOldConstInitPolicy,
+    "risky_ps_old_fixed_init": RiskyPSOldFixedInitPolicy,
+    "risky_ps_old_random_init": RiskyPSOldRandomInitPolicy,
     "risky_ps": RiskyPSPolicy,
     "risky_ps_const_init": RiskyPSConstInitPolicy,
     "risky_ps_linear": RiskyPSLinearPolicy,
@@ -85,6 +89,8 @@ COMMON_ETA_METHODS = frozenset(
         "epsilon_exp3",
         "risky_ps_old",
         "risky_ps_old_const_init",
+        "risky_ps_old_fixed_init",
+        "risky_ps_old_random_init",
         "risky_ps",
         "risky_ps_const_init",
         "risky_ps_linear",
@@ -101,6 +107,8 @@ COMMON_EPSILON_METHODS = frozenset(
         "epsilon_exp3",
         "risky_ps_old",
         "risky_ps_old_const_init",
+        "risky_ps_old_fixed_init",
+        "risky_ps_old_random_init",
         "risky_ps",
         "risky_ps_const_init",
         "risky_ps_linear",
@@ -296,6 +304,8 @@ def default_shared_estimator_variant(method: str) -> str | None:
         "risky_ps_old",
         "risky_ps_const_init",
         "risky_ps_old_const_init",
+        "risky_ps_old_fixed_init",
+        "risky_ps_old_random_init",
     }:
         return "path_importance_weighted"
     return None
@@ -315,6 +325,8 @@ def default_shared_denominator_mode(method: str) -> str | None:
         "risky_ps_old",
         "risky_ps_const_init",
         "risky_ps_old_const_init",
+        "risky_ps_old_fixed_init",
+        "risky_ps_old_random_init",
     }:
         return "path_prob"
     return None

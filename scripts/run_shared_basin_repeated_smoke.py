@@ -64,7 +64,7 @@ MODEL_REQUIRED = "gpt-4o-mini"
 DEFAULT_FAMILY_KIND = "shared_basin_strong"
 SCHEDULE_MODE_STATIONARY = "stationary"
 SCHEDULE_MODE_TRAP_SWITCH = "trap_switch"
-SEED = 0
+SEED = int(os.environ.get("PSAGENT_REPEATED_SMOKE_SEED", "0"))
 DEFAULT_EXECUTOR_NAME = "llm_bench"
 
 
@@ -156,6 +156,9 @@ def build_policy_kwargs_by_method(
     *,
     common_eta_override: float | None = None,
     common_epsilon_override: float | None = None,
+    ps_eta_shared_override: float | None = None,
+    ps_loss_clip: float | None = None,
+    ps_prob_floor: float | None = None,
 ) -> dict[str, dict[str, Any]]:
     kwargs_by_method: dict[str, dict[str, Any]] = {}
     for method in methods:
@@ -164,6 +167,13 @@ def build_policy_kwargs_by_method(
             method_kwargs["eta"] = common_eta_override
         if common_epsilon_override is not None and method in COMMON_EPSILON_METHODS:
             method_kwargs["epsilon"] = common_epsilon_override
+        if method in COMMON_EPSILON_METHODS:
+            if ps_eta_shared_override is not None:
+                method_kwargs["eta_shared"] = ps_eta_shared_override
+            if ps_loss_clip is not None:
+                method_kwargs["loss_clip"] = ps_loss_clip
+            if ps_prob_floor is not None:
+                method_kwargs["prob_floor"] = ps_prob_floor
         kwargs_by_method[method] = method_kwargs
     return kwargs_by_method
 
@@ -952,6 +962,9 @@ def flatten_episode(
         "mode_mismatch_cost_enabled": bool(
             log.get("mode_mismatch_cost_enabled", False)
         ),
+        "mode_mismatch_report_only_enabled": bool(
+            log.get("mode_mismatch_report_only_enabled", False)
+        ),
         "mode_mismatch_fast_on_deep_cost": float(
             log.get("mode_mismatch_fast_on_deep_cost", 0.0) or 0.0
         ),
@@ -970,6 +983,9 @@ def flatten_episode(
         ),
         "reasoning_cost": float(result.reasoning_cost),
         "reasoning_cost_mode_default": log.get("reasoning_cost_mode_default"),
+        "reasoning_weight_calibration_enabled": bool(
+            log.get("reasoning_weight_calibration_enabled", False)
+        ),
         "policy_eval_source": log.get("policy_eval_source"),
         "policy_eval_scope": log.get("policy_eval_scope"),
         "terminal_cost_upper_bound": log.get("terminal_cost_upper_bound"),
@@ -1486,6 +1502,9 @@ def _assert_existing_run_compatible(
     policy_kwargs_by_method: dict[str, dict[str, Any]],
     common_eta_override: float | None,
     common_epsilon_override: float | None,
+    ps_eta_shared_override: float | None,
+    ps_loss_clip: float | None,
+    ps_prob_floor: float | None,
     executor_name: str,
     post_switch_fixed_layer1_probs: bool,
     post_switch_fixed_tree_probs: bool,
@@ -1569,6 +1588,19 @@ def _assert_existing_run_compatible(
             "common_epsilon_override "
             f"existing={existing_common_epsilon} requested={common_epsilon_override}"
         )
+    if run_config.get("ps_eta_shared_override") != ps_eta_shared_override:
+        mismatches.append(
+            "ps_eta_shared_override "
+            f"existing={run_config.get('ps_eta_shared_override')} requested={ps_eta_shared_override}"
+        )
+    if run_config.get("ps_loss_clip") != ps_loss_clip:
+        mismatches.append(
+            f"ps_loss_clip existing={run_config.get('ps_loss_clip')} requested={ps_loss_clip}"
+        )
+    if run_config.get("ps_prob_floor") != ps_prob_floor:
+        mismatches.append(
+            f"ps_prob_floor existing={run_config.get('ps_prob_floor')} requested={ps_prob_floor}"
+        )
     existing_policy_kwargs = run_config.get("policy_kwargs_by_method")
     if existing_policy_kwargs is None and common_eta_override is None and common_epsilon_override is None:
         existing_policy_kwargs = policy_kwargs_by_method
@@ -1617,6 +1649,9 @@ def initialize_run(
     schedule_buckets_path: Path | None,
     common_eta_override: float | None,
     common_epsilon_override: float | None,
+    ps_eta_shared_override: float | None,
+    ps_loss_clip: float | None,
+    ps_prob_floor: float | None,
     executor_name: str,
     post_switch_fixed_layer1_probs: bool,
     post_switch_fixed_tree_probs: bool,
@@ -1630,6 +1665,9 @@ def initialize_run(
         methods,
         common_eta_override=common_eta_override,
         common_epsilon_override=common_epsilon_override,
+        ps_eta_shared_override=ps_eta_shared_override,
+        ps_loss_clip=ps_loss_clip,
+        ps_prob_floor=ps_prob_floor,
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     run_config_path = output_dir / "run_config.json"
@@ -1650,6 +1688,9 @@ def initialize_run(
             policy_kwargs_by_method=policy_kwargs_by_method,
             common_eta_override=common_eta_override,
             common_epsilon_override=common_epsilon_override,
+            ps_eta_shared_override=ps_eta_shared_override,
+            ps_loss_clip=ps_loss_clip,
+            ps_prob_floor=ps_prob_floor,
             executor_name=executor_name,
             post_switch_fixed_layer1_probs=post_switch_fixed_layer1_probs,
             post_switch_fixed_tree_probs=post_switch_fixed_tree_probs,
@@ -1695,6 +1736,9 @@ def initialize_run(
             "policy_kwargs_by_method": policy_kwargs_by_method,
             "common_eta_override": common_eta_override,
             "common_epsilon_override": common_epsilon_override,
+            "ps_eta_shared_override": ps_eta_shared_override,
+            "ps_loss_clip": ps_loss_clip,
+            "ps_prob_floor": ps_prob_floor,
             "post_switch_fixed_layer1_probs": post_switch_fixed_layer1_probs,
             "post_switch_fixed_tree_probs": post_switch_fixed_tree_probs,
             "post_switch_probability_freeze_mode": post_switch_probability_freeze_mode,
@@ -2061,6 +2105,9 @@ def orchestrate_run(
     schedule_buckets_path: Path | None,
     common_eta_override: float | None,
     common_epsilon_override: float | None,
+    ps_eta_shared_override: float | None,
+    ps_loss_clip: float | None,
+    ps_prob_floor: float | None,
     executor_name: str,
     post_switch_fixed_layer1_probs: bool,
     post_switch_fixed_tree_probs: bool,
@@ -2079,6 +2126,9 @@ def orchestrate_run(
         schedule_buckets_path=schedule_buckets_path,
         common_eta_override=common_eta_override,
         common_epsilon_override=common_epsilon_override,
+        ps_eta_shared_override=ps_eta_shared_override,
+        ps_loss_clip=ps_loss_clip,
+        ps_prob_floor=ps_prob_floor,
         executor_name=executor_name,
         post_switch_fixed_layer1_probs=post_switch_fixed_layer1_probs,
         post_switch_fixed_tree_probs=post_switch_fixed_tree_probs,
@@ -2150,6 +2200,21 @@ def build_cli() -> argparse.ArgumentParser:
     common_run.add_argument("--schedule-buckets", type=Path)
     common_run.add_argument("--common-eta-override", type=float)
     common_run.add_argument("--common-epsilon-override", type=float)
+    common_run.add_argument(
+        "--ps-eta-shared-override",
+        type=float,
+        help="Override eta_shared for PS-family methods only.",
+    )
+    common_run.add_argument(
+        "--ps-loss-clip",
+        type=float,
+        help="Clip PS-family importance-weighted estimated losses to this value.",
+    )
+    common_run.add_argument(
+        "--ps-prob-floor",
+        type=float,
+        help="Floor PS-family importance-weight denominators at this probability.",
+    )
     common_run.add_argument(
         "--post-switch-fixed-layer1-probs",
         action="store_true",
@@ -2225,6 +2290,9 @@ def main() -> None:
             schedule_buckets_path=args.schedule_buckets,
             common_eta_override=args.common_eta_override,
             common_epsilon_override=args.common_epsilon_override,
+            ps_eta_shared_override=args.ps_eta_shared_override,
+            ps_loss_clip=args.ps_loss_clip,
+            ps_prob_floor=args.ps_prob_floor,
             executor_name=args.executor_name,
             post_switch_fixed_layer1_probs=args.post_switch_fixed_layer1_probs,
             post_switch_fixed_tree_probs=args.post_switch_fixed_tree_probs,
@@ -2245,6 +2313,9 @@ def main() -> None:
             schedule_buckets_path=args.schedule_buckets,
             common_eta_override=args.common_eta_override,
             common_epsilon_override=args.common_epsilon_override,
+            ps_eta_shared_override=args.ps_eta_shared_override,
+            ps_loss_clip=args.ps_loss_clip,
+            ps_prob_floor=args.ps_prob_floor,
             executor_name=args.executor_name,
             post_switch_fixed_layer1_probs=args.post_switch_fixed_layer1_probs,
             post_switch_fixed_tree_probs=args.post_switch_fixed_tree_probs,

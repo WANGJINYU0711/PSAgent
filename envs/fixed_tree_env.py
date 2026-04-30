@@ -48,6 +48,9 @@ LLM_BENCH_REASONING_DEFAULT_MODE = "token"
 LLM_BENCH_REASONING_MATCH_DISCOUNT = 0.85
 LLM_BENCH_REASONING_MISMATCH_PENALTY_DEEP_REQUIRED = 1.35
 LLM_BENCH_REASONING_MISMATCH_PENALTY_FAST_REQUIRED = 1.15
+LLM_BENCH_REASONING_CALIBRATED_MATCH_DISCOUNT = 0.70
+LLM_BENCH_REASONING_CALIBRATED_MISMATCH_PENALTY_DEEP_REQUIRED = 1.55
+LLM_BENCH_REASONING_CALIBRATED_MISMATCH_PENALTY_FAST_REQUIRED = 1.25
 TELECOM_EXEC_CLEAN_V4_TERMINAL_UPPER_BOUND = 32.0
 TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2 = 1.5
 TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2 = 0.5
@@ -607,11 +610,17 @@ class FixedTreeEnvironment:
             "cost_scale_version": cost_metrics["cost_scale_version"],
             "reasoning_cost": cost_metrics["raw_reasoning_cost_component"],
             "reasoning_cost_mode_default": cost_metrics["reasoning_cost_mode_default"],
+            "reasoning_weight_calibration_enabled": bool(
+                reasoning_metrics.get("reasoning_weight_calibration_enabled", False)
+            ),
             "raw_mode_mismatch_cost_component": float(
                 reasoning_metrics.get("raw_mode_mismatch_cost_component", 0.0) or 0.0
             ),
             "mode_mismatch_cost_enabled": bool(
                 reasoning_metrics.get("mode_mismatch_cost_enabled", False)
+            ),
+            "mode_mismatch_report_only_enabled": bool(
+                reasoning_metrics.get("mode_mismatch_report_only_enabled", False)
             ),
             "mode_mismatch_fast_on_deep_cost": float(
                 reasoning_metrics.get("mode_mismatch_fast_on_deep_cost", 0.0) or 0.0
@@ -837,11 +846,17 @@ class FixedTreeEnvironment:
             "reasoning_cost": cost_metrics["raw_reasoning_cost_component"],
             "reasoning_trace": deepcopy(reasoning_metrics["trace"]),
             "reasoning_cost_mode_default": cost_metrics["reasoning_cost_mode_default"],
+            "reasoning_weight_calibration_enabled": bool(
+                reasoning_metrics.get("reasoning_weight_calibration_enabled", False)
+            ),
             "raw_mode_mismatch_cost_component": float(
                 reasoning_metrics.get("raw_mode_mismatch_cost_component", 0.0) or 0.0
             ),
             "mode_mismatch_cost_enabled": bool(
                 reasoning_metrics.get("mode_mismatch_cost_enabled", False)
+            ),
+            "mode_mismatch_report_only_enabled": bool(
+                reasoning_metrics.get("mode_mismatch_report_only_enabled", False)
             ),
             "mode_mismatch_fast_on_deep_cost": float(
                 reasoning_metrics.get("mode_mismatch_fast_on_deep_cost", 0.0) or 0.0
@@ -1531,6 +1546,9 @@ class FixedTreeEnvironment:
             mode_mismatch_cost_enabled = _env_flag(
                 "PSAGENT_TELECOM_MODE_MISMATCH_COST_V2"
             )
+            mode_mismatch_report_only_enabled = _env_flag(
+                "PSAGENT_TELECOM_MODE_MISMATCH_REPORT_ONLY_V2"
+            )
             raw_mode_mismatch_cost_component = 0.0
 
             for stage_name, agent_id in zip(self._family_stages, path):
@@ -1559,14 +1577,14 @@ class FixedTreeEnvironment:
                 normalized_requirement = self._normalize_deliberation_mode(requirement)
                 normalized_mode = self._normalize_deliberation_mode(realized_mode)
                 mode_mismatch_stage_cost = 0.0
-                if mode_mismatch_cost_enabled:
+                if mode_mismatch_cost_enabled or mode_mismatch_report_only_enabled:
                     if normalized_requirement == "deep" and normalized_mode == "fast":
                         mode_mismatch_stage_cost = TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2
                     elif normalized_requirement == "fast" and normalized_mode == "deep":
                         mode_mismatch_stage_cost = TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2
                 weighted_stage_api = round(base_stage_api * multiplier, 6)
                 weighted_stage_token = round(base_stage_token * multiplier, 6)
-                if mode_mismatch_stage_cost:
+                if mode_mismatch_cost_enabled and mode_mismatch_stage_cost:
                     weighted_stage_api = round(weighted_stage_api + mode_mismatch_stage_cost, 6)
                     weighted_stage_token = round(
                         weighted_stage_token + mode_mismatch_stage_cost,
@@ -1583,6 +1601,9 @@ class FixedTreeEnvironment:
                         "deliberation_mode": normalized_mode,
                         "reasoning_match_multiplier": multiplier,
                         "mode_mismatch_cost_enabled": mode_mismatch_cost_enabled,
+                        "mode_mismatch_report_only_enabled": (
+                            mode_mismatch_report_only_enabled
+                        ),
                         "mode_mismatch_stage_cost": mode_mismatch_stage_cost,
                         "base_reasoning_cost_api": round(base_stage_api, 6),
                         "base_reasoning_cost_token": round(base_stage_token, 6),
@@ -1603,6 +1624,9 @@ class FixedTreeEnvironment:
                 "alpha_in": LLM_BENCH_REASONING_ALPHA_IN,
                 "alpha_out": LLM_BENCH_REASONING_ALPHA_OUT,
                 "reasoning_cost_mode_default": reasoning_default_mode,
+                "reasoning_weight_calibration_enabled": _env_flag(
+                    "PSAGENT_TELECOM_REASONING_WEIGHT_CALIBRATION_V3"
+                ),
                 "raw_reasoning_cost_component": round(raw_reasoning_cost_component, 6),
                 "raw_reasoning_cost_component_api": round(
                     raw_reasoning_cost_component_api, 6
@@ -1615,14 +1639,15 @@ class FixedTreeEnvironment:
                     6,
                 ),
                 "mode_mismatch_cost_enabled": mode_mismatch_cost_enabled,
+                "mode_mismatch_report_only_enabled": mode_mismatch_report_only_enabled,
                 "mode_mismatch_fast_on_deep_cost": (
                     TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2
-                    if mode_mismatch_cost_enabled
+                    if mode_mismatch_cost_enabled or mode_mismatch_report_only_enabled
                     else 0.0
                 ),
                 "mode_mismatch_deep_on_fast_cost": (
                     TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2
-                    if mode_mismatch_cost_enabled
+                    if mode_mismatch_cost_enabled or mode_mismatch_report_only_enabled
                     else 0.0
                 ),
             }
@@ -1748,6 +1773,12 @@ class FixedTreeEnvironment:
     ) -> float:
         required_mode = self._normalize_deliberation_mode(requirement)
         realized_mode = self._normalize_deliberation_mode(actual_mode)
+        if _env_flag("PSAGENT_TELECOM_REASONING_WEIGHT_CALIBRATION_V3"):
+            if required_mode == realized_mode:
+                return LLM_BENCH_REASONING_CALIBRATED_MATCH_DISCOUNT
+            if required_mode == "deep":
+                return LLM_BENCH_REASONING_CALIBRATED_MISMATCH_PENALTY_DEEP_REQUIRED
+            return LLM_BENCH_REASONING_CALIBRATED_MISMATCH_PENALTY_FAST_REQUIRED
         if required_mode == realized_mode:
             return LLM_BENCH_REASONING_MATCH_DISCOUNT
         if required_mode == "deep":

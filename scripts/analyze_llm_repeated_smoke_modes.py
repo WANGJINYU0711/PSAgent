@@ -100,6 +100,10 @@ def classify_mismatch(required: list[str], actual: list[str]) -> tuple[str, int,
     return bucket, fast_on_deep, deep_on_fast, match
 
 
+def exact_mode_match(required: list[str], actual: list[str]) -> bool:
+    return len(required) == len(actual) and all(req == act for req, act in zip(required, actual))
+
+
 def majority_pair(required: list[str], actual: list[str]) -> str:
     actual_majority = "mostly_fast" if actual.count("fast") > actual.count("deep") else "mostly_deep"
     required_majority = (
@@ -128,10 +132,17 @@ def summarize(rows: list[dict[str, Any]], group_keys: list[str]) -> list[dict[st
             {
                 "n": len(group),
                 "terminal": mean(clean_float(row, "raw_terminal_penalty") for row in group),
+                "legacy_terminal": mean(
+                    clean_float(row, "legacy_raw_terminal_penalty") for row in group
+                ),
                 "reasoning": mean(clean_float(row, "raw_reasoning_cost_component") for row in group),
+                "mode_mismatch_cost": mean(
+                    clean_float(row, "raw_mode_mismatch_cost_component") for row in group
+                ),
                 "path": mean(clean_float(row, "raw_path_cost_component") for row in group),
                 "total": mean(clean_float(row, "raw_total_cost") for row in group),
                 "exact": mean(float(row["exact_match"]) for row in group),
+                "exact_mode_match": mean(float(row["exact_mode_match"]) for row in group),
                 "clear_success_proxy": mean(float(row["clear_success_proxy"]) for row in group),
                 "auxiliary_success_proxy": mean(float(row["auxiliary_success_proxy"]) for row in group),
                 "strict_clean": mean(float(row["strict_clean_success"]) for row in group),
@@ -186,8 +197,12 @@ def build_stage_pair_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "episode_n": len(episode_keys),
                 "terminal": mean(clean_float(row, "raw_terminal_penalty") for row in group),
                 "reasoning": mean(clean_float(row, "raw_reasoning_cost_component") for row in group),
+                "mode_mismatch_cost": mean(
+                    clean_float(row, "raw_mode_mismatch_cost_component") for row in group
+                ),
                 "total": mean(clean_float(row, "raw_total_cost") for row in group),
                 "exact": mean(float(row["exact_match"]) for row in group),
+                "exact_mode_match": mean(float(row["exact_mode_match"]) for row in group),
                 "strict_clean": mean(float(row["strict_clean_success"]) for row in group),
                 "clear_success_proxy": mean(float(row["clear_success_proxy"]) for row in group),
                 "auxiliary_success_proxy": mean(float(row["auxiliary_success_proxy"]) for row in group),
@@ -244,9 +259,38 @@ def main() -> None:
                 "policy_violation_count": int(episode.get("policy_violation_count", 0) or 0),
                 "subset_mismatch": bool(episode.get("subset_mismatch", False)),
                 "raw_terminal_penalty": clean_float(episode, "raw_terminal_penalty"),
+                "legacy_raw_terminal_penalty": clean_float(
+                    episode,
+                    "legacy_raw_terminal_penalty",
+                ),
+                "raw_terminal_penalty_exec_clean_v4": (
+                    clean_float(episode, "raw_terminal_penalty_exec_clean_v4")
+                    if episode.get("raw_terminal_penalty_exec_clean_v4") is not None
+                    else None
+                ),
+                "terminal_adjustment_enabled": bool(
+                    episode.get("terminal_adjustment_enabled", False)
+                ),
+                "terminal_adjustment_floor": episode.get("terminal_adjustment_floor"),
+                "terminal_adjustment_reasons": ";".join(
+                    list(episode.get("terminal_adjustment_reasons", []) or [])
+                ),
                 "raw_outcome_penalty": clean_float(episode, "raw_outcome_penalty"),
                 "raw_policy_penalty": clean_float(episode, "raw_policy_penalty"),
                 "raw_reasoning_cost_component": clean_float(episode, "raw_reasoning_cost_component"),
+                "raw_mode_mismatch_cost_component": clean_float(
+                    episode,
+                    "raw_mode_mismatch_cost_component",
+                ),
+                "mode_mismatch_cost_enabled": bool(
+                    episode.get("mode_mismatch_cost_enabled", False)
+                ),
+                "mode_mismatch_report_only_enabled": bool(
+                    episode.get("mode_mismatch_report_only_enabled", False)
+                ),
+                "reasoning_weight_calibration_enabled": bool(
+                    episode.get("reasoning_weight_calibration_enabled", False)
+                ),
                 "raw_path_cost_component": clean_float(episode, "raw_path_cost_component"),
                 "raw_total_cost": clean_float(episode, "raw_total_cost"),
                 "llm_call_count": int(episode.get("llm_call_count", 0) or 0),
@@ -263,6 +307,7 @@ def main() -> None:
                 "required_fast_count": required.count("fast"),
                 "required_deep_count": required.count("deep"),
                 "mismatch_bucket": bucket,
+                "exact_mode_match": exact_mode_match(required, actual),
                 "majority_pair": majority_pair(required, actual),
                 "route_labels": " > ".join(route_labels),
                 "route_bucket": episode.get("family_behavior_archetype") or "unknown",
@@ -349,10 +394,13 @@ def main() -> None:
                 ("split", "split"),
                 ("n", "n"),
                 ("terminal", "terminal"),
+                ("legacy_terminal", "legacy term"),
                 ("reasoning", "reasoning"),
+                ("mode_mismatch_cost", "mode cost"),
                 ("path", "path"),
                 ("total", "total"),
                 ("exact", "exact"),
+                ("exact_mode_match", "mode exact"),
                 ("clear_success_proxy", "clear"),
                 ("auxiliary_success_proxy", "aux"),
                 ("strict_clean", "strict"),
@@ -375,8 +423,10 @@ def main() -> None:
                 ("total", "raw total"),
                 ("terminal", "terminal"),
                 ("reasoning", "reasoning"),
+                ("mode_mismatch_cost", "mode cost"),
                 ("path", "path"),
                 ("exact", "exact"),
+                ("exact_mode_match", "mode exact"),
                 ("strict_clean", "strict"),
             ],
         )
@@ -391,6 +441,7 @@ def main() -> None:
                 ("n", "n"),
                 ("terminal", "terminal"),
                 ("reasoning", "reasoning"),
+                ("mode_mismatch_cost", "mode cost"),
                 ("total", "total"),
                 ("clear_success_proxy", "clear"),
                 ("auxiliary_success_proxy", "aux"),
@@ -410,6 +461,7 @@ def main() -> None:
                 ("n", "n"),
                 ("terminal", "terminal"),
                 ("reasoning", "reasoning"),
+                ("mode_mismatch_cost", "mode cost"),
                 ("total", "total"),
                 ("clear_success_proxy", "clear"),
                 ("auxiliary_success_proxy", "aux"),
@@ -428,6 +480,7 @@ def main() -> None:
                 ("n", "n"),
                 ("terminal", "terminal"),
                 ("reasoning", "reasoning"),
+                ("mode_mismatch_cost", "mode cost"),
                 ("total", "total"),
                 ("strict_clean", "strict"),
             ],
@@ -446,6 +499,7 @@ def main() -> None:
                 ("episode_n", "episode n"),
                 ("terminal", "terminal"),
                 ("reasoning", "reasoning"),
+                ("mode_mismatch_cost", "mode cost"),
                 ("total", "total"),
                 ("clear_success_proxy", "clear"),
                 ("auxiliary_success_proxy", "aux"),
@@ -468,12 +522,14 @@ def main() -> None:
                 ("final_action", "final"),
                 ("raw_terminal_penalty", "terminal"),
                 ("raw_reasoning_cost_component", "reasoning"),
+                ("raw_mode_mismatch_cost_component", "mode cost"),
                 ("raw_total_cost", "total"),
                 ("clear_success_proxy", "clear"),
                 ("auxiliary_success_proxy", "aux"),
                 ("strict_clean_success", "strict"),
                 ("required_modes", "required"),
                 ("actual_modes", "actual"),
+                ("exact_mode_match", "mode exact"),
                 ("mismatch_bucket", "mismatch"),
             ],
         )
