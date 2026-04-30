@@ -1,0 +1,423 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1301" height="782" viewBox="0 0 1301 782">
+<style>text{font-family:Arial,Helvetica,sans-serif;font-size:12px;fill:#1f2933}.title{font-size:18px;font-weight:700}.head{font-size:11px;font-weight:700;fill:#334155}</style>
+<rect x="0" y="0" width="1301" height="782" fill="#fff"/>
+<text class="title" x="12" y="29">Post deep-required pair comparison</text>
+<rect x="1" y="46" width="130" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="9" y="68">run</text>
+<rect x="131" y="46" width="210" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="139" y="68">method</text>
+<rect x="341" y="46" width="255" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="349" y="68">pair</text>
+<rect x="596" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="604" y="68">n</text>
+<rect x="684" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="692" y="68">terminal</text>
+<rect x="772" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="780" y="68">reasoning</text>
+<rect x="860" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="868" y="68">modecost_report</text>
+<rect x="948" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="956" y="68">total</text>
+<rect x="1036" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="1044" y="68">clear</text>
+<rect x="1124" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="1132" y="68">aux</text>
+<rect x="1212" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="1220" y="68">strict</text>
+<rect x="1" y="80" width="130" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="9" y="103">PS_family_C</text>
+<rect x="131" y="80" width="210" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="139" y="103">risky_ps</text>
+<rect x="341" y="80" width="255" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="349" y="103">mostly_deep_vs_mostly_deep_required</text>
+<rect x="596" y="80" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="604" y="103">70.00</text>
+<rect x="684" y="80" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="692" y="103">5.63</text>
+<rect x="772" y="80" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="780" y="103">4.22</text>
+<rect x="860" y="80" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="868" y="103">1.04</text>
+<rect x="948" y="80" width="88" height="38" fill="#e7f5e9" stroke="#e2e8f0"/>
+<text x="956" y="103">9.92</text>
+<rect x="1036" y="80" width="88" height="38" fill="#f4f0de" stroke="#e2e8f0"/>
+<text x="1044" y="103">73%</text>
+<rect x="1124" y="80" width="88" height="38" fill="#f4f0de" stroke="#e2e8f0"/>
+<text x="1132" y="103">73%</text>
+<rect x="1212" y="80" width="88" height="38" fill="#f8efda" stroke="#e2e8f0"/>
+<text x="1220" y="103">63%</text>
+<rect x="1" y="118" width="130" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="141">PS_family_C</text>
+<rect x="131" y="118" width="210" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="139" y="141">risky_ps_safe_conditional</text>
+<rect x="341" y="118" width="255" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="349" y="141">mostly_deep_vs_mostly_deep_required</text>
+<rect x="596" y="118" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="604" y="141">63.00</text>
+<rect x="684" y="118" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="692" y="141">5.93</text>
+<rect x="772" y="118" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="780" y="141">4.15</text>
+<rect x="860" y="118" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="868" y="141">1.05</text>
+<rect x="948" y="118" width="88" height="38" fill="#e8f4e7" stroke="#e2e8f0"/>
+<text x="956" y="141">10.15</text>
+<rect x="1036" y="118" width="88" height="38" fill="#f5f0dc" stroke="#e2e8f0"/>
+<text x="1044" y="141">70%</text>
+<rect x="1124" y="118" width="88" height="38" fill="#f6efdc" stroke="#e2e8f0"/>
+<text x="1132" y="141">68%</text>
+<rect x="1212" y="118" width="88" height="38" fill="#faeed9" stroke="#e2e8f0"/>
+<text x="1220" y="141">60%</text>
+<rect x="1" y="156" width="130" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="9" y="179">C_baseline</text>
+<rect x="131" y="156" width="210" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="139" y="179">direct_multistage_exp3</text>
+<rect x="341" y="156" width="255" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="349" y="179">mostly_deep_vs_mostly_deep_required</text>
+<rect x="596" y="156" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="604" y="179">66.00</text>
+<rect x="684" y="156" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="692" y="179">5.96</text>
+<rect x="772" y="156" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="780" y="179">4.20</text>
+<rect x="860" y="156" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="868" y="179">0.99</text>
+<rect x="948" y="156" width="88" height="38" fill="#e9f4e7" stroke="#e2e8f0"/>
+<text x="956" y="179">10.23</text>
+<rect x="1036" y="156" width="88" height="38" fill="#f6efdc" stroke="#e2e8f0"/>
+<text x="1044" y="179">68%</text>
+<rect x="1124" y="156" width="88" height="38" fill="#f3f0de" stroke="#e2e8f0"/>
+<text x="1132" y="179">74%</text>
+<rect x="1212" y="156" width="88" height="38" fill="#fcedd7" stroke="#e2e8f0"/>
+<text x="1220" y="179">56%</text>
+<rect x="1" y="194" width="130" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="217">C_baseline</text>
+<rect x="131" y="194" width="210" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="139" y="217">epsilon_exp3</text>
+<rect x="341" y="194" width="255" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="349" y="217">mostly_deep_vs_mostly_deep_required</text>
+<rect x="596" y="194" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="604" y="217">56.00</text>
+<rect x="684" y="194" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="692" y="217">6.53</text>
+<rect x="772" y="194" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="780" y="217">4.02</text>
+<rect x="860" y="194" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="868" y="217">1.21</text>
+<rect x="948" y="194" width="88" height="38" fill="#ebf3e5" stroke="#e2e8f0"/>
+<text x="956" y="217">10.62</text>
+<rect x="1036" y="194" width="88" height="38" fill="#f9efda" stroke="#e2e8f0"/>
+<text x="1044" y="217">62%</text>
+<rect x="1124" y="194" width="88" height="38" fill="#f4f0dd" stroke="#e2e8f0"/>
+<text x="1132" y="217">71%</text>
+<rect x="1212" y="194" width="88" height="38" fill="#fdedd6" stroke="#e2e8f0"/>
+<text x="1220" y="217">54%</text>
+<rect x="1" y="232" width="130" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="9" y="255">PS_family_C</text>
+<rect x="131" y="232" width="210" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="139" y="255">risky_ps_safe_conditional_ix</text>
+<rect x="341" y="232" width="255" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="349" y="255">mostly_deep_vs_mostly_deep_required</text>
+<rect x="596" y="232" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="604" y="255">68.00</text>
+<rect x="684" y="232" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="692" y="255">6.41</text>
+<rect x="772" y="232" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="780" y="255">4.25</text>
+<rect x="860" y="232" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="868" y="255">1.25</text>
+<rect x="948" y="232" width="88" height="38" fill="#ecf3e4" stroke="#e2e8f0"/>
+<text x="956" y="255">10.73</text>
+<rect x="1036" y="232" width="88" height="38" fill="#f8efda" stroke="#e2e8f0"/>
+<text x="1044" y="255">63%</text>
+<rect x="1124" y="232" width="88" height="38" fill="#f5f0dc" stroke="#e2e8f0"/>
+<text x="1132" y="255">69%</text>
+<rect x="1212" y="232" width="88" height="38" fill="#fbeed7" stroke="#e2e8f0"/>
+<text x="1220" y="255">57%</text>
+<rect x="1" y="270" width="130" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="293">PS_family_C</text>
+<rect x="131" y="270" width="210" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="139" y="293">risky_ps_ix</text>
+<rect x="341" y="270" width="255" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="349" y="293">mostly_deep_vs_mostly_deep_required</text>
+<rect x="596" y="270" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="604" y="293">67.00</text>
+<rect x="684" y="270" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="692" y="293">6.80</text>
+<rect x="772" y="270" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="780" y="293">4.34</text>
+<rect x="860" y="270" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="868" y="293">1.21</text>
+<rect x="948" y="270" width="88" height="38" fill="#eff2e1" stroke="#e2e8f0"/>
+<text x="956" y="293">11.21</text>
+<rect x="1036" y="270" width="88" height="38" fill="#f7efdb" stroke="#e2e8f0"/>
+<text x="1044" y="293">66%</text>
+<rect x="1124" y="270" width="88" height="38" fill="#f3f0de" stroke="#e2e8f0"/>
+<text x="1132" y="293">75%</text>
+<rect x="1212" y="270" width="88" height="38" fill="#faeed8" stroke="#e2e8f0"/>
+<text x="1220" y="293">60%</text>
+<rect x="1" y="308" width="130" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="9" y="331">PS_family_C</text>
+<rect x="131" y="308" width="210" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="139" y="331">risky_ps_direct_cost</text>
+<rect x="341" y="308" width="255" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="349" y="331">mostly_deep_vs_mostly_deep_required</text>
+<rect x="596" y="308" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="604" y="331">65.00</text>
+<rect x="684" y="308" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="692" y="331">7.05</text>
+<rect x="772" y="308" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="780" y="331">4.30</text>
+<rect x="860" y="308" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="868" y="331">1.28</text>
+<rect x="948" y="308" width="88" height="38" fill="#f0f1e0" stroke="#e2e8f0"/>
+<text x="956" y="331">11.42</text>
+<rect x="1036" y="308" width="88" height="38" fill="#faeed9" stroke="#e2e8f0"/>
+<text x="1044" y="331">60%</text>
+<rect x="1124" y="308" width="88" height="38" fill="#f5f0dc" stroke="#e2e8f0"/>
+<text x="1132" y="331">69%</text>
+<rect x="1212" y="308" width="88" height="38" fill="#fdedd6" stroke="#e2e8f0"/>
+<text x="1220" y="331">54%</text>
+<rect x="1" y="346" width="130" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="369">PS_family_C</text>
+<rect x="131" y="346" width="210" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="139" y="369">risky_ps_old</text>
+<rect x="341" y="346" width="255" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="349" y="369">mostly_deep_vs_mostly_deep_required</text>
+<rect x="596" y="346" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="604" y="369">65.00</text>
+<rect x="684" y="346" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="692" y="369">7.99</text>
+<rect x="772" y="346" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="780" y="369">4.19</text>
+<rect x="860" y="346" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="868" y="369">1.18</text>
+<rect x="948" y="346" width="88" height="38" fill="#f6efdc" stroke="#e2e8f0"/>
+<text x="956" y="369">12.25</text>
+<rect x="1036" y="346" width="88" height="38" fill="#fdedd6" stroke="#e2e8f0"/>
+<text x="1044" y="369">54%</text>
+<rect x="1124" y="346" width="88" height="38" fill="#f6efdc" stroke="#e2e8f0"/>
+<text x="1132" y="369">68%</text>
+<rect x="1212" y="346" width="88" height="38" fill="#feecd5" stroke="#e2e8f0"/>
+<text x="1220" y="369">49%</text>
+<rect x="1" y="384" width="130" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="9" y="407">PS_family_C</text>
+<rect x="131" y="384" width="210" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="139" y="407">risky_ps_linear</text>
+<rect x="341" y="384" width="255" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="349" y="407">mostly_deep_vs_mostly_deep_required</text>
+<rect x="596" y="384" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="604" y="407">64.00</text>
+<rect x="684" y="384" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="692" y="407">8.77</text>
+<rect x="772" y="384" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="780" y="407">4.31</text>
+<rect x="860" y="384" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="868" y="407">0.99</text>
+<rect x="948" y="384" width="88" height="38" fill="#fcedd7" stroke="#e2e8f0"/>
+<text x="956" y="407">13.16</text>
+<rect x="1036" y="384" width="88" height="38" fill="#ffedd5" stroke="#e2e8f0"/>
+<text x="1044" y="407">50%</text>
+<rect x="1124" y="384" width="88" height="38" fill="#f5f0dd" stroke="#e2e8f0"/>
+<text x="1132" y="407">70%</text>
+<rect x="1212" y="384" width="88" height="38" fill="#feebd6" stroke="#e2e8f0"/>
+<text x="1220" y="407">45%</text>
+<rect x="1" y="422" width="130" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="445">PS_family_C</text>
+<rect x="131" y="422" width="210" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="139" y="445">risky_ps_old</text>
+<rect x="341" y="422" width="255" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="349" y="445">mostly_fast_vs_mostly_deep_required</text>
+<rect x="596" y="422" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="604" y="445">10.00</text>
+<rect x="684" y="422" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="692" y="445">6.95</text>
+<rect x="772" y="422" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="780" y="445">4.91</text>
+<rect x="860" y="422" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="868" y="445">3.30</text>
+<rect x="948" y="422" width="88" height="38" fill="#f4f0dd" stroke="#e2e8f0"/>
+<text x="956" y="445">11.92</text>
+<rect x="1036" y="422" width="88" height="38" fill="#faeed9" stroke="#e2e8f0"/>
+<text x="1044" y="445">60%</text>
+<rect x="1124" y="422" width="88" height="38" fill="#f5f0dd" stroke="#e2e8f0"/>
+<text x="1132" y="445">70%</text>
+<rect x="1212" y="422" width="88" height="38" fill="#faeed9" stroke="#e2e8f0"/>
+<text x="1220" y="445">60%</text>
+<rect x="1" y="460" width="130" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="9" y="483">PS_family_C</text>
+<rect x="131" y="460" width="210" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="139" y="483">risky_ps_linear</text>
+<rect x="341" y="460" width="255" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="349" y="483">mostly_fast_vs_mostly_deep_required</text>
+<rect x="596" y="460" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="604" y="483">11.00</text>
+<rect x="684" y="460" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="692" y="483">9.36</text>
+<rect x="772" y="460" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="780" y="483">5.01</text>
+<rect x="860" y="460" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="868" y="483">3.91</text>
+<rect x="948" y="460" width="88" height="38" fill="#feead8" stroke="#e2e8f0"/>
+<text x="956" y="483">14.43</text>
+<rect x="1036" y="460" width="88" height="38" fill="#feecd6" stroke="#e2e8f0"/>
+<text x="1044" y="483">45%</text>
+<rect x="1124" y="460" width="88" height="38" fill="#feecd6" stroke="#e2e8f0"/>
+<text x="1132" y="483">45%</text>
+<rect x="1212" y="460" width="88" height="38" fill="#feecd6" stroke="#e2e8f0"/>
+<text x="1220" y="483">45%</text>
+<rect x="1" y="498" width="130" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="521">C_baseline</text>
+<rect x="131" y="498" width="210" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="139" y="521">direct_multistage_exp3</text>
+<rect x="341" y="498" width="255" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="349" y="521">mostly_fast_vs_mostly_deep_required</text>
+<rect x="596" y="498" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="604" y="521">9.00</text>
+<rect x="684" y="498" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="692" y="521">9.72</text>
+<rect x="772" y="498" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="780" y="521">5.19</text>
+<rect x="860" y="498" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="868" y="521">3.56</text>
+<rect x="948" y="498" width="88" height="38" fill="#fee8da" stroke="#e2e8f0"/>
+<text x="956" y="521">14.97</text>
+<rect x="1036" y="498" width="88" height="38" fill="#feebd6" stroke="#e2e8f0"/>
+<text x="1044" y="521">44%</text>
+<rect x="1124" y="498" width="88" height="38" fill="#feebd6" stroke="#e2e8f0"/>
+<text x="1132" y="521">44%</text>
+<rect x="1212" y="498" width="88" height="38" fill="#fee9d9" stroke="#e2e8f0"/>
+<text x="1220" y="521">33%</text>
+<rect x="1" y="536" width="130" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="9" y="559">PS_family_C</text>
+<rect x="131" y="536" width="210" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="139" y="559">risky_ps_safe_conditional_ix</text>
+<rect x="341" y="536" width="255" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="349" y="559">mostly_fast_vs_mostly_deep_required</text>
+<rect x="596" y="536" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="604" y="559">7.00</text>
+<rect x="684" y="536" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="692" y="559">10.36</text>
+<rect x="772" y="536" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="780" y="559">4.80</text>
+<rect x="860" y="536" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="868" y="559">3.71</text>
+<rect x="948" y="536" width="88" height="38" fill="#fee7db" stroke="#e2e8f0"/>
+<text x="956" y="559">15.23</text>
+<rect x="1036" y="536" width="88" height="38" fill="#feebd6" stroke="#e2e8f0"/>
+<text x="1044" y="559">43%</text>
+<rect x="1124" y="536" width="88" height="38" fill="#feebd6" stroke="#e2e8f0"/>
+<text x="1132" y="559">43%</text>
+<rect x="1212" y="536" width="88" height="38" fill="#feebd6" stroke="#e2e8f0"/>
+<text x="1220" y="559">43%</text>
+<rect x="1" y="574" width="130" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="597">C_baseline</text>
+<rect x="131" y="574" width="210" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="139" y="597">epsilon_exp3</text>
+<rect x="341" y="574" width="255" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="349" y="597">mostly_fast_vs_mostly_deep_required</text>
+<rect x="596" y="574" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="604" y="597">19.00</text>
+<rect x="684" y="574" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="692" y="597">10.26</text>
+<rect x="772" y="574" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="780" y="597">5.10</text>
+<rect x="860" y="574" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="868" y="597">3.68</text>
+<rect x="948" y="574" width="88" height="38" fill="#fee7db" stroke="#e2e8f0"/>
+<text x="956" y="597">15.42</text>
+<rect x="1036" y="574" width="88" height="38" fill="#feead8" stroke="#e2e8f0"/>
+<text x="1044" y="597">37%</text>
+<rect x="1124" y="574" width="88" height="38" fill="#feebd7" stroke="#e2e8f0"/>
+<text x="1132" y="597">42%</text>
+<rect x="1212" y="574" width="88" height="38" fill="#feead8" stroke="#e2e8f0"/>
+<text x="1220" y="597">37%</text>
+<rect x="1" y="612" width="130" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="9" y="635">PS_family_C</text>
+<rect x="131" y="612" width="210" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="139" y="635">risky_ps_ix</text>
+<rect x="341" y="612" width="255" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="349" y="635">mostly_fast_vs_mostly_deep_required</text>
+<rect x="596" y="612" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="604" y="635">8.00</text>
+<rect x="684" y="612" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="692" y="635">10.69</text>
+<rect x="772" y="612" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="780" y="635">5.20</text>
+<rect x="860" y="612" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="868" y="635">3.44</text>
+<rect x="948" y="612" width="88" height="38" fill="#fee5dd" stroke="#e2e8f0"/>
+<text x="956" y="635">15.95</text>
+<rect x="1036" y="612" width="88" height="38" fill="#feead8" stroke="#e2e8f0"/>
+<text x="1044" y="635">38%</text>
+<rect x="1124" y="612" width="88" height="38" fill="#feead8" stroke="#e2e8f0"/>
+<text x="1132" y="635">38%</text>
+<rect x="1212" y="612" width="88" height="38" fill="#feead8" stroke="#e2e8f0"/>
+<text x="1220" y="635">38%</text>
+<rect x="1" y="650" width="130" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="673">PS_family_C</text>
+<rect x="131" y="650" width="210" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="139" y="673">risky_ps_safe_conditional</text>
+<rect x="341" y="650" width="255" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="349" y="673">mostly_fast_vs_mostly_deep_required</text>
+<rect x="596" y="650" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="604" y="673">12.00</text>
+<rect x="684" y="650" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="692" y="673">10.71</text>
+<rect x="772" y="650" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="780" y="673">5.24</text>
+<rect x="860" y="650" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="868" y="673">3.54</text>
+<rect x="948" y="650" width="88" height="38" fill="#fee5dd" stroke="#e2e8f0"/>
+<text x="956" y="673">16.02</text>
+<rect x="1036" y="650" width="88" height="38" fill="#fee9d9" stroke="#e2e8f0"/>
+<text x="1044" y="673">33%</text>
+<rect x="1124" y="650" width="88" height="38" fill="#feebd7" stroke="#e2e8f0"/>
+<text x="1132" y="673">42%</text>
+<rect x="1212" y="650" width="88" height="38" fill="#fee9d9" stroke="#e2e8f0"/>
+<text x="1220" y="673">33%</text>
+<rect x="1" y="688" width="130" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="9" y="711">PS_family_C</text>
+<rect x="131" y="688" width="210" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="139" y="711">risky_ps</text>
+<rect x="341" y="688" width="255" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="349" y="711">mostly_fast_vs_mostly_deep_required</text>
+<rect x="596" y="688" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="604" y="711">5.00</text>
+<rect x="684" y="688" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="692" y="711">11.20</text>
+<rect x="772" y="688" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="780" y="711">5.31</text>
+<rect x="860" y="688" width="88" height="38" fill="#fff" stroke="#e2e8f0"/>
+<text x="868" y="711">3.70</text>
+<rect x="948" y="688" width="88" height="38" fill="#fee3df" stroke="#e2e8f0"/>
+<text x="956" y="711">16.58</text>
+<rect x="1036" y="688" width="88" height="38" fill="#fee6dc" stroke="#e2e8f0"/>
+<text x="1044" y="711">20%</text>
+<rect x="1124" y="688" width="88" height="38" fill="#fee6dc" stroke="#e2e8f0"/>
+<text x="1132" y="711">20%</text>
+<rect x="1212" y="688" width="88" height="38" fill="#fee6dc" stroke="#e2e8f0"/>
+<text x="1220" y="711">20%</text>
+<rect x="1" y="726" width="130" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="749">PS_family_C</text>
+<rect x="131" y="726" width="210" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="139" y="749">risky_ps_direct_cost</text>
+<rect x="341" y="726" width="255" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="349" y="749">mostly_fast_vs_mostly_deep_required</text>
+<rect x="596" y="726" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="604" y="749">10.00</text>
+<rect x="684" y="726" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="692" y="749">12.30</text>
+<rect x="772" y="726" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="780" y="749">4.77</text>
+<rect x="860" y="726" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="868" y="749">3.55</text>
+<rect x="948" y="726" width="88" height="38" fill="#fee2e2" stroke="#e2e8f0"/>
+<text x="956" y="749">17.13</text>
+<rect x="1036" y="726" width="88" height="38" fill="#fee6dc" stroke="#e2e8f0"/>
+<text x="1044" y="749">20%</text>
+<rect x="1124" y="726" width="88" height="38" fill="#feead7" stroke="#e2e8f0"/>
+<text x="1132" y="749">40%</text>
+<rect x="1212" y="726" width="88" height="38" fill="#fee6dc" stroke="#e2e8f0"/>
+<text x="1220" y="749">20%</text>
+</svg>
