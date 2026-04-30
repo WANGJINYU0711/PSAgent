@@ -1,0 +1,343 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1228" height="554" viewBox="0 0 1228 554">
+<style>text{font-family:Arial,Helvetica,sans-serif;font-size:12px;fill:#1f2933}.title{font-size:18px;font-weight:700}.head{font-size:11px;font-weight:700;fill:#334155}.small{font-size:10px;fill:#475569}</style>
+<rect x="0" y="0" width="1228" height="554" fill="#ffffff"/>
+<text class="title" x="12" y="29">terminalv4 vs terminalv4+modecostv2: all/post summary</text>
+<rect x="1" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="9" y="68">run</text>
+<rect x="89" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="97" y="68">split</text>
+<rect x="177" y="46" width="170" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="185" y="68">method</text>
+<rect x="347" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="355" y="68">n</text>
+<rect x="435" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="443" y="68">terminal</text>
+<rect x="523" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="531" y="68">legacy</text>
+<rect x="611" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="619" y="68">reasoning</text>
+<rect x="699" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="707" y="68">modecost</text>
+<rect x="787" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="795" y="68">total</text>
+<rect x="875" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="883" y="68">term_share</text>
+<rect x="963" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="971" y="68">clear</text>
+<rect x="1051" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="1059" y="68">aux</text>
+<rect x="1139" y="46" width="88" height="34" fill="#eef2f7" stroke="#cbd5e1"/>
+<text class="head" x="1147" y="68">strict</text>
+<rect x="1" y="80" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="9" y="103">terminalv4</text>
+<rect x="89" y="80" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="97" y="103">all</text>
+<rect x="177" y="80" width="170" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="185" y="103">direct_multistage_exp3</text>
+<rect x="347" y="80" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="355" y="103">100.00</text>
+<rect x="435" y="80" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="443" y="103">7.14</text>
+<rect x="523" y="80" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="531" y="103">5.18</text>
+<rect x="611" y="80" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="619" y="103">4.86</text>
+<rect x="699" y="80" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="707" y="103">0.00</text>
+<rect x="787" y="80" width="88" height="38" fill="#fdedd6" stroke="#e2e8f0"/>
+<text x="795" y="103">12.08</text>
+<rect x="875" y="80" width="88" height="38" fill="#faeed8" stroke="#e2e8f0"/>
+<text x="883" y="103">59%</text>
+<rect x="963" y="80" width="88" height="38" fill="#f8efda" stroke="#e2e8f0"/>
+<text x="971" y="103">63%</text>
+<rect x="1051" y="80" width="88" height="38" fill="#f3f0de" stroke="#e2e8f0"/>
+<text x="1059" y="103">74%</text>
+<rect x="1139" y="80" width="88" height="38" fill="#faeed8" stroke="#e2e8f0"/>
+<text x="1147" y="103">59%</text>
+<rect x="1" y="118" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="141">terminalv4</text>
+<rect x="89" y="118" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="97" y="141">all</text>
+<rect x="177" y="118" width="170" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="185" y="141">epsilon_exp3</text>
+<rect x="347" y="118" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="355" y="141">100.00</text>
+<rect x="435" y="118" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="443" y="141">6.39</text>
+<rect x="523" y="118" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="531" y="141">4.58</text>
+<rect x="611" y="118" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="619" y="141">4.93</text>
+<rect x="699" y="118" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="707" y="141">0.00</text>
+<rect x="787" y="118" width="88" height="38" fill="#f7efdb" stroke="#e2e8f0"/>
+<text x="795" y="141">11.39</text>
+<rect x="875" y="118" width="88" height="38" fill="#fbeed7" stroke="#e2e8f0"/>
+<text x="883" y="141">56%</text>
+<rect x="963" y="118" width="88" height="38" fill="#f6efdb" stroke="#e2e8f0"/>
+<text x="971" y="141">67%</text>
+<rect x="1051" y="118" width="88" height="38" fill="#f3f0de" stroke="#e2e8f0"/>
+<text x="1059" y="141">74%</text>
+<rect x="1139" y="118" width="88" height="38" fill="#f8efda" stroke="#e2e8f0"/>
+<text x="1147" y="141">64%</text>
+<rect x="1" y="156" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="9" y="179">terminalv4</text>
+<rect x="89" y="156" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="97" y="179">all</text>
+<rect x="177" y="156" width="170" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="185" y="179">risky_ps_linear</text>
+<rect x="347" y="156" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="355" y="179">100.00</text>
+<rect x="435" y="156" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="443" y="179">4.71</text>
+<rect x="523" y="156" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="531" y="179">3.06</text>
+<rect x="611" y="156" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="619" y="179">4.93</text>
+<rect x="699" y="156" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="707" y="179">0.00</text>
+<rect x="787" y="156" width="88" height="38" fill="#e7f5e9" stroke="#e2e8f0"/>
+<text x="795" y="179">9.71</text>
+<rect x="875" y="156" width="88" height="38" fill="#feecd5" stroke="#e2e8f0"/>
+<text x="883" y="179">49%</text>
+<rect x="963" y="156" width="88" height="38" fill="#f3f1df" stroke="#e2e8f0"/>
+<text x="971" y="179">75%</text>
+<rect x="1051" y="156" width="88" height="38" fill="#f2f1df" stroke="#e2e8f0"/>
+<text x="1059" y="179">76%</text>
+<rect x="1139" y="156" width="88" height="38" fill="#f6efdc" stroke="#e2e8f0"/>
+<text x="1147" y="179">68%</text>
+<rect x="1" y="194" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="217">terminalv4</text>
+<rect x="89" y="194" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="97" y="217">post</text>
+<rect x="177" y="194" width="170" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="185" y="217">direct_multistage_exp3</text>
+<rect x="347" y="194" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="355" y="217">75.00</text>
+<rect x="435" y="194" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="443" y="217">9.52</text>
+<rect x="523" y="194" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="531" y="217">6.91</text>
+<rect x="611" y="194" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="619" y="217">4.87</text>
+<rect x="699" y="194" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="707" y="217">0.00</text>
+<rect x="787" y="194" width="88" height="38" fill="#fee3e0" stroke="#e2e8f0"/>
+<text x="795" y="217">14.47</text>
+<rect x="875" y="194" width="88" height="38" fill="#f7efdb" stroke="#e2e8f0"/>
+<text x="883" y="217">66%</text>
+<rect x="963" y="194" width="88" height="38" fill="#feedd5" stroke="#e2e8f0"/>
+<text x="971" y="217">51%</text>
+<rect x="1051" y="194" width="88" height="38" fill="#f7efdb" stroke="#e2e8f0"/>
+<text x="1059" y="217">65%</text>
+<rect x="1139" y="194" width="88" height="38" fill="#feebd6" stroke="#e2e8f0"/>
+<text x="1147" y="217">45%</text>
+<rect x="1" y="232" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="9" y="255">terminalv4</text>
+<rect x="89" y="232" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="97" y="255">post</text>
+<rect x="177" y="232" width="170" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="185" y="255">epsilon_exp3</text>
+<rect x="347" y="232" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="355" y="255">75.00</text>
+<rect x="435" y="232" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="443" y="255">8.52</text>
+<rect x="523" y="232" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="531" y="255">6.11</text>
+<rect x="611" y="232" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="619" y="255">4.74</text>
+<rect x="699" y="232" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="707" y="255">0.00</text>
+<rect x="787" y="232" width="88" height="38" fill="#fee8da" stroke="#e2e8f0"/>
+<text x="795" y="255">13.34</text>
+<rect x="875" y="232" width="88" height="38" fill="#f8efda" stroke="#e2e8f0"/>
+<text x="883" y="255">64%</text>
+<rect x="963" y="232" width="88" height="38" fill="#fcedd7" stroke="#e2e8f0"/>
+<text x="971" y="255">56%</text>
+<rect x="1051" y="232" width="88" height="38" fill="#f7efdb" stroke="#e2e8f0"/>
+<text x="1059" y="255">65%</text>
+<rect x="1139" y="232" width="88" height="38" fill="#feedd5" stroke="#e2e8f0"/>
+<text x="1147" y="255">52%</text>
+<rect x="1" y="270" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="293">terminalv4</text>
+<rect x="89" y="270" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="97" y="293">post</text>
+<rect x="177" y="270" width="170" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="185" y="293">risky_ps_linear</text>
+<rect x="347" y="270" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="355" y="293">75.00</text>
+<rect x="435" y="270" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="443" y="293">6.15</text>
+<rect x="523" y="270" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="531" y="293">4.07</text>
+<rect x="611" y="270" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="619" y="293">4.94</text>
+<rect x="699" y="270" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="707" y="293">0.00</text>
+<rect x="787" y="270" width="88" height="38" fill="#f4f0dd" stroke="#e2e8f0"/>
+<text x="795" y="293">11.16</text>
+<rect x="875" y="270" width="88" height="38" fill="#fcedd7" stroke="#e2e8f0"/>
+<text x="883" y="293">55%</text>
+<rect x="963" y="270" width="88" height="38" fill="#f6efdc" stroke="#e2e8f0"/>
+<text x="971" y="293">68%</text>
+<rect x="1051" y="270" width="88" height="38" fill="#f6efdc" stroke="#e2e8f0"/>
+<text x="1059" y="293">68%</text>
+<rect x="1139" y="270" width="88" height="38" fill="#faeed8" stroke="#e2e8f0"/>
+<text x="1147" y="293">59%</text>
+<rect x="1" y="308" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="9" y="331">terminalv4_modecostv2</text>
+<rect x="89" y="308" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="97" y="331">all</text>
+<rect x="177" y="308" width="170" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="185" y="331">direct_multistage_exp3</text>
+<rect x="347" y="308" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="355" y="331">100.00</text>
+<rect x="435" y="308" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="443" y="331">5.81</text>
+<rect x="523" y="308" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="531" y="331">3.87</text>
+<rect x="611" y="308" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="619" y="331">6.22</text>
+<rect x="699" y="308" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="707" y="331">1.38</text>
+<rect x="787" y="308" width="88" height="38" fill="#fdedd5" stroke="#e2e8f0"/>
+<text x="795" y="331">12.10</text>
+<rect x="875" y="308" width="88" height="38" fill="#feecd5" stroke="#e2e8f0"/>
+<text x="883" y="331">48%</text>
+<rect x="963" y="308" width="88" height="38" fill="#f5f0dd" stroke="#e2e8f0"/>
+<text x="971" y="331">70%</text>
+<rect x="1051" y="308" width="88" height="38" fill="#f4f0dd" stroke="#e2e8f0"/>
+<text x="1059" y="331">72%</text>
+<rect x="1139" y="308" width="88" height="38" fill="#f9eed9" stroke="#e2e8f0"/>
+<text x="1147" y="331">61%</text>
+<rect x="1" y="346" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="369">terminalv4_modecostv2</text>
+<rect x="89" y="346" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="97" y="369">all</text>
+<rect x="177" y="346" width="170" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="185" y="369">epsilon_exp3</text>
+<rect x="347" y="346" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="355" y="369">100.00</text>
+<rect x="435" y="346" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="443" y="369">5.72</text>
+<rect x="523" y="346" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="531" y="369">3.78</text>
+<rect x="611" y="346" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="619" y="369">6.60</text>
+<rect x="699" y="346" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="707" y="369">1.53</text>
+<rect x="787" y="346" width="88" height="38" fill="#feecd5" stroke="#e2e8f0"/>
+<text x="795" y="369">12.39</text>
+<rect x="875" y="346" width="88" height="38" fill="#feecd5" stroke="#e2e8f0"/>
+<text x="883" y="369">46%</text>
+<rect x="963" y="346" width="88" height="38" fill="#f6efdb" stroke="#e2e8f0"/>
+<text x="971" y="369">67%</text>
+<rect x="1051" y="346" width="88" height="38" fill="#f2f1df" stroke="#e2e8f0"/>
+<text x="1059" y="369">77%</text>
+<rect x="1139" y="346" width="88" height="38" fill="#f7efdb" stroke="#e2e8f0"/>
+<text x="1147" y="369">65%</text>
+<rect x="1" y="384" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="9" y="407">terminalv4_modecostv2</text>
+<rect x="89" y="384" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="97" y="407">all</text>
+<rect x="177" y="384" width="170" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="185" y="407">risky_ps_linear</text>
+<rect x="347" y="384" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="355" y="407">100.00</text>
+<rect x="435" y="384" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="443" y="407">6.20</text>
+<rect x="523" y="384" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="531" y="407">4.32</text>
+<rect x="611" y="384" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="619" y="407">6.62</text>
+<rect x="699" y="384" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="707" y="407">1.54</text>
+<rect x="787" y="384" width="88" height="38" fill="#fee9d8" stroke="#e2e8f0"/>
+<text x="795" y="407">12.89</text>
+<rect x="875" y="384" width="88" height="38" fill="#feecd5" stroke="#e2e8f0"/>
+<text x="883" y="407">48%</text>
+<rect x="963" y="384" width="88" height="38" fill="#f6efdc" stroke="#e2e8f0"/>
+<text x="971" y="407">68%</text>
+<rect x="1051" y="384" width="88" height="38" fill="#f2f1df" stroke="#e2e8f0"/>
+<text x="1059" y="407">77%</text>
+<rect x="1139" y="384" width="88" height="38" fill="#f9eed9" stroke="#e2e8f0"/>
+<text x="1147" y="407">62%</text>
+<rect x="1" y="422" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="445">terminalv4_modecostv2</text>
+<rect x="89" y="422" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="97" y="445">post</text>
+<rect x="177" y="422" width="170" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="185" y="445">direct_multistage_exp3</text>
+<rect x="347" y="422" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="355" y="445">75.00</text>
+<rect x="435" y="422" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="443" y="445">7.75</text>
+<rect x="523" y="422" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="531" y="445">5.15</text>
+<rect x="611" y="422" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="619" y="445">6.14</text>
+<rect x="699" y="422" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="707" y="445">1.31</text>
+<rect x="787" y="422" width="88" height="38" fill="#fee5de" stroke="#e2e8f0"/>
+<text x="795" y="445">13.96</text>
+<rect x="875" y="422" width="88" height="38" fill="#fcedd7" stroke="#e2e8f0"/>
+<text x="883" y="445">56%</text>
+<rect x="963" y="422" width="88" height="38" fill="#faeed9" stroke="#e2e8f0"/>
+<text x="971" y="445">60%</text>
+<rect x="1051" y="422" width="88" height="38" fill="#f8efda" stroke="#e2e8f0"/>
+<text x="1059" y="445">63%</text>
+<rect x="1139" y="422" width="88" height="38" fill="#feecd5" stroke="#e2e8f0"/>
+<text x="1147" y="445">48%</text>
+<rect x="1" y="460" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="9" y="483">terminalv4_modecostv2</text>
+<rect x="89" y="460" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="97" y="483">post</text>
+<rect x="177" y="460" width="170" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="185" y="483">epsilon_exp3</text>
+<rect x="347" y="460" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="355" y="483">75.00</text>
+<rect x="435" y="460" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="443" y="483">7.63</text>
+<rect x="523" y="460" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="531" y="483">5.04</text>
+<rect x="611" y="460" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="619" y="483">6.46</text>
+<rect x="699" y="460" width="88" height="38" fill="#ffffff" stroke="#e2e8f0"/>
+<text x="707" y="483">1.49</text>
+<rect x="787" y="460" width="88" height="38" fill="#fee4df" stroke="#e2e8f0"/>
+<text x="795" y="483">14.16</text>
+<rect x="875" y="460" width="88" height="38" fill="#fdedd6" stroke="#e2e8f0"/>
+<text x="883" y="483">54%</text>
+<rect x="963" y="460" width="88" height="38" fill="#fcedd7" stroke="#e2e8f0"/>
+<text x="971" y="483">56%</text>
+<rect x="1051" y="460" width="88" height="38" fill="#f5f0dc" stroke="#e2e8f0"/>
+<text x="1059" y="483">69%</text>
+<rect x="1139" y="460" width="88" height="38" fill="#fdedd6" stroke="#e2e8f0"/>
+<text x="1147" y="483">53%</text>
+<rect x="1" y="498" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="9" y="521">terminalv4_modecostv2</text>
+<rect x="89" y="498" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="97" y="521">post</text>
+<rect x="177" y="498" width="170" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="185" y="521">risky_ps_linear</text>
+<rect x="347" y="498" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="355" y="521">75.00</text>
+<rect x="435" y="498" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="443" y="521">8.27</text>
+<rect x="523" y="498" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="531" y="521">5.76</text>
+<rect x="611" y="498" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="619" y="521">6.37</text>
+<rect x="699" y="498" width="88" height="38" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="707" y="521">1.47</text>
+<rect x="787" y="498" width="88" height="38" fill="#fee2e2" stroke="#e2e8f0"/>
+<text x="795" y="521">14.71</text>
+<rect x="875" y="498" width="88" height="38" fill="#fbeed7" stroke="#e2e8f0"/>
+<text x="883" y="521">56%</text>
+<rect x="963" y="498" width="88" height="38" fill="#fbeed7" stroke="#e2e8f0"/>
+<text x="971" y="521">57%</text>
+<rect x="1051" y="498" width="88" height="38" fill="#f5f0dc" stroke="#e2e8f0"/>
+<text x="1059" y="521">69%</text>
+<rect x="1139" y="498" width="88" height="38" fill="#feecd5" stroke="#e2e8f0"/>
+<text x="1147" y="521">49%</text>
+</svg>
