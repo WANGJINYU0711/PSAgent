@@ -156,6 +156,108 @@ For a fuller write-up of the run, see:
 
 - `notes/telecom_mms_v4_lowtransfer_smoke_2026-04-27.md`
 
+## Recent C-Config LLM Smoke Status (2026-04-30)
+
+The current LLM smoke candidate config is the "C" setup:
+
+- `terminalv4`
+- `reasoning weight calibration v3`
+- `report-only modecost`
+- `switch_denominator=4`
+- `eta=0.3`
+- `epsilon=0.01`
+- dataset:
+  `data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_exec_clean_v2_100/tasks.json`
+- buckets:
+  `analysis/shared_basin_prefix_dedup_profile_switch_local_exec_clean_v2_100_smoke10_schedule_buckets.json`
+
+Important recent runs:
+
+- Seed0 C 3-method run:
+  `tmp/llm_v8_local_exec_clean_v2_100_smoke10_d4_eta03_eps001_10x10_3methods_terminalv4_reasoncalibv3_reportmodecost/`
+  - `direct_multistage_exp3` ranked first.
+- Seed0 PS-family run under the same C config:
+  `tmp/llm_v8_psfamily_cconfig_d4_eta03_eps001_10x10_terminalv4_reasoncalibv3_reportmodecost_pslinear_eta_shared015/`
+  - `risky_ps` ranked first overall and post-switch.
+  - `risky_ps_linear` with `eta_shared=0.15` performed badly; the failure was
+    mainly higher terminal cost, not reasoning cost.
+- Seed1 confirmatory 3-method run:
+  `tmp/llm_v8_confirm_seed1_cconfig_d4_eta03_eps001_10x10_3methods_terminalv4_reasoncalibv3_reportmodecost/`
+  - same C config, same `d=4`, same methods (`risky_ps`,
+    `direct_multistage_exp3`, `epsilon_exp3`), only seed changed
+  - `epsilon_exp3` ranked first, `direct_multistage_exp3` second,
+    `risky_ps` third
+
+Current decision:
+
+- Do **not** start the full formal LLM run yet.
+- C remains the leading objective/cost configuration candidate, but
+  "PS first" is still seed-sensitive and not yet robust enough.
+
+Main interpretation from seed0 vs seed1:
+
+- The remaining issue is probably **not** lack of shared target structure.
+- In seed1, `risky_ps` still selected many post-switch `deep-on-deep` paths,
+  but its post/deep **terminal quality** degraded sharply.
+- This points more toward PS shared-update / terminal instability than simple
+  mode mismatch or schedule-ratio mismatch.
+
+Useful share-structure evidence:
+
+- `analysis/shared_basin_strong_static_analysis.json`
+  - `shared_leaf_fraction = 0.8818`
+  - `top5_shared_majority_fraction = 0.99`
+  - `mean_top5_shared_fraction = 0.724`
+- In current C smoke outputs, post/target-heavy specialist summaries still
+  mostly use shared paths:
+  - seed0 C direct specialist shared-path fraction: `1.0`
+  - seed0 C `risky_ps` specialist shared-path fraction: `0.9375`
+
+Interpretation:
+
+- the tree still has strong shared-basin structure
+- target/deep tasks are not obviously "unshared-biased"
+- if PS loses, assume execution/update instability before assuming the tree no
+  longer favors shared suffix reuse
+
+Early-stop diagnostic:
+
+- Artifacts:
+  `tmp/llm_v8_seed0_seed1_cost_curves_cconfig_d4_eta03_eps001/`
+- Result:
+  - `t=25` is not meaningful for stopping because it is still pre-switch
+  - `t=50` is not reliable
+  - `t=75` was the first checkpoint that matched the final winner for both
+    tested seeds
+  - `t=90` can still mislead when margins are tiny
+- Practical rule:
+  - do not hard-stop before substantial post-switch evidence accumulates
+  - early stop can be used only as weak warning unless `t >= 75`, the leader is
+    stable for many episodes, and the margin is clearly above noise
+
+Seed handling:
+
+- `scripts/run_shared_basin_repeated_smoke.py` now supports seed override via:
+  - `PSAGENT_REPEATED_SMOKE_SEED`
+
+Legacy naming note:
+
+- `specialist_*` fields and summaries still exist in analysis/export code and in
+  many `tmp/` artifacts.
+- Treat them as legacy diagnostics for the current target/deep/share-heavy task
+  slice, not as proof that there is still a meaningful separate runtime
+  "specialist" agent concept.
+
+Best next diagnostic before any full run:
+
+1. Compare seed0 vs seed1 `risky_ps` specifically on post-switch episodes with
+   very high terminal cost.
+2. Check whether failures cluster in `repair_subset`, transfer fallback, or a
+   few repeated local-repair blocker patterns.
+3. If instability looks like PS update variance, test smaller shared-update
+   aggressiveness or clipping/prob-floor style stabilization before rerunning
+   confirmatory smoke.
+
 ## Fast Cost And Token Penalty
 
 Fast token diagnostics were added because fast paths may exceed their intended
@@ -209,6 +311,7 @@ As of this note, the worktree has tracked modifications in:
 - `envs/executors/telecom_llm_bench_executor.py`
 - `scripts/build_shared_basin_profile_switch_assets.py`
 - `scripts/run_llm_path_sweep_diagnostic.py`
+- `scripts/run_shared_basin_repeated_smoke.py`
 
 There are untracked generated datasets, bucket files, scripts, and `tmp/`
 diagnostic/smoke outputs. Treat these as intentional unless proven otherwise.

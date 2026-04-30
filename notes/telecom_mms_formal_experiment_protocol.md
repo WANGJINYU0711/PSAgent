@@ -15,6 +15,32 @@ We do **not** center the formal comparison on:
 
 Once the track is frozen, those implementation details should not keep changing during the formal comparison.
 
+## Current Gate (2026-04-30)
+
+For the current LLM profile-switch/shared-basin line, do **not** launch the
+full-scale formal run yet.
+
+Reason:
+
+- the current preferred cost/objective setup is the C config
+  (`terminalv4 + reasoning calibration v3 + report-only modecost`, `d=4`)
+- under seed0, `risky_ps` can win
+- but under seed1 confirmatory smoke with the same config and only the seed
+  changed, `risky_ps` dropped behind both `epsilon_exp3` and
+  `direct_multistage_exp3`
+
+So the current blocker is not cost-config fairness; it is PS-first robustness.
+
+Before any full formal LLM run, first clear this gate:
+
+1. reproduce PS-first under at least one more confirmatory seed or larger smoke
+2. or diagnose and stabilize the seed-sensitive post-switch terminal failures
+   in `risky_ps`
+
+Reference note:
+
+- `notes/telecom_mms_cconfig_seed_confirmatory_2026-04-30.md`
+
 ---
 
 ## 1. Formal Goal
