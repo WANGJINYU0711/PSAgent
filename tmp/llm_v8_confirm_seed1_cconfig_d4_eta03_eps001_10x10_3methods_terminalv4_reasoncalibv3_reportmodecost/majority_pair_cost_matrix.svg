@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1150" height="380" viewBox="0 0 1150 380">
+<style>text{font-family:Arial, sans-serif;font-size:12px}.title{font-size:18px;font-weight:700}.small{font-size:11px}.bar{fill:#4c78a8}.seed1{fill:#f58518}.ps{fill:#54a24b}</style>
+<rect width="100%" height="100%" fill="white"/>
+<text x="20" y="28" class="title">Confirm seed1 majority pair total cost</text>
+<text x="20" y="68">all | confirm_seed1 | direct_multistage_exp3</text>
+<rect class="seed1" x="260" y="57" width="570.4" height="16" rx="2"/>
+<text x="836.4" y="69">11.13</text>
+<text x="20" y="92">all | confirm_seed1 | direct_multistage_exp3</text>
+<rect class="seed1" x="260" y="81" width="292.3" height="16" rx="2"/>
+<text x="558.3" y="93">5.70</text>
+<text x="20" y="116">all | confirm_seed1 | direct_multistage_exp3</text>
+<rect class="seed1" x="260" y="105" width="575.5" height="16" rx="2"/>
+<text x="841.5" y="117">11.23</text>
+<text x="20" y="140">all | confirm_seed1 | direct_multistage_exp3</text>
+<rect class="seed1" x="260" y="129" width="475.0" height="16" rx="2"/>
+<text x="741.0" y="141">9.27</text>
+<text x="20" y="164">all | confirm_seed1 | epsilon_exp3</text>
+<rect class="seed1" x="260" y="153" width="559.4" height="16" rx="2"/>
+<text x="825.4" y="165">10.92</text>
+<text x="20" y="188">all | confirm_seed1 | epsilon_exp3</text>
+<rect class="seed1" x="260" y="177" width="290.7" height="16" rx="2"/>
+<text x="556.7" y="189">5.67</text>
+<text x="20" y="212">all | confirm_seed1 | epsilon_exp3</text>
+<rect class="seed1" x="260" y="201" width="609.9" height="16" rx="2"/>
+<text x="875.9" y="213">11.90</text>
+<text x="20" y="236">all | confirm_seed1 | epsilon_exp3</text>
+<rect class="seed1" x="260" y="225" width="200.2" height="16" rx="2"/>
+<text x="466.2" y="237">3.91</text>
+<text x="20" y="260">all | confirm_seed1 | risky_ps</text>
+<rect class="seed1" x="260" y="249" width="597.7" height="16" rx="2"/>
+<text x="863.7" y="261">11.66</text>
+<text x="20" y="284">all | confirm_seed1 | risky_ps</text>
+<rect class="seed1" x="260" y="273" width="273.8" height="16" rx="2"/>
+<text x="539.8" y="285">5.34</text>
+<text x="20" y="308">all | confirm_seed1 | risky_ps</text>
+<rect class="seed1" x="260" y="297" width="810.0" height="16" rx="2"/>
+<text x="1076.0" y="309">15.81</text>
+<text x="20" y="332">all | confirm_seed1 | risky_ps</text>
+<rect class="seed1" x="260" y="321" width="183.1" height="16" rx="2"/>
+<text x="449.1" y="333">3.57</text>
+</svg>

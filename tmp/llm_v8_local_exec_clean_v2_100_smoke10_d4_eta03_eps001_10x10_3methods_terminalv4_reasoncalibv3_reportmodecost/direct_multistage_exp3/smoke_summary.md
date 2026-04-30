@@ -1,0 +1,172 @@
+{
+  "summary": {
+    "test_name": "direct_multistage_exp3_repeated_trap_switch_x10_shared_basin_strong_prefix_dedup_profile_switch_full_llm",
+    "dataset": "data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_exec_clean_v2_100/tasks.json",
+    "dataset_indices": [
+      1,
+      2,
+      3,
+      6,
+      9,
+      10,
+      13,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      32,
+      33,
+      34,
+      35,
+      36
+    ],
+    "repeats": 10,
+    "episodes": 100,
+    "method": "direct_multistage_exp3",
+    "mechanism": "algorithm_direct",
+    "executor_name": "llm_bench",
+    "family_kind": "shared_basin_strong_prefix_dedup_profile_switch",
+    "schedule_mode": "trap_switch",
+    "seed": 0,
+    "model": "gpt-4o-mini",
+    "stationary_oracle_path": [
+      "stage1_n5__from__root__c05",
+      "stage2_n5__from__n0005__c03",
+      "stage3_n5__from__n0022__c03",
+      "stage4_n3__from__n0073__c02",
+      "stage5_n4__from__n0213__c04"
+    ],
+    "exact_match_mean": 0.73,
+    "terminal_penalty_mean": 4.91,
+    "raw_outcome_penalty_mean": 2.605,
+    "raw_policy_penalty_mean": 0.44,
+    "raw_terminal_penalty_mean": 4.91,
+    "legacy_raw_terminal_penalty_mean": 3.045,
+    "raw_terminal_penalty_exec_clean_v4_mean": 4.91,
+    "total_cost_mean": 0.2566523640280021,
+    "raw_total_cost_mean": 9.5320688,
+    "raw_total_cost_api_mean": 5.47343392,
+    "raw_total_cost_token_mean": 9.5320688,
+    "reasoning_cost_mean": 4.5509138,
+    "raw_reasoning_cost_component_mean": 4.5509138,
+    "raw_mode_mismatch_cost_component_mean": 1.34,
+    "raw_reasoning_cost_component_api_mean": 0.49227891999999995,
+    "raw_reasoning_cost_component_token_mean": 4.5509138,
+    "raw_path_cost_component_mean": 0.07115500000000001,
+    "algorithm_cumulative_total_cost": 25.665236402800215,
+    "raw_algorithm_cumulative_total_cost": 953.20688,
+    "oracle_stationary_total_cost": 20.49191733979537,
+    "raw_oracle_stationary_total_cost": 761.0698100000001,
+    "raw_outcome_penalty_cumulative": 260.5,
+    "raw_policy_penalty_cumulative": 44.0,
+    "raw_terminal_penalty_cumulative": 491.0,
+    "legacy_raw_terminal_penalty_cumulative": 304.5,
+    "raw_path_cost_component_cumulative": 7.115500000000001,
+    "raw_reasoning_cost_component_cumulative": 455.09138,
+    "raw_mode_mismatch_cost_component_cumulative": 134.0,
+    "mean_llm_call_count": 12.69,
+    "mean_prompt_tokens": 46133.02,
+    "mean_completion_tokens": 1315.02,
+    "mean_total_tokens": 47448.04,
+    "cumulative_total_tokens": 4744804.0,
+    "mean_api_cost_usd_raw": 0.005482291499999999,
+    "cumulative_api_cost_usd_raw": 0.5482291499999999,
+    "mean_generation_time_seconds": 39.06506274247542,
+    "p50_generation_time_seconds": 38.972193302586675,
+    "p90_generation_time_seconds": 46.00845465548336,
+    "mean_llm_round_trip_seconds": 39.1051017925702,
+    "mean_episode_wall_clock_seconds": 41.74711855944246,
+    "p50_episode_wall_clock_seconds": 41.55443907901645,
+    "p90_episode_wall_clock_seconds": 48.58462156709284,
+    "mean_tool_wall_clock_seconds": 0.01123250788077712,
+    "policy_action_violation_rate": 0.22,
+    "policy_communication_violation_rate": 0.0,
+    "policy_nl_assertion_failure_rate": 0.0,
+    "mean_policy_violation_count": 0.22,
+    "subset_mismatch_count": 27,
+    "episodes_with_stage5_verification_tools": 100,
+    "shared_path_fraction": 0.93,
+    "unshared_path_fraction": 0.07,
+    "mean_barrier_stop_depth": 2.6666666666666665,
+    "first_private_barrier_stage_distribution": {
+      "none": {
+        "count": 60,
+        "fraction": 0.6
+      },
+      "stage1": {
+        "count": 17,
+        "fraction": 0.17
+      },
+      "stage2": {
+        "count": 4,
+        "fraction": 0.04
+      },
+      "stage3": {
+        "count": 14,
+        "fraction": 0.14
+      },
+      "stage4": {
+        "count": 5,
+        "fraction": 0.05
+      }
+    },
+    "mean_candidate_count_per_stage": [
+      5.0,
+      3.44,
+      2.94,
+      2.46,
+      2.8
+    ],
+    "mean_legal_child_count_per_stage": [
+      5.0,
+      3.44,
+      2.94,
+      2.46,
+      2.8
+    ],
+    "specialist_task_count": 32,
+    "specialist_task_unshared_fraction": 0.0,
+    "stage_source_summary": {
+      "stage1": {
+        "llm_bench": 100
+      },
+      "stage2": {
+        "llm_bench": 100
+      },
+      "stage3": {
+        "llm_bench": 100
+      },
+      "stage4": {
+        "llm_bench": 100
+      },
+      "stage5": {
+        "llm_bench": 100
+      }
+    },
+    "reasoning_cost_mode_default": "token"
+  },
+  "specialist_summary": {
+    "specialist_episode_count": 32,
+    "specialist_shared_path_fraction": 1.0,
+    "specialist_unshared_path_fraction": 0.0,
+    "specialist_exact_match_mean": 0.40625,
+    "specialist_total_cost_mean": 0.4584545806408185,
+    "specialist_raw_outcome_penalty_mean": 6.484375,
+    "specialist_raw_policy_penalty_mean": 1.3125,
+    "specialist_raw_terminal_penalty_mean": 12.140625,
+    "specialist_raw_path_cost_component_mean": 0.07178437500000001,
+    "specialist_raw_reasoning_cost_component_mean": 4.81459375,
+    "specialist_raw_reasoning_cost_component_api_mean": 0.52169403125,
+    "specialist_raw_reasoning_cost_component_token_mean": 4.81459375,
+    "specialist_task_ids": [
+      "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Hard]",
+      "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+      "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+      "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+t=1: leader=risky_ps avg=3.8178, runner_up=epsilon_exp3, margin=0.0070
+t=2: leader=direct_multistage_exp3 avg=4.5925, runner_up=epsilon_exp3, margin=0.0662
+t=3: leader=risky_ps avg=5.6967, runner_up=direct_multistage_exp3, margin=0.2409
+t=56: leader=epsilon_exp3 avg=8.7174, runner_up=risky_ps, margin=0.0581
+t=57: leader=risky_ps avg=8.8162, runner_up=epsilon_exp3, margin=0.0457
+t=58: leader=direct_multistage_exp3 avg=9.0989, runner_up=risky_ps, margin=0.0251
+t=59: leader=risky_ps avg=9.1452, runner_up=epsilon_exp3, margin=0.0429
+t=60: leader=epsilon_exp3 avg=9.1158, runner_up=direct_multistage_exp3, margin=0.1025
+t=64: leader=direct_multistage_exp3 avg=8.9489, runner_up=epsilon_exp3, margin=0.1588
+t=74: leader=epsilon_exp3 avg=9.1709, runner_up=direct_multistage_exp3, margin=0.0706
+t=78: leader=direct_multistage_exp3 avg=9.3561, runner_up=epsilon_exp3, margin=0.1411
+t=80: leader=epsilon_exp3 avg=9.5567, runner_up=direct_multistage_exp3, margin=0.0924
+t=90: leader=direct_multistage_exp3 avg=9.5980, runner_up=epsilon_exp3, margin=0.0193
+t=94: leader=epsilon_exp3 avg=9.3606, runner_up=direct_multistage_exp3, margin=0.0839
