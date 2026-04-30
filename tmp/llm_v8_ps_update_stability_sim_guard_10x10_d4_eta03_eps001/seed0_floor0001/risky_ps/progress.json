@@ -1,0 +1,9 @@
+{
+  "method": "risky_ps",
+  "scheduled_episodes": 100,
+  "completed_episodes": 100,
+  "last_completed_episode_index": 99,
+  "status": "complete",
+  "model": "simulated",
+  "updated_at": "2026-04-30T08:11:26.704492"
+}

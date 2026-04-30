@@ -1,0 +1,25 @@
+[
+  {
+    "method": "risky_ps",
+    "total_cost_mean": 0.11439920639710319,
+    "raw_total_cost_mean": 3.7911897,
+    "raw_total_cost_api_mean": 0.0,
+    "raw_total_cost_token_mean": 0.0,
+    "raw_outcome_penalty_mean": 3.575,
+    "raw_policy_penalty_mean": 0.0,
+    "raw_terminal_penalty_mean": 3.575,
+    "legacy_raw_terminal_penalty_mean": 3.575,
+    "raw_terminal_penalty_exec_clean_v4_mean": 0.0,
+    "raw_path_cost_component_mean": 0.07072300000000001,
+    "raw_reasoning_cost_component_mean": 0.14546669999999998,
+    "raw_mode_mismatch_cost_component_mean": 0.0,
+    "raw_reasoning_cost_component_api_mean": 0.0,
+    "raw_reasoning_cost_component_token_mean": 0.0,
+    "exact_match_mean": 0.17,
+    "mean_llm_call_count": 0.0,
+    "mean_total_tokens": 0.0,
+    "mean_api_cost_usd_raw": 0.0,
+    "mean_generation_time_seconds": 0.0,
+    "mean_episode_wall_clock_seconds": 0.0
+  }
+]
