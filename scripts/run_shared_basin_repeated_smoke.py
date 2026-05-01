@@ -64,6 +64,8 @@ MODEL_REQUIRED = "gpt-4o-mini"
 DEFAULT_FAMILY_KIND = "shared_basin_strong"
 SCHEDULE_MODE_STATIONARY = "stationary"
 SCHEDULE_MODE_TRAP_SWITCH = "trap_switch"
+TRAP_SWITCH_CYCLE_SOURCE_BUCKET = "bucket"
+TRAP_SWITCH_CYCLE_SOURCE_DATASET = "dataset"
 SEED = int(os.environ.get("PSAGENT_REPEATED_SMOKE_SEED", "0"))
 DEFAULT_EXECUTOR_NAME = "llm_bench"
 
@@ -316,6 +318,7 @@ def build_trap_switch_selection(
     repeats: int,
     switch_denominator: int,
     schedule_buckets: dict[str, Any],
+    trap_switch_cycle_source: str = TRAP_SWITCH_CYCLE_SOURCE_BUCKET,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     trap_ids_raw = schedule_buckets.get("trap_favoring_task_ids")
     target_ids_raw = schedule_buckets.get("target_favoring_task_ids")
@@ -328,10 +331,22 @@ def build_trap_switch_selection(
     target_ids = [str(value) for value in target_ids_raw]
     if not trap_ids or not target_ids:
         raise ValueError("trap_switch schedule buckets must both be non-empty.")
-    if len(trap_ids) != len(target_ids):
+    if (
+        trap_switch_cycle_source == TRAP_SWITCH_CYCLE_SOURCE_BUCKET
+        and len(trap_ids) != len(target_ids)
+    ):
         raise ValueError(
             "trap_switch schedule currently requires equal-sized trap_favoring_task_ids "
             f"and target_favoring_task_ids. got trap={len(trap_ids)} target={len(target_ids)}"
+        )
+    if trap_switch_cycle_source not in {
+        TRAP_SWITCH_CYCLE_SOURCE_BUCKET,
+        TRAP_SWITCH_CYCLE_SOURCE_DATASET,
+    }:
+        raise ValueError(
+            "trap_switch_cycle_source must be "
+            f"{TRAP_SWITCH_CYCLE_SOURCE_BUCKET!r} or {TRAP_SWITCH_CYCLE_SOURCE_DATASET!r}; "
+            f"got {trap_switch_cycle_source!r}"
         )
     if switch_denominator <= 0:
         raise ValueError("switch_denominator must be a positive integer.")
@@ -357,7 +372,11 @@ def build_trap_switch_selection(
             "specialist_task_ids reference task IDs not present in dataset: "
             + ", ".join(sorted(missing_specialist_ids)[:10])
         )
-    cycle_length = len(trap_ids)
+    cycle_length = (
+        len(instances)
+        if trap_switch_cycle_source == TRAP_SWITCH_CYCLE_SOURCE_DATASET
+        else len(trap_ids)
+    )
     total_episodes = repeats * cycle_length
     switch_episode = total_episodes // switch_denominator
     if switch_episode <= 0 or switch_episode >= total_episodes:
@@ -404,6 +423,7 @@ def build_trap_switch_selection(
         "trap_bucket_size": len(trap_ids),
         "target_bucket_size": len(target_ids),
         "specialist_task_count": len(specialist_task_ids),
+        "trap_switch_cycle_source": trap_switch_cycle_source,
     }
     return selected, metadata
 
@@ -415,6 +435,7 @@ def build_schedule_selection(
     schedule_mode: str,
     switch_denominator: int,
     schedule_buckets: dict[str, Any] | None,
+    trap_switch_cycle_source: str = TRAP_SWITCH_CYCLE_SOURCE_BUCKET,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if schedule_mode == SCHEDULE_MODE_STATIONARY:
         selected = build_repeated_selection(instances, indices=SMOKE10_INDICES, repeats=repeats)
@@ -435,6 +456,7 @@ def build_schedule_selection(
             repeats=repeats,
             switch_denominator=switch_denominator,
             schedule_buckets=schedule_buckets,
+            trap_switch_cycle_source=trap_switch_cycle_source,
         )
     raise ValueError(f"Unsupported schedule_mode: {schedule_mode}")
 
@@ -1640,6 +1662,7 @@ def _assert_existing_run_compatible(
     schedule_mode: str,
     switch_denominator: int,
     schedule_buckets_path: Path | None,
+    trap_switch_cycle_source: str,
     policy_kwargs_by_method: dict[str, dict[str, Any]],
     common_eta_override: float | None,
     common_epsilon_override: float | None,
@@ -1718,6 +1741,18 @@ def _assert_existing_run_compatible(
                 "schedule_buckets "
                 f"existing={existing_schedule_buckets} requested={requested_schedule_buckets}"
             )
+        existing_cycle_source = run_config.get(
+            "trap_switch_cycle_source",
+            run_config.get("schedule_metadata", {}).get(
+                "trap_switch_cycle_source",
+                TRAP_SWITCH_CYCLE_SOURCE_BUCKET,
+            ),
+        )
+        if str(existing_cycle_source) != str(trap_switch_cycle_source):
+            mismatches.append(
+                "trap_switch_cycle_source "
+                f"existing={existing_cycle_source} requested={trap_switch_cycle_source}"
+            )
     existing_common_eta = run_config.get("common_eta_override")
     if existing_common_eta != common_eta_override:
         mismatches.append(
@@ -1788,6 +1823,7 @@ def initialize_run(
     schedule_mode: str,
     switch_denominator: int,
     schedule_buckets_path: Path | None,
+    trap_switch_cycle_source: str,
     common_eta_override: float | None,
     common_epsilon_override: float | None,
     ps_eta_shared_override: float | None,
@@ -1826,6 +1862,7 @@ def initialize_run(
             schedule_mode=schedule_mode,
             switch_denominator=switch_denominator,
             schedule_buckets_path=schedule_buckets_path,
+            trap_switch_cycle_source=trap_switch_cycle_source,
             policy_kwargs_by_method=policy_kwargs_by_method,
             common_eta_override=common_eta_override,
             common_epsilon_override=common_epsilon_override,
@@ -1846,6 +1883,7 @@ def initialize_run(
         schedule_mode=schedule_mode,
         switch_denominator=switch_denominator,
         schedule_buckets=schedule_buckets,
+        trap_switch_cycle_source=trap_switch_cycle_source,
     )
     oracle_summary = compute_stationary_oracle(selected, family_kind=family_kind)
     schedule_rows = serialize_schedule(selected)
@@ -1869,6 +1907,11 @@ def initialize_run(
             "switch_denominator": switch_denominator if schedule_mode == SCHEDULE_MODE_TRAP_SWITCH else None,
             "schedule_buckets": (
                 str(schedule_buckets_path) if schedule_buckets_path is not None else None
+            ),
+            "trap_switch_cycle_source": (
+                trap_switch_cycle_source
+                if schedule_mode == SCHEDULE_MODE_TRAP_SWITCH
+                else None
             ),
             "schedule_metadata": schedule_metadata,
             "model": model_name,
@@ -2596,6 +2639,7 @@ def orchestrate_run(
     schedule_mode: str,
     switch_denominator: int,
     schedule_buckets_path: Path | None,
+    trap_switch_cycle_source: str,
     common_eta_override: float | None,
     common_epsilon_override: float | None,
     ps_eta_shared_override: float | None,
@@ -2621,6 +2665,7 @@ def orchestrate_run(
         schedule_mode=schedule_mode,
         switch_denominator=switch_denominator,
         schedule_buckets_path=schedule_buckets_path,
+        trap_switch_cycle_source=trap_switch_cycle_source,
         common_eta_override=common_eta_override,
         common_epsilon_override=common_epsilon_override,
         ps_eta_shared_override=ps_eta_shared_override,
@@ -2703,6 +2748,16 @@ def build_cli() -> argparse.ArgumentParser:
     )
     common_run.add_argument("--switch-denominator", type=int, default=3)
     common_run.add_argument("--schedule-buckets", type=Path)
+    common_run.add_argument(
+        "--trap-switch-cycle-source",
+        type=str,
+        default=TRAP_SWITCH_CYCLE_SOURCE_BUCKET,
+        choices=[TRAP_SWITCH_CYCLE_SOURCE_BUCKET, TRAP_SWITCH_CYCLE_SOURCE_DATASET],
+        help=(
+            "For trap_switch schedules, choose whether repeats multiply the bucket "
+            "length or the full dataset length."
+        ),
+    )
     common_run.add_argument("--common-eta-override", type=float)
     common_run.add_argument("--common-epsilon-override", type=float)
     common_run.add_argument(
@@ -2814,6 +2869,7 @@ def main() -> None:
             schedule_mode=args.schedule_mode,
             switch_denominator=args.switch_denominator,
             schedule_buckets_path=args.schedule_buckets,
+            trap_switch_cycle_source=args.trap_switch_cycle_source,
             common_eta_override=args.common_eta_override,
             common_epsilon_override=args.common_epsilon_override,
             ps_eta_shared_override=args.ps_eta_shared_override,
@@ -2837,6 +2893,7 @@ def main() -> None:
             schedule_mode=args.schedule_mode,
             switch_denominator=args.switch_denominator,
             schedule_buckets_path=args.schedule_buckets,
+            trap_switch_cycle_source=args.trap_switch_cycle_source,
             common_eta_override=args.common_eta_override,
             common_epsilon_override=args.common_epsilon_override,
             ps_eta_shared_override=args.ps_eta_shared_override,
