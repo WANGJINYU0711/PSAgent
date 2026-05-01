@@ -1,0 +1,14 @@
+[
+  {
+    "method": "risky_ps",
+    "return_code": 1
+  },
+  {
+    "method": "direct_multistage_exp3",
+    "return_code": 1
+  },
+  {
+    "method": "epsilon_exp3",
+    "return_code": 1
+  }
+]

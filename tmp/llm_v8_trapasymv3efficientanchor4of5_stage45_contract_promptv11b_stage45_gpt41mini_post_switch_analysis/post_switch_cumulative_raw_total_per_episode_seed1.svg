@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680">
+<rect width="100%" height="100%" fill="white"/>
+<text x="600.0" y="30" text-anchor="middle" font-family="Arial" font-size="20" font-weight="700">seed1: post_switch_cumulative_raw_total_per_episode</text>
+<line x1="88" y1="604.0" x2="980" y2="604.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="608.0" text-anchor="end" font-family="Arial" font-size="13" fill="#53606f">3.672</text>
+<line x1="88" y1="494.8" x2="980" y2="494.8" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="498.8" text-anchor="end" font-family="Arial" font-size="13" fill="#53606f">7.534</text>
+<line x1="88" y1="385.6" x2="980" y2="385.6" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="389.6" text-anchor="end" font-family="Arial" font-size="13" fill="#53606f">11.395</text>
+<line x1="88" y1="276.4" x2="980" y2="276.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="280.4" text-anchor="end" font-family="Arial" font-size="13" fill="#53606f">15.257</text>
+<line x1="88" y1="167.2" x2="980" y2="167.2" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="171.2" text-anchor="end" font-family="Arial" font-size="13" fill="#53606f">19.118</text>
+<line x1="88" y1="58.0" x2="980" y2="58.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="62.0" text-anchor="end" font-family="Arial" font-size="13" fill="#53606f">22.979</text>
+<line x1="88.0" y1="58" x2="88.0" y2="604" stroke="#f1f5f9" stroke-width="1"/>
+<text x="88.0" y="629" text-anchor="middle" font-family="Arial" font-size="13" fill="#53606f">25</text>
+<line x1="266.4" y1="58" x2="266.4" y2="604" stroke="#f1f5f9" stroke-width="1"/>
+<text x="266.4" y="629" text-anchor="middle" font-family="Arial" font-size="13" fill="#53606f">34</text>
+<line x1="444.8" y1="58" x2="444.8" y2="604" stroke="#f1f5f9" stroke-width="1"/>
+<text x="444.8" y="629" text-anchor="middle" font-family="Arial" font-size="13" fill="#53606f">42</text>
+<line x1="623.2" y1="58" x2="623.2" y2="604" stroke="#f1f5f9" stroke-width="1"/>
+<text x="623.2" y="629" text-anchor="middle" font-family="Arial" font-size="13" fill="#53606f">51</text>
+<line x1="801.6" y1="58" x2="801.6" y2="604" stroke="#f1f5f9" stroke-width="1"/>
+<text x="801.6" y="629" text-anchor="middle" font-family="Arial" font-size="13" fill="#53606f">59</text>
+<line x1="980.0" y1="58" x2="980.0" y2="604" stroke="#f1f5f9" stroke-width="1"/>
+<text x="980.0" y="629" text-anchor="middle" font-family="Arial" font-size="13" fill="#53606f">68</text>
+<line x1="88" y1="604" x2="980" y2="604" stroke="#94a3b8"/>
+<line x1="88" y1="58" x2="88" y2="604" stroke="#94a3b8"/>
+<text x="534.0" y="658" text-anchor="middle" font-family="Arial" font-size="15" fill="#334155">episode_index</text>
+<text x="22" y="331.0" text-anchor="middle" transform="rotate(-90 22 331.0)" font-family="Arial" font-size="15" fill="#334155">post cumulative raw_total_cost / post episode</text>
+<polyline fill="none" stroke="#008b8b" stroke-width="3" points="88.0,536.4 108.7,310.4 129.5,257.0 150.2,213.4 171.0,176.9 191.7,246.1 212.5,298.5 233.2,331.0 254.0,356.5 274.7,335.6 295.4,350.2 316.2,346.7 336.9,329.9 357.7,333.8 378.4,348.6 399.2,359.5 419.9,345.2 440.7,356.3 461.4,367.5 482.1,377.7 502.9,364.6 523.6,352.2 544.4,349.4 565.1,338.7 585.9,326.0 606.6,335.6 627.3,345.0 648.1,352.7 668.8,360.2 689.6,367.3 710.3,373.8 731.1,367.9"/>
+<circle cx="731.1" cy="367.9" r="4" fill="#008b8b"/>
+<line x1="1014" y1="68" x2="1042" y2="68" stroke="#008b8b" stroke-width="3"/>
+<text x="1050" y="73" font-family="Arial" font-size="14" fill="#1f2937">risky_ps (n=32, end=12.019)</text>
+<polyline fill="none" stroke="#a65f3f" stroke-width="3" points="88.0,125.7 108.7,95.7 129.5,99.4 150.2,165.0 171.0,247.0 191.7,304.6 212.5,346.4 233.2,372.4 254.0,345.6 274.7,368.8 295.4,384.8 316.2,360.0 336.9,343.3 357.7,359.9 378.4,337.3 399.2,352.4 419.9,366.7 440.7,380.4 461.4,390.2 482.1,396.6 502.9,405.6 523.6,403.5 544.4,389.8 565.1,374.9 585.9,382.9 606.6,372.7 627.3,380.4"/>
+<circle cx="627.3" cy="380.4" r="4" fill="#a65f3f"/>
+<line x1="1014" y1="102" x2="1042" y2="102" stroke="#a65f3f" stroke-width="3"/>
+<text x="1050" y="107" font-family="Arial" font-size="14" fill="#1f2937">risky_ps_old (n=27, end=11.580)</text>
+<polyline fill="none" stroke="#ff9f7f" stroke-width="3" points="88.0,566.3 108.7,354.5 129.5,337.7 150.2,396.8 171.0,338.9 191.7,383.8 212.5,414.2 233.2,379.7 254.0,399.3 274.7,372.5 295.4,387.2 316.2,386.9 336.9,365.2 357.7,343.6 378.4,359.3 399.2,372.7 419.9,385.6 440.7,395.5 461.4,403.9 482.1,413.3 502.9,420.6 523.6,406.4 544.4,396.6 565.1,384.1 585.9,376.7 606.6,385.2 627.3,392.1 648.1,398.8 668.8,404.3 689.6,395.6 710.3,401.6 731.1,398.5 751.8,391.2 772.6,382.4 793.3,387.3 814.0,393.4 834.8,386.0 855.5,390.7 876.3,395.7 897.0,400.6 917.8,405.5 938.5,404.1 959.3,403.1 980.0,392.5"/>
+<circle cx="980.0" cy="392.5" r="4" fill="#ff9f7f"/>
+<line x1="1014" y1="136" x2="1042" y2="136" stroke="#ff9f7f" stroke-width="3"/>
+<text x="1050" y="141" font-family="Arial" font-size="14" fill="#1f2937">direct_multistage_exp3 (n=44, end=11.153)</text>
+<polyline fill="none" stroke="#7daa2a" stroke-width="3" points="88.0,562.4 108.7,326.4 129.5,246.2 150.2,328.1 171.0,377.8 191.7,413.5 212.5,436.2 233.2,450.2 254.0,463.7 274.7,469.3 295.4,477.0 316.2,450.6 336.9,432.5 357.7,442.7 378.4,450.3 399.2,455.4 419.9,458.8 440.7,465.0 461.4,470.0 482.1,453.9 502.9,455.9 523.6,452.6 544.4,439.5 565.1,429.7 585.9,412.7 606.6,418.9 627.3,425.1 648.1,431.1 668.8,421.1 689.6,425.3 710.3,429.3 731.1,425.3 751.8,417.2 772.6,410.9 793.3,413.9 814.0,406.2 834.8,411.2 855.5,415.1 876.3,419.5"/>
+<circle cx="876.3" cy="419.5" r="4" fill="#7daa2a"/>
+<line x1="1014" y1="170" x2="1042" y2="170" stroke="#7daa2a" stroke-width="3"/>
+<text x="1050" y="175" font-family="Arial" font-size="14" fill="#1f2937">epsilon_exp3 (n=39, end=10.196)</text>
+</svg>

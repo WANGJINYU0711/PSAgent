@@ -1,0 +1,20 @@
+{
+  "specialist_episode_count": 32,
+  "specialist_shared_path_fraction": 0.8125,
+  "specialist_unshared_path_fraction": 0.1875,
+  "specialist_exact_match_mean": 0.5625,
+  "specialist_total_cost_mean": 0.3698844153877221,
+  "specialist_raw_outcome_penalty_mean": 1.3125,
+  "specialist_raw_policy_penalty_mean": 1.4375,
+  "specialist_raw_terminal_penalty_mean": 7.40625,
+  "specialist_raw_path_cost_component_mean": 0.068065625,
+  "specialist_raw_reasoning_cost_component_mean": 6.2631915625,
+  "specialist_raw_reasoning_cost_component_api_mean": 1.53188228125,
+  "specialist_raw_reasoning_cost_component_token_mean": 6.2631915625,
+  "specialist_task_ids": [
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]"
+  ]
+}

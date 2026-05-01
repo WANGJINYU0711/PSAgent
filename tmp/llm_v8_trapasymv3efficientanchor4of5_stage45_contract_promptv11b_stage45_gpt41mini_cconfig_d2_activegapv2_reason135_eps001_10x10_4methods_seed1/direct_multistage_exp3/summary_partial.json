@@ -1,0 +1,158 @@
+{
+  "test_name": "direct_multistage_exp3_repeated_trap_switch_x10_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5_full_llm",
+  "dataset": "data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_exec_clean_v2_100/tasks.json",
+  "dataset_indices": [
+    1,
+    3,
+    6,
+    15,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22
+  ],
+  "repeats": 10,
+  "episodes": 37,
+  "method": "direct_multistage_exp3",
+  "mechanism": "algorithm_direct",
+  "executor_name": "llm_bench",
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+  "schedule_mode": "trap_switch",
+  "seed": 1,
+  "model": "gpt-4o-mini",
+  "stationary_oracle_path": [
+    "stage1_n3__from__root__c03",
+    "stage2_n2__from__n0003__c02",
+    "stage3_n3__from__n0012__c02",
+    "stage4_n3__from__n0037__c03",
+    "stage5_n4__from__n0113__c04"
+  ],
+  "exact_match_mean": 1.0,
+  "terminal_penalty_mean": 0.0,
+  "raw_outcome_penalty_mean": 0.0,
+  "raw_policy_penalty_mean": 0.0,
+  "raw_terminal_penalty_mean": 0.0,
+  "legacy_raw_terminal_penalty_mean": 0.0,
+  "raw_terminal_penalty_exec_clean_v4_mean": 0.0,
+  "total_cost_mean": 0.29606709674132936,
+  "raw_total_cost_mean": 10.995931972972974,
+  "raw_total_cost_api_mean": 5.089208594594594,
+  "raw_total_cost_token_mean": 10.995931972972974,
+  "reasoning_cost_mean": 10.934426567567566,
+  "raw_reasoning_cost_component_mean": 10.934426567567566,
+  "raw_mode_mismatch_cost_component_mean": 3.358108108108108,
+  "root_trap_subtree_prob_mean": 0.5261142043078973,
+  "stage4_trap_child_prob_mean": 0.7649409700263621,
+  "all_fast_trap_route_prob_mean": 0.4171107910418188,
+  "raw_reasoning_cost_component_api_mean": 5.027703189189189,
+  "raw_reasoning_cost_component_token_mean": 10.934426567567566,
+  "raw_path_cost_component_mean": 0.06150540540540541,
+  "algorithm_cumulative_total_cost": 10.954482579429186,
+  "raw_algorithm_cumulative_total_cost": 406.849483,
+  "post_switch_episode_count": 0,
+  "post_switch_total_cost_mean": 0.0,
+  "post_switch_raw_total_cost_mean": 0.0,
+  "post_switch_raw_terminal_penalty_mean": 0.0,
+  "post_switch_raw_reasoning_cost_component_mean": 0.0,
+  "post_switch_algorithm_cumulative_total_cost": 0,
+  "post_switch_raw_algorithm_cumulative_total_cost": 0,
+  "oracle_stationary_total_cost": 15.407191707054388,
+  "raw_oracle_stationary_total_cost": 572.2230999999999,
+  "raw_outcome_penalty_cumulative": 0.0,
+  "raw_policy_penalty_cumulative": 0.0,
+  "raw_terminal_penalty_cumulative": 0.0,
+  "legacy_raw_terminal_penalty_cumulative": 0.0,
+  "raw_path_cost_component_cumulative": 2.2757,
+  "raw_reasoning_cost_component_cumulative": 404.573783,
+  "raw_mode_mismatch_cost_component_cumulative": 124.25,
+  "mean_llm_call_count": 11.135135135135135,
+  "mean_prompt_tokens": 38727.32432432433,
+  "mean_completion_tokens": 879.4054054054054,
+  "mean_total_tokens": 39606.72972972973,
+  "cumulative_total_tokens": 1465449.0,
+  "mean_api_cost_usd_raw": 0.00911741216216216,
+  "cumulative_api_cost_usd_raw": 0.33734424999999996,
+  "mean_generation_time_seconds": 32.14648317082508,
+  "p50_generation_time_seconds": 31.614065462723374,
+  "p90_generation_time_seconds": 36.49231404177844,
+  "mean_llm_round_trip_seconds": 32.183479197373664,
+  "mean_episode_wall_clock_seconds": 35.337095420706916,
+  "p50_episode_wall_clock_seconds": 34.82133785635233,
+  "p90_episode_wall_clock_seconds": 39.65103861428797,
+  "mean_tool_wall_clock_seconds": 0.009422708403419805,
+  "policy_action_violation_rate": 0.0,
+  "policy_communication_violation_rate": 0.0,
+  "policy_nl_assertion_failure_rate": 0.0,
+  "mean_policy_violation_count": 0.0,
+  "subset_mismatch_count": 0,
+  "episodes_with_stage5_verification_tools": 37,
+  "shared_path_fraction": 0.43243243243243246,
+  "unshared_path_fraction": 0.5675675675675675,
+  "mean_barrier_stop_depth": 2.8,
+  "first_private_barrier_stage_distribution": {
+    "none": {
+      "count": 6,
+      "fraction": 0.16216216216216217
+    },
+    "stage1": {
+      "count": 6,
+      "fraction": 0.16216216216216217
+    },
+    "stage2": {
+      "count": 23,
+      "fraction": 0.6216216216216216
+    },
+    "stage4": {
+      "count": 1,
+      "fraction": 0.02702702702702703
+    },
+    "stage5": {
+      "count": 1,
+      "fraction": 0.02702702702702703
+    }
+  },
+  "mean_candidate_count_per_stage": [
+    4.0,
+    1.972972972972973,
+    2.027027027027027,
+    2.4054054054054053,
+    2.135135135135135
+  ],
+  "mean_legal_child_count_per_stage": [
+    4.0,
+    1.972972972972973,
+    2.027027027027027,
+    2.4054054054054053,
+    2.135135135135135
+  ],
+  "specialist_task_count": 0,
+  "specialist_task_unshared_fraction": 0.0,
+  "stage_source_summary": {
+    "stage1": {
+      "llm_bench": 37
+    },
+    "stage2": {
+      "llm_bench": 37
+    },
+    "stage3": {
+      "llm_bench": 37
+    },
+    "stage4": {
+      "llm_bench": 37
+    },
+    "stage5": {
+      "llm_bench": 37
+    }
+  },
+  "reasoning_cost_mode_default": "token",
+  "scheduled_episodes": 100,
+  "completed_episodes": 37,
+  "status": "running",
+  "completed_cumulative_total_cost": 10.954482579429186,
+  "completed_raw_terminal_penalty": 0.0,
+  "completed_raw_policy_penalty": 0.0,
+  "completed_total_tokens": 1465449.0,
+  "completed_api_cost_usd_raw": 0.33734424999999996
+}
