@@ -1,0 +1,147 @@
+_wandb:
+    value:
+        cli_version: 0.26.1
+        e:
+            gx2b0wn7rngzl0j39keiz7kuxel5bejl:
+                args:
+                    - --run-dir
+                    - tmp/llm_v8_trapasymv3efficientanchor4of5_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d2_activegapv2_nomodecost_reason135_eps001_10x10_4methods_seed1
+                    - --project
+                    - psagent-llm-smoke
+                    - --entity
+                    - wangjinyu0711-microsoft
+                    - --run-group
+                    - trapasymv3_d2_activegapv2_nomodecost_seed1
+                    - --run-name-prefix
+                    - llm_v8_trapasymv3efficientanchor4of5_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d2_activegapv2_nomodecost_reason135_eps001_10x10_4methods_seed1_
+                    - --run-id-suffix
+                    - analysis_d2_activegapv2_nomodecost
+                    - --methods
+                    - risky_ps
+                    - direct_multistage_exp3
+                    - epsilon_exp3
+                    - risky_ps_old
+                    - --poll-seconds
+                    - "20"
+                    - --finish-when-complete
+                codePath: scripts/live_wandb_partial_uploader.py
+                codePathLocal: scripts/live_wandb_partial_uploader.py
+                cpu_count: 20
+                cpu_count_logical: 16
+                cudaVersion: "12.8"
+                disk:
+                    /:
+                        total: "138224205824"
+                        used: "109050724352"
+                email: wangjinyu0711@gmail.com
+                executable: /home/ubuntu/miniforge3/bin/python
+                git:
+                    commit: 2aa21348430bff415a30c4e036274e16b444ebdf
+                    remote: git@github.com:WANGJINYU0711/PSAgent.git
+                gpu: NVIDIA GeForce RTX 3090
+                gpu_count: 8
+                gpu_nvidia:
+                    - architecture: Ampere
+                      cudaCores: 10496
+                      memoryTotal: "25769803776"
+                      name: NVIDIA GeForce RTX 3090
+                      uuid: GPU-a06b304b-169b-362b-19d1-2ff61c3ffd9d
+                    - architecture: Ampere
+                      cudaCores: 10496
+                      memoryTotal: "25769803776"
+                      name: NVIDIA GeForce RTX 3090
+                      uuid: GPU-9e57eda1-041c-ed8b-5964-f731b86c15cc
+                    - architecture: Ampere
+                      cudaCores: 10496
+                      memoryTotal: "25769803776"
+                      name: NVIDIA GeForce RTX 3090
+                      uuid: GPU-50ad325e-5f89-d502-43c7-38d36449b0ac
+                    - architecture: Ampere
+                      cudaCores: 10496
+                      memoryTotal: "25769803776"
+                      name: NVIDIA GeForce RTX 3090
+                      uuid: GPU-1f14b01f-d55b-395e-eb5a-a12737db78f6
+                    - architecture: Ampere
+                      cudaCores: 10496
+                      memoryTotal: "25769803776"
+                      name: NVIDIA GeForce RTX 3090
+                      uuid: GPU-3f5a47e4-a6e5-77c5-3893-92be5786645b
+                    - architecture: Ampere
+                      cudaCores: 10496
+                      memoryTotal: "25769803776"
+                      name: NVIDIA GeForce RTX 3090
+                      uuid: GPU-2d8812aa-1afc-a8a8-d710-3cdd5263a129
+                    - architecture: Ampere
+                      cudaCores: 10496
+                      memoryTotal: "25769803776"
+                      name: NVIDIA GeForce RTX 3090
+                      uuid: GPU-a3c52f97-48b1-b196-e78b-5279bb530b2b
+                    - architecture: Ampere
+                      cudaCores: 10496
+                      memoryTotal: "25769803776"
+                      name: NVIDIA GeForce RTX 3090
+                      uuid: GPU-7d8034d3-4209-f308-16b4-8be5608d738e
+                host: wangjinyu
+                memory:
+                    total: "107374182400"
+                os: Linux-5.13.0-30-generic-x86_64-with-glibc2.31
+                program: /home/ubuntu/data/PSAgent/scripts/live_wandb_partial_uploader.py
+                python: CPython 3.13.12
+                root: /home/ubuntu/data/PSAgent
+                startedAt: "2026-05-01T09:56:09.655499Z"
+                writerId: gx2b0wn7rngzl0j39keiz7kuxel5bejl
+        m:
+            - "1": episode_index
+              "6":
+                - 3
+              "7": []
+            - "2": '*'
+              "5": 1
+              "6":
+                - 1
+              "7": []
+        python_version: 3.13.12
+        t:
+            "3":
+                - 2
+                - 5
+                - 7
+                - 13
+                - 14
+                - 16
+                - 61
+                - 62
+            "4": 3.13.12
+            "5": 0.26.1
+            "8":
+                - 2
+            "10":
+                - 20
+            "12": 0.26.1
+            "13": linux-x86_64
+dataset:
+    value: data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_exec_clean_v2_100/tasks.json
+executor_name:
+    value: llm_bench
+family_kind:
+    value: shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5
+horizon:
+    value: 100
+live_partial_uploader:
+    value: true
+method:
+    value: risky_ps_old
+methods:
+    value:
+        - risky_ps
+        - direct_multistage_exp3
+        - epsilon_exp3
+        - risky_ps_old
+repeats:
+    value: 10
+run_dir:
+    value: tmp/llm_v8_trapasymv3efficientanchor4of5_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d2_activegapv2_nomodecost_reason135_eps001_10x10_4methods_seed1
+schedule_mode:
+    value: trap_switch
+seed:
+    value: 1
