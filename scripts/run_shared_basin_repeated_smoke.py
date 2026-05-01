@@ -687,6 +687,107 @@ def snapshot_child_distributions(
     return frozen, rows
 
 
+def canonical_all_trap_path(env: FixedTreeEnvironment) -> list[str] | None:
+    family_agent_map = getattr(env, "family_agent_map", None)
+    if not family_agent_map:
+        return None
+    candidates: list[list[str]] = []
+    for path in find_all_env_paths(env):
+        labels = [
+            str(getattr(family_agent_map[agent_id], "route_label", ""))
+            for agent_id in path
+        ]
+        if labels and all(label.startswith("trap_") for label in labels):
+            candidates.append(list(path))
+    if len(candidates) != 1:
+        return None
+    return candidates[0]
+
+
+def find_all_env_paths(env: FixedTreeEnvironment) -> list[list[str]]:
+    # Local import keeps the runner startup path unchanged for commands that do not
+    # need path introspection.
+    from oracle_eval import enumerate_all_paths
+
+    return [list(path) for path in enumerate_all_paths(env)]
+
+
+def child_probability_for_policy(
+    policy: Any,
+    env: FixedTreeEnvironment,
+    *,
+    prefix: tuple[str, ...],
+    child_prefix: tuple[str, ...],
+    stage_name: str,
+) -> tuple[float | None, int]:
+    if hasattr(policy, "_stage_probs") and not hasattr(policy, "_safe_child_probs"):
+        agent_ids = policy._legal_agent_ids_for_prefix(prefix, stage_name, env)
+        child_prefixes = policy._child_prefixes(prefix, agent_ids)
+        probs = list(policy._stage_probs(prefix, child_prefixes))
+    elif hasattr(policy, "_safe_child_probs") and hasattr(policy, "_risky_child_probs"):
+        child_prefixes = policy._child_prefixes(prefix, stage_name, env)
+        if policy.safe_prefixes.get(prefix, False):
+            probs = list(policy._safe_child_probs(prefix, child_prefixes))
+        else:
+            exploit_probs = list(policy._risky_child_probs(prefix, child_prefixes))
+            epsilon = min(1.0, max(0.0, float(getattr(policy, "epsilon", 0.0))))
+            uniform_prob = 1.0 / len(child_prefixes)
+            probs = [
+                (1.0 - epsilon) * prob + epsilon * uniform_prob
+                for prob in exploit_probs
+            ]
+    else:
+        return None, 0
+    try:
+        index = child_prefixes.index(child_prefix)
+    except ValueError:
+        return None, len(child_prefixes)
+    return float(probs[index]), len(child_prefixes)
+
+
+def trap_route_probability_snapshot(
+    policy: Any,
+    env: FixedTreeEnvironment,
+) -> dict[str, Any]:
+    trap_path = canonical_all_trap_path(env)
+    if not trap_path:
+        return {}
+    family_agent_map = getattr(env, "family_agent_map", {}) or {}
+    route_labels = [
+        str(getattr(family_agent_map[agent_id], "route_label", ""))
+        for agent_id in trap_path
+    ]
+    prefix: tuple[str, ...] = ()
+    stage_probs: dict[str, float | None] = {}
+    arm_counts: dict[str, int] = {}
+    product = 1.0
+    for depth, stage_name in enumerate(env.STAGE_NAMES):
+        child_prefix = tuple(trap_path[: depth + 1])
+        prob, arm_count = child_probability_for_policy(
+            policy,
+            env,
+            prefix=prefix,
+            child_prefix=child_prefix,
+            stage_name=stage_name,
+        )
+        stage_probs[stage_name] = prob
+        arm_counts[stage_name] = arm_count
+        if prob is None:
+            product = 0.0
+        else:
+            product *= prob
+        prefix = child_prefix
+    return {
+        "trap_probability_path": list(trap_path),
+        "trap_probability_route_labels": route_labels,
+        "root_trap_subtree_prob": stage_probs.get("stage1"),
+        "stage4_trap_child_prob": stage_probs.get("stage4"),
+        "all_fast_trap_route_prob": product,
+        "trap_route_stage_probs": stage_probs,
+        "trap_route_stage_arm_counts": arm_counts,
+    }
+
+
 def _sample_stage_child_with_probability_freeze(
     self: Any,
     current_prefix: tuple[str, ...],
@@ -1042,6 +1143,15 @@ def flatten_episode(
         ),
         "selection_path_prob": selection_info.get("path_prob"),
         "selection_stage_probs": dict(selection_info.get("stage_probs", {}) or {}),
+        "root_trap_subtree_prob": selection_info.get("root_trap_subtree_prob"),
+        "stage4_trap_child_prob": selection_info.get("stage4_trap_child_prob"),
+        "all_fast_trap_route_prob": selection_info.get("all_fast_trap_route_prob"),
+        "trap_route_stage_probs": dict(
+            selection_info.get("trap_route_stage_probs", {}) or {}
+        ),
+        "trap_route_stage_arm_counts": dict(
+            selection_info.get("trap_route_stage_arm_counts", {}) or {}
+        ),
         "root_child_id": result.selected_path[0] if result.selected_path else None,
         "root_selection_mode": root_edge.get("selection_mode"),
         "root_conditional_prob": root_edge.get("conditional_prob"),
@@ -1114,6 +1224,9 @@ def build_summary(
             stage_source_summary[stage_name][str(source)] += 1
     policy_nl_total = sum(ep["policy_nl_assertions_total"] for ep in episodes)
     policy_nl_failed = sum(ep["policy_nl_assertions_failed"] for ep in episodes)
+    post_switch_episodes = [
+        ep for ep in episodes if ep.get("schedule_phase") == "target_post_switch"
+    ]
     return {
         "test_name": f"{method}_repeated_{schedule_mode}_x{repeats}_{family_kind}_full_llm",
         "dataset": dataset,
@@ -1150,6 +1263,15 @@ def build_summary(
         "raw_mode_mismatch_cost_component_mean": mean(
             [ep.get("raw_mode_mismatch_cost_component", 0.0) for ep in episodes]
         ),
+        "root_trap_subtree_prob_mean": mean_present(
+            [ep.get("root_trap_subtree_prob") for ep in episodes]
+        ),
+        "stage4_trap_child_prob_mean": mean_present(
+            [ep.get("stage4_trap_child_prob") for ep in episodes]
+        ),
+        "all_fast_trap_route_prob_mean": mean_present(
+            [ep.get("all_fast_trap_route_prob") for ep in episodes]
+        ),
         "raw_reasoning_cost_component_api_mean": mean_present(
             [ep["raw_reasoning_cost_component_api"] for ep in episodes]
         ),
@@ -1159,6 +1281,25 @@ def build_summary(
         "raw_path_cost_component_mean": mean([ep["raw_path_cost_component"] for ep in episodes]),
         "algorithm_cumulative_total_cost": sum(ep["total_cost"] for ep in episodes),
         "raw_algorithm_cumulative_total_cost": sum(ep["raw_total_cost"] for ep in episodes),
+        "post_switch_episode_count": len(post_switch_episodes),
+        "post_switch_total_cost_mean": mean(
+            [ep["total_cost"] for ep in post_switch_episodes]
+        ),
+        "post_switch_raw_total_cost_mean": mean(
+            [ep["raw_total_cost"] for ep in post_switch_episodes]
+        ),
+        "post_switch_raw_terminal_penalty_mean": mean(
+            [ep["raw_terminal_penalty"] for ep in post_switch_episodes]
+        ),
+        "post_switch_raw_reasoning_cost_component_mean": mean(
+            [ep["raw_reasoning_cost_component"] for ep in post_switch_episodes]
+        ),
+        "post_switch_algorithm_cumulative_total_cost": sum(
+            ep["total_cost"] for ep in post_switch_episodes
+        ),
+        "post_switch_raw_algorithm_cumulative_total_cost": sum(
+            ep["raw_total_cost"] for ep in post_switch_episodes
+        ),
         "oracle_stationary_total_cost": oracle_summary["cumulative_total_cost"],
         "raw_oracle_stationary_total_cost": oracle_summary["raw_cumulative_total_cost"],
         "raw_outcome_penalty_cumulative": sum(ep["raw_outcome_penalty"] for ep in episodes),
@@ -1936,10 +2077,12 @@ def run_policy_method(
             f"repeat={row['repeat_index'] + 1} pos={row['position_in_cycle']} dataset_index={row['dataset_index']}",
             flush=True,
         )
+        trap_probability_info = trap_route_probability_snapshot(policy, env)
         path = policy.select_path(runtime_instance, env)
         selection_info = policy.get_last_selection_info() if hasattr(policy, "get_last_selection_info") else {}
         if isinstance(selection_info, dict):
             selection_info = dict(selection_info)
+            selection_info.update(trap_probability_info)
             freeze_active = bool(
                 getattr(policy, "_post_switch_probability_freeze_active", False)
             )
@@ -2093,6 +2236,356 @@ def merge_all_results(run_dir: Path) -> dict[str, Any]:
     }
 
 
+def wandb_mode_pattern(ep: dict[str, Any]) -> str:
+    modes = ep.get("family_deliberation_modes") or []
+    if not isinstance(modes, list):
+        return "unknown"
+    chars: list[str] = []
+    for mode in modes:
+        text = str(mode).strip().lower()
+        if text.startswith("fast"):
+            chars.append("f")
+        elif text.startswith("deep"):
+            chars.append("d")
+        else:
+            chars.append("u")
+    return "".join(chars) or "unknown"
+
+
+def wandb_profile_match_labels(ep: dict[str, Any]) -> tuple[str, str]:
+    pair = str(ep.get("terminal_majority_pair") or "")
+    if pair == "mostly_deep_vs_mostly_deep_required":
+        return "matched", "matched_deep"
+    if pair == "mostly_fast_vs_mostly_fast_required":
+        return "matched", "matched_fast"
+    if pair == "mostly_fast_vs_mostly_deep_required":
+        return "mismatched", "fast_on_deep"
+    if pair == "mostly_deep_vs_mostly_fast_required":
+        return "mismatched", "deep_on_fast"
+    return "unknown", "unknown"
+
+
+def build_wandb_episode_analysis_fields(ep: dict[str, Any]) -> dict[str, Any]:
+    mode_pattern = wandb_mode_pattern(ep)
+    deep_count = mode_pattern.count("d")
+    fast_count = mode_pattern.count("f")
+    match_group, mismatch_direction = wandb_profile_match_labels(ep)
+    task_bucket = str(ep.get("task_bucket") or "unknown")
+    fdddd_group = "fdddd" if mode_pattern == "fdddd" else "non_fdddd"
+    return {
+        "task_bucket": task_bucket,
+        "schedule_phase": ep.get("schedule_phase"),
+        "family_task_bucket": ep.get("family_task_bucket"),
+        "terminal_majority_pair": ep.get("terminal_majority_pair"),
+        "match_group": match_group,
+        "mismatch_direction": mismatch_direction,
+        "mode_pattern": mode_pattern,
+        "path_mode_pattern": mode_pattern,
+        "path_deep_count": deep_count,
+        "path_fast_count": fast_count,
+        "path_depth_balance": deep_count - fast_count,
+        "path_is_fdddd": float(mode_pattern == "fdddd"),
+        "fdddd_group": fdddd_group,
+        "oracle_action": ep.get("oracle_action"),
+        "final_action": ep.get("final_action"),
+        "original_task_id": ep.get("original_task_id"),
+        "family_behavior_archetype": ep.get("family_behavior_archetype"),
+    }
+
+
+def wandb_analysis_groups(row: dict[str, Any]) -> list[str]:
+    groups: list[str] = []
+    for key in ("match_group", "mismatch_direction", "task_bucket", "fdddd_group"):
+        value = str(row.get(key) or "unknown")
+        if value != "unknown":
+            groups.append(value)
+    task_bucket = str(row.get("task_bucket") or "unknown")
+    match_group = str(row.get("match_group") or "unknown")
+    if (
+        task_bucket in {"target_favoring", "trap_favoring"}
+        and match_group in {"matched", "mismatched"}
+    ):
+        groups.append(f"{task_bucket}_{match_group}")
+    return list(dict.fromkeys(groups))
+
+
+def add_wandb_group_aggregates(rows: list[dict[str, Any]]) -> None:
+    group_state: dict[str, dict[str, float]] = defaultdict(
+        lambda: {
+            "count": 0.0,
+            "raw_total_cost": 0.0,
+            "raw_terminal_penalty": 0.0,
+            "raw_reasoning_cost_component": 0.0,
+            "raw_path_cost_component": 0.0,
+            "exact_match": 0.0,
+        }
+    )
+    for idx, row in enumerate(rows, start=1):
+        groups = wandb_analysis_groups(row)
+        row["analysis_groups"] = ",".join(groups)
+        for group in groups:
+            state = group_state[group]
+            state["count"] += 1.0
+            state["raw_total_cost"] += float(row.get("raw_total_cost", 0.0) or 0.0)
+            state["raw_terminal_penalty"] += float(
+                row.get("raw_terminal_penalty", 0.0) or 0.0
+            )
+            state["raw_reasoning_cost_component"] += float(
+                row.get("raw_reasoning_cost_component", 0.0) or 0.0
+            )
+            state["raw_path_cost_component"] += float(
+                row.get("raw_path_cost_component", 0.0) or 0.0
+            )
+            state["exact_match"] += float(row.get("exact_match", 0.0) or 0.0)
+        for group, state in group_state.items():
+            count = max(1.0, state["count"])
+            prefix = f"groups/{group}"
+            row[f"{prefix}/count"] = state["count"]
+            row[f"{prefix}/rate"] = state["count"] / idx
+            row[f"{prefix}/cumulative_raw_total_cost"] = state["raw_total_cost"]
+            row[f"{prefix}/mean_raw_total_cost"] = state["raw_total_cost"] / count
+            row[f"{prefix}/cumulative_raw_terminal_penalty"] = state[
+                "raw_terminal_penalty"
+            ]
+            row[f"{prefix}/mean_raw_terminal_penalty"] = (
+                state["raw_terminal_penalty"] / count
+            )
+            row[f"{prefix}/mean_raw_reasoning_cost_component"] = (
+                state["raw_reasoning_cost_component"] / count
+            )
+            row[f"{prefix}/mean_raw_path_cost_component"] = (
+                state["raw_path_cost_component"] / count
+            )
+            row[f"{prefix}/exact_match_rate"] = state["exact_match"] / count
+
+
+def build_wandb_episode_rows(
+    *,
+    method: str,
+    episodes: list[dict[str, Any]],
+    seed: int,
+    run_group: str,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    cumulative_raw_total = 0.0
+    cumulative_total_cost = 0.0
+    post_switch_count = 0
+    post_switch_cumulative_raw_total = 0.0
+    post_switch_cumulative_total_cost = 0.0
+    previous_cumulative_total_per_episode: float | None = None
+    previous_cumulative_raw_total_per_episode: float | None = None
+    previous_post_total_per_episode: float | None = None
+    previous_post_raw_per_episode: float | None = None
+    for ep in episodes:
+        raw_total = float(ep["raw_total_cost"])
+        total_cost = float(ep["total_cost"])
+        cumulative_raw_total += raw_total
+        cumulative_total_cost += total_cost
+        is_post_switch = ep.get("schedule_phase") == "target_post_switch"
+        if is_post_switch:
+            post_switch_count += 1
+            post_switch_cumulative_raw_total += raw_total
+            post_switch_cumulative_total_cost += total_cost
+        episode_1based = int(ep["episode_index"]) + 1
+        cumulative_raw_total_per_episode = cumulative_raw_total / max(1, episode_1based)
+        cumulative_total_cost_per_episode = cumulative_total_cost / max(1, episode_1based)
+        post_raw_per_episode = (
+            post_switch_cumulative_raw_total / post_switch_count
+            if post_switch_count
+            else None
+        )
+        post_total_per_episode = (
+            post_switch_cumulative_total_cost / post_switch_count
+            if post_switch_count
+            else None
+        )
+        row = {
+            "method": method,
+            "seed": seed,
+            "episode_index": int(ep["episode_index"]),
+            "episode_1based": episode_1based,
+            "repeat_index": ep.get("repeat_index"),
+            "position_in_cycle": ep.get("position_in_cycle"),
+            "dataset_index": ep.get("dataset_index"),
+            "instance_id": ep.get("instance_id"),
+            "cumulative_raw_total": cumulative_raw_total,
+            "cumulative_total_cost": cumulative_total_cost,
+            "cumulative_raw_total_per_episode": cumulative_raw_total_per_episode,
+            "cumulative_total_cost_per_episode": cumulative_total_cost_per_episode,
+            "cumulative_raw_total_per_episode_growth": (
+                0.0
+                if previous_cumulative_raw_total_per_episode is None
+                else cumulative_raw_total_per_episode
+                - previous_cumulative_raw_total_per_episode
+            ),
+            "cumulative_total_cost_per_episode_growth": (
+                0.0
+                if previous_cumulative_total_per_episode is None
+                else cumulative_total_cost_per_episode
+                - previous_cumulative_total_per_episode
+            ),
+            "post_switch_episode_count": post_switch_count,
+            "post_switch_cumulative_raw_total": post_switch_cumulative_raw_total,
+            "post_switch_cumulative_total_cost": post_switch_cumulative_total_cost,
+            "post_switch_cumulative_raw_total_per_episode": post_raw_per_episode,
+            "post_switch_cumulative_total_cost_per_episode": post_total_per_episode,
+            "post_switch_cumulative_raw_total_per_episode_growth": (
+                None
+                if post_raw_per_episode is None
+                else 0.0
+                if previous_post_raw_per_episode is None
+                else post_raw_per_episode - previous_post_raw_per_episode
+            ),
+            "post_switch_cumulative_total_cost_per_episode_growth": (
+                None
+                if post_total_per_episode is None
+                else 0.0
+                if previous_post_total_per_episode is None
+                else post_total_per_episode - previous_post_total_per_episode
+            ),
+            "raw_total_cost": raw_total,
+            "total_cost": total_cost,
+            "raw_terminal_penalty": float(ep["raw_terminal_penalty"]),
+            "raw_reasoning_cost_component": float(ep["raw_reasoning_cost_component"]),
+            "raw_path_cost_component": float(ep["raw_path_cost_component"]),
+            "raw_mode_mismatch_cost_component": float(
+                ep.get("raw_mode_mismatch_cost_component", 0.0) or 0.0
+            ),
+            "exact_match": float(ep["exact_match"]),
+            "selected_shared_path": float(ep["selected_shared_path"]),
+            "selected_unshared_path": float(ep["selected_unshared_path"]),
+            "root_trap_subtree_prob": ep.get("root_trap_subtree_prob"),
+            "stage4_trap_child_prob": ep.get("stage4_trap_child_prob"),
+            "all_fast_trap_route_prob": ep.get("all_fast_trap_route_prob"),
+            "selected_trap_like": float(bool(ep.get("family_trap_like_path"))),
+            "run_group": run_group,
+        }
+        previous_cumulative_raw_total_per_episode = cumulative_raw_total_per_episode
+        previous_cumulative_total_per_episode = cumulative_total_cost_per_episode
+        if post_raw_per_episode is not None:
+            previous_post_raw_per_episode = post_raw_per_episode
+        if post_total_per_episode is not None:
+            previous_post_total_per_episode = post_total_per_episode
+        row.update(build_wandb_episode_analysis_fields(ep))
+        rows.append(row)
+    add_wandb_group_aggregates(rows)
+    return rows
+
+
+def wandb_episode_log_payload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in row.items()
+        if key
+        not in {
+            "method",
+            "seed",
+            "run_group",
+        }
+    }
+
+
+def build_wandb_episode_table(rows: list[dict[str, Any]], wandb_module: Any) -> Any:
+    columns = [
+        "method",
+        "episode_1based",
+        "task_bucket",
+        "match_group",
+        "mismatch_direction",
+        "mode_pattern",
+        "path_deep_count",
+        "path_fast_count",
+        "path_depth_balance",
+        "fdddd_group",
+        "raw_total_cost",
+        "raw_terminal_penalty",
+        "raw_reasoning_cost_component",
+        "raw_mode_mismatch_cost_component",
+        "exact_match",
+        "oracle_action",
+        "final_action",
+        "original_task_id",
+    ]
+    table = wandb_module.Table(columns=columns)
+    for row in rows:
+        table.add_data(*[row.get(column) for column in columns])
+    return table
+
+
+def log_wandb_rows(
+    wandb_run: Any,
+    rows: list[dict[str, Any]],
+    *,
+    include_table: bool,
+    wandb_module: Any,
+) -> None:
+    wandb_run.define_metric("episode_index")
+    wandb_run.define_metric("*", step_metric="episode_index")
+    for row in rows:
+        wandb_run.log(
+            wandb_episode_log_payload(row),
+            step=int(row["episode_index"]),
+        )
+    if include_table:
+        wandb_run.log(
+            {
+                "episode_analysis_table": build_wandb_episode_table(
+                    rows,
+                    wandb_module,
+                )
+            }
+        )
+
+
+def log_results_to_wandb(
+    run_dir: Path,
+    *,
+    project: str,
+    entity: str | None,
+    run_name_prefix: str,
+    run_group: str,
+) -> None:
+    try:
+        import wandb  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        raise SystemExit(
+            "wandb is required for --wandb-project logging, but it is not installed."
+        ) from exc
+
+    context = load_run_context(run_dir)
+    run_config = context["run_config"]
+    base_config = {
+        "dataset": run_config.get("dataset"),
+        "family_kind": run_config.get("family_kind"),
+        "schedule_mode": run_config.get("schedule_mode"),
+        "repeats": run_config.get("repeats"),
+        "seed": run_config.get("seed"),
+        "executor_name": run_config.get("executor_name"),
+        "horizon": run_config.get("horizon"),
+        "methods": run_config.get("methods"),
+        "run_dir": str(run_dir),
+    }
+
+    for method in run_config["methods"]:
+        episodes = load_json(run_dir / method / "episodes.json")
+        rows = build_wandb_episode_rows(
+            method=method,
+            episodes=episodes,
+            seed=int(run_config.get("seed", 0)),
+            run_group=run_group,
+        )
+        wandb_run = wandb.init(
+            project=project,
+            entity=entity,
+            group=run_group,
+            name=f"{run_name_prefix}{method}_seed{run_config.get('seed')}",
+            reinit=True,
+            config={**base_config, "method": method},
+        )
+        log_wandb_rows(wandb_run, rows, include_table=True, wandb_module=wandb)
+        wandb_run.finish()
+
+
 def orchestrate_run(
     *,
     data_path: Path,
@@ -2111,6 +2604,10 @@ def orchestrate_run(
     executor_name: str,
     post_switch_fixed_layer1_probs: bool,
     post_switch_fixed_tree_probs: bool,
+    wandb_project: str | None,
+    wandb_entity: str | None,
+    wandb_run_group: str | None,
+    wandb_run_name_prefix: str,
 ) -> Path:
     model_name = resolve_model_name_for_executor(executor_name)
     validate_methods(methods)
@@ -2178,6 +2675,14 @@ def orchestrate_run(
     for method in methods:
         merge_method_results(run_dir, method)
     merge_all_results(run_dir)
+    if wandb_project:
+        log_results_to_wandb(
+            run_dir,
+            project=wandb_project,
+            entity=wandb_entity,
+            run_name_prefix=wandb_run_name_prefix,
+            run_group=wandb_run_group or run_dir.name,
+        )
     return run_dir
 
 
@@ -2239,6 +2744,27 @@ def build_cli() -> argparse.ArgumentParser:
         choices=["llm_bench", "simulated"],
     )
     common_run.add_argument("--methods", nargs="+", default=list(DEFAULT_METHODS))
+    common_run.add_argument(
+        "--wandb-project",
+        type=str,
+        help="Optional W&B project name for per-episode cumulative raw total logging.",
+    )
+    common_run.add_argument(
+        "--wandb-entity",
+        type=str,
+        help="Optional W&B entity/team name.",
+    )
+    common_run.add_argument(
+        "--wandb-run-group",
+        type=str,
+        help="Optional W&B group; defaults to the output directory name.",
+    )
+    common_run.add_argument(
+        "--wandb-run-name-prefix",
+        type=str,
+        default="",
+        help="Prefix added to each per-method W&B run name.",
+    )
 
     setup_parser = subparsers.add_parser("setup", parents=[common_run])
     setup_parser.set_defaults(command="setup")
@@ -2319,6 +2845,10 @@ def main() -> None:
             executor_name=args.executor_name,
             post_switch_fixed_layer1_probs=args.post_switch_fixed_layer1_probs,
             post_switch_fixed_tree_probs=args.post_switch_fixed_tree_probs,
+            wandb_project=args.wandb_project,
+            wandb_entity=args.wandb_entity,
+            wandb_run_group=args.wandb_run_group,
+            wandb_run_name_prefix=args.wandb_run_name_prefix,
         )
         print(str(run_dir))
         return

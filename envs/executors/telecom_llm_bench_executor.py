@@ -7,6 +7,7 @@ import math
 import os
 import re
 import subprocess
+import time
 import uuid
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -121,6 +122,86 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
 
     def _hard_transfer_contract_enabled(self) -> bool:
         return self.experiment_setting == "telecom_mms_agent_profile_only_clean_v4_hard_transfer_contract"
+
+    def _stage45_contract_prompt_v1_enabled(self) -> bool:
+        return self._stage45_contract_prompt_version() is not None
+
+    def _stage45_contract_prompt_version(self) -> str | None:
+        enabled_values = {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        if str(os.environ.get("PSAGENT_TELECOM_STAGE45_CONTRACT_PROMPT_V1_1C", "")).strip().lower() in enabled_values:
+            return "stage45_contract_prompt_v1_1c"
+        if str(os.environ.get("PSAGENT_TELECOM_STAGE45_CONTRACT_PROMPT_V1_1B", "")).strip().lower() in enabled_values:
+            return "stage45_contract_prompt_v1_1b"
+        if str(os.environ.get("PSAGENT_TELECOM_STAGE45_CONTRACT_PROMPT_V1_2", "")).strip().lower() in enabled_values:
+            return "stage45_contract_prompt_v1_2"
+        if str(os.environ.get("PSAGENT_TELECOM_STAGE45_CONTRACT_PROMPT_V1_1", "")).strip().lower() in enabled_values:
+            return "stage45_contract_prompt_v1_1"
+        if str(os.environ.get("PSAGENT_TELECOM_STAGE45_CONTRACT_PROMPT_V1", "")).strip().lower() in enabled_values:
+            return "stage45_contract_prompt_v1"
+        return None
+
+    def _stage45_contract_prompt_v1_1b_enabled(self) -> bool:
+        return self._stage45_contract_prompt_version() in {
+            "stage45_contract_prompt_v1_1b",
+            "stage45_contract_prompt_v1_1c",
+        }
+
+    def _stage45_contract_prompt_v1_1c_enabled(self) -> bool:
+        return self._stage45_contract_prompt_version() == "stage45_contract_prompt_v1_1c"
+
+    def _model_for_stage(self, stage_name: str) -> str:
+        stage45_model = str(os.environ.get("PSAGENT_TELECOM_STAGE45_MODEL", "")).strip()
+        if stage45_model and stage_name in {"stage4", "stage5"}:
+            return stage45_model
+        return self.model
+
+    def _stage4_contract_prompt_extra_normalization_rules(self) -> list[str]:
+        version = self._stage45_contract_prompt_version()
+        if version in {"stage45_contract_prompt_v1_1b", "stage45_contract_prompt_v1_1c"}:
+            rules = [
+                "If repairability is transfer_required, contract_self_check.has_concrete_transfer_blocker must be true and transfer_reason must identify a concrete hard input blocker id",
+                "If no concrete hard input blocker id exists, do not use transfer_required; choose repairable or partially_repairable with ordinary defers instead",
+            ]
+            if version == "stage45_contract_prompt_v1_1c":
+                rules.extend(
+                    [
+                        "Do not stop at a service/SIM/data upstream-only subset when active downstream MMS/APN/Wi-Fi/app-permission blockers are input blockers, have canonical local Stage 4 repairs, and are not ordinary_defer or hard_transfer_required",
+                        "The connected local-chain closure rule does not apply to account/usage/policy blockers, can_be_deferred ordinary defers, hybrid/external/nonlocal blockers, or blockers without allowed canonical Stage 4 repair tools",
+                    ]
+                )
+            return rules
+        if version == "stage45_contract_prompt_v1_2":
+            return [
+                "Do not upgrade ordinary_defer blockers to hard_transfer_required unless concrete metadata or evidence shows a hard condition",
+                "Do not soften hard_transfer_required blockers into ordinary_defer merely to keep repair_subset",
+                "If repairability is transfer_required, contract_self_check.hard_transfer_blocker_ids must list concrete input blocker ids",
+            ]
+        return []
+
+    def _stage5_contract_prompt_extra_normalization_rules(self) -> list[str]:
+        version = self._stage45_contract_prompt_version()
+        if version in {"stage45_contract_prompt_v1_1b", "stage45_contract_prompt_v1_1c"}:
+            rules = [
+                "Never place verification signals such as can_send_mms, post_repair_can_send_mms, tool names, observed_state keys, or generic symptoms in selected_blocker_ids or deferred_blocker_ids",
+            ]
+            if version == "stage45_contract_prompt_v1_1c":
+                rules.append(
+                    "Any Stage 5 change to Stage 4 selected/deferred/final_action must be tied to concrete input blocker ids and verification evidence; otherwise preserve the Stage 4 blocker plan"
+                )
+            return rules
+        if version == "stage45_contract_prompt_v1_2":
+            return [
+                "Never place verification signals such as can_send_mms, post_repair_can_send_mms, tool names, or observed_state keys in selected_blocker_ids or deferred_blocker_ids",
+                "If can_send_mms=false after a repair_all Stage 4 plan, map the failure to concrete input blocker ids before downgrading; do not ignore it",
+                "If verification proves a concrete Stage 4 selected blocker failed, you may change the Stage 4 plan for that blocker and explain it in contract_self_check.change_reason_by_blocker",
+                "If verification cannot map a failure to a concrete input blocker id, preserve blocker ids and describe the uncertainty in verification_summary",
+            ]
+        return []
 
     def _llm_visible_task_metadata(self, raw_instance: dict[str, Any]) -> dict[str, Any]:
         """Expose run provenance without leaking labels, oracle actions, or profile-switch keys."""
@@ -395,6 +476,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         return {
             "stage_id": stage_name,
             "stage_name": stage_name,
+            "model": result.get("model", self._model_for_stage(stage_name)),
             "agent_deliberation_mode": deliberation_mode,
             "stage_requirement": stage_requirement,
             "base_round_budget": int(base_round_budget),
@@ -911,7 +993,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         payload = {
             "stage_name": stage_name,
             "original_task_id": original_task_id,
-            "model": self.model,
+            "model": self._model_for_stage(stage_name),
             "llm_args": self.llm_args,
             "max_rounds": max_rounds,
             "allowed_tools": allowed_tools,
@@ -923,21 +1005,53 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         child_env = os.environ.copy()
         child_env.setdefault("PYTHONUTF8", "1")
         child_env.setdefault("PYTHONIOENCODING", "utf-8")
-        proc = subprocess.run(
-            cmd,
-            input=json.dumps(payload, ensure_ascii=False),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-            cwd=str(self.tau2_root),
-            env=child_env,
+        payload_text = json.dumps(payload, ensure_ascii=False)
+        max_attempts = max(
+            1,
+            int(os.environ.get("PSAGENT_TELECOM_LLM_BRIDGE_RETRY_ATTEMPTS", "4")),
         )
+        retry_sleep_seconds = float(
+            os.environ.get("PSAGENT_TELECOM_LLM_BRIDGE_RETRY_SLEEP_SECONDS", "20")
+        )
+        proc: subprocess.CompletedProcess[str] | None = None
+        for attempt in range(1, max_attempts + 1):
+            proc = subprocess.run(
+                cmd,
+                input=payload_text,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                cwd=str(self.tau2_root),
+                env=child_env,
+            )
+            if proc.returncode == 0:
+                break
+            bridge_error_text = "\n".join(
+                item for item in [proc.stderr.strip(), proc.stdout.strip()] if item
+            )
+            retryable = any(
+                marker in bridge_error_text
+                for marker in (
+                    "OpenAIException - Connection error",
+                    "InternalServerError",
+                    "APIConnectionError",
+                    "Connection error",
+                    "RateLimitError",
+                    "Timeout",
+                )
+            )
+            if not retryable or attempt >= max_attempts:
+                break
+            time.sleep(retry_sleep_seconds * attempt)
         if proc.returncode != 0:
+            detail = "\n".join(
+                item for item in [proc.stderr.strip(), proc.stdout.strip()] if item
+            )
             raise RuntimeError(
                 f"Telecom LLM bench bridge failed for {stage_name}: "
-                + (proc.stderr.strip() or proc.stdout.strip() or f"exit={proc.returncode}")
+                + (detail or f"exit={proc.returncode}")
             )
         return self._parse_bridge_stdout(
             proc=proc,
@@ -1623,6 +1737,443 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             ],
         }
 
+    def _stage4_contract_prompt_v1_system_rules(self) -> str:
+        if not self._stage45_contract_prompt_v1_enabled():
+            return ""
+        if self._stage45_contract_prompt_v1_1b_enabled():
+            version_label = self._stage45_contract_prompt_version()
+            c_chain_rules = (
+                "- Connected local-chain closure: if a case has active downstream MMS/APN/Wi-Fi/app-permission input blockers with canonical local Stage 4 repair steps, and they are not ordinary_defer or hard_transfer_required, do not repair only service/SIM/data upstream blockers and defer that downstream local chain.\n"
+                "- The connected local-chain closure rule is bounded: it applies only to active input blockers with allowed canonical local repair tools. It does not apply to account/usage/policy/subscription/quota/billing blockers, can_be_deferred ordinary defers, hybrid/external/nonlocal blockers, or blockers whose required repair tool is unavailable.\n"
+                "- If you classify a downstream local MMS/APN/Wi-Fi/app-permission blocker as deferred while repairing only an upstream local blocker, the defer reason must be ordinary_defer or hard_transfer_required for that concrete blocker id; otherwise it belongs in selected.\n"
+                if self._stage45_contract_prompt_v1_1c_enabled()
+                else ""
+            )
+            return (
+                f"Stage 4 selected/deferred contract {version_label}:\n"
+                "- For each active blocker, classify it as exactly one of: local_repair_now, ordinary_defer, hard_transfer_required.\n"
+                "- local_repair_now means the blocker is active, locally repairable with available tools, and should be included with should_repair=true.\n"
+                "- ordinary_defer means the blocker is intentionally left unresolved but can be represented by repair_subset; ordinary_defer does not by itself justify transfer_required.\n"
+                "- hard_transfer_required means the blocker requires external/manual/nonlocal/hybrid handling and cannot be safely represented as ordinary_defer.\n"
+                "- Active can_be_deferred=true account, usage, subscription, quota, billing, policy, or roaming-policy blockers default to ordinary_defer unless the allowed Stage 4 tools can fully repair that exact blocker now.\n"
+                "- Never put data_usage_exceeded or account roaming policy blockers such as user_abroad_roaming_disabled_on into selected just to obtain repair_all; keep them deferred ordinary blockers and use partially_repairable.\n"
+                "- If you select a downstream blocker, you must also select every locally repairable prerequisite blocker in its active depends_on chain.\n"
+                "- Never select bad_network_preference, bad_wifi_calling, APN, or app-permission blockers while deferring locally repairable service/SIM/data prerequisites such as airplane_mode_on, unseat_sim_card, or data_mode_off.\n"
+                "- If an active app permission blocker has canonical local permission repair steps, do not defer it while selecting APN, Wi-Fi calling, network preference, or MMS app downstream repairs.\n"
+                f"{c_chain_rules}"
+                "- Do not put ordinary_defer blockers such as known safely-deferred account/usage/policy blockers into the selected repair set just to make repair_all look complete.\n"
+                "- Use partially_repairable when local_repair_now blockers are selected and remaining blockers are ordinary_defer.\n"
+                "- Use transfer_required only when at least one active hard_transfer_required blocker remains unresolved.\n"
+                "- Light transfer guard: do not output transfer_required unless you can name at least one concrete input blocker id that is hard_transfer_required. If no concrete hard blocker id exists, choose repairable or partially_repairable with ordinary_defer blockers instead.\n"
+                "- JSON consistency rule: repairability=transfer_required is invalid if contract_self_check.has_concrete_transfer_blocker is false or transfer_reason does not name a concrete hard input blocker id.\n"
+                "- Include a short report-only contract_self_check object in the JSON. It is diagnostic only; it must include has_concrete_transfer_blocker and ids_are_input_blockers_only.\n"
+            )
+        return (
+            "Stage 4 selected/deferred contract v1.2:\n"
+            "- For each active blocker, classify it as exactly one of: local_repair_now, ordinary_defer, hard_transfer_required.\n"
+            "- Classify by Stage 3 evidence, blocker metadata, available canonical tools, and current stage scope; do not classify by blocker name alone.\n"
+            "- local_repair_now means the blocker is active, evidence-supported, locally repairable with allowed Stage 4 tools, and should be included with should_repair=true.\n"
+            "- ordinary_defer means the blocker is intentionally left unresolved and can safely be represented by repair_subset; ordinary_defer does not by itself justify transfer_required.\n"
+            "- hard_transfer_required means an explicit hard condition is present: hybrid_required=true, non-deferable assistant-side handling, external/manual/nonlocal handling, missing/disallowed required tools, or verified local repair impossibility.\n"
+            "- can_be_deferred=true is evidence against hard_transfer_required, but it is not evidence against local_repair_now when exact allowed local repair is available and selected.\n"
+            "- Do not treat account/usage/policy/roaming/subscription/billing-side blockers as hard_transfer_required merely because they are unresolved, assistant-side, or outside the chosen local subset; require a concrete non-deferable or hybrid/manual condition.\n"
+            "- Do not put ordinary_defer blockers into selected merely to obtain repair_all; do not put hard_transfer_required blockers into ordinary_defer merely to obtain repair_subset.\n"
+            "- If you select a downstream blocker, you must also select every locally repairable prerequisite blocker in its active depends_on chain.\n"
+            "- Do not select a downstream blocker while deferring an active prerequisite that satisfies local_repair_now.\n"
+            "- If selecting a downstream repair whose success depends on an active local permission/configuration prerequisite, and that prerequisite has allowed canonical local repair steps, select and repair the prerequisite in the same Stage 4 bundle.\n"
+            "- Use partially_repairable when local_repair_now blockers are selected and remaining blockers are ordinary_defer.\n"
+            "- Use transfer_required only when at least one active hard_transfer_required blocker remains unresolved; the transfer_reason must name the hard condition, not just uncertainty or deferral.\n"
+            "- If repairability is transfer_required, contract_self_check must list concrete input blocker ids in hard_transfer_blocker_ids and give a reason for each in hard_transfer_reason_by_blocker.\n"
+            "- Include a required report-only contract_self_check object in the JSON. It is diagnostic only and must not change selected/deferred or repairability; it should expose local_repair_now, ordinary_defer, and hard_transfer classifications plus prerequisite closure checks.\n"
+        )
+
+    def _stage4_contract_prompt_v1_payload(self) -> dict[str, Any] | None:
+        if not self._stage45_contract_prompt_v1_enabled():
+            return None
+        if self._stage45_contract_prompt_v1_1b_enabled():
+            return {
+                "version": self._stage45_contract_prompt_version(),
+                "blocker_classes": {
+                    "local_repair_now": (
+                        "Active blocker with affirmative evidence, available canonical local repair steps, "
+                        "no hybrid requirement, and no non-deferable assistant-side requirement."
+                    ),
+                    "ordinary_defer": (
+                        "Known or ambiguous blocker intentionally left unresolved while a local subset is repaired; "
+                        "supports repair_subset rather than transfer."
+                    ),
+                    "hard_transfer_required": (
+                        "Active blocker requiring external/manual/nonlocal/hybrid handling that cannot be safely deferred."
+                    ),
+                },
+                "selected_deferred_contract": [
+                    "selected_blocker_ids are the blockers the agent will repair now.",
+                    "deferred_blocker_ids are known blockers intentionally left unresolved.",
+                    "selected and deferred must partition the active input blockers.",
+                    "ordinary_defer blockers belong in deferred_blocker_ids, not selected_blocker_ids.",
+                    "can_be_deferred=true account/usage/policy/roaming-policy blockers belong in deferred_blocker_ids unless exactly repairable now.",
+                    "data_usage_exceeded and user_abroad_roaming_disabled_on are ordinary_defer in the local MMS-chain pattern; selecting them is invalid unless you actually repair those exact blockers.",
+                    "transfer_required requires at least one active hard_transfer_required blocker.",
+                    "If transfer_required is used, contract_self_check.has_concrete_transfer_blocker must be true and transfer_reason must identify a concrete hard input blocker.",
+                ],
+                "prerequisite_closure_contract": [
+                    "If a selected blocker has an active locally repairable depends_on prerequisite, that prerequisite must also be selected.",
+                    "Do not select downstream MMS/data blockers while deferring active local service/SIM/data prerequisites.",
+                    "If an active app permission blocker has canonical local permission repair steps, select it before closing APN/Wi-Fi/MMS downstream repair; do not leave it deferred or missing.",
+                ],
+                **(
+                    {
+                        "connected_local_chain_closure_contract": [
+                            "Do not create an upstream-only local subset when active downstream MMS/APN/Wi-Fi/app-permission input blockers also have canonical local Stage 4 repairs.",
+                            "If service/SIM/data upstream blockers are selected and downstream local MMS blockers are active and locally repairable, select the connected downstream local chain too.",
+                            "This rule is bounded: exclude account/usage/policy/subscription/quota/billing blockers, can_be_deferred ordinary defers, hybrid/external/nonlocal blockers, and blockers without allowed canonical Stage 4 repair tools.",
+                            "If a downstream local MMS blocker is deferred, its concrete blocker id must have an ordinary_defer or hard_transfer_required reason; do not defer it merely because an upstream repair is a shorter subset.",
+                        ],
+                        "consistency_contract": [
+                            "repairability=transfer_required is inconsistent when contract_self_check.has_concrete_transfer_blocker=false.",
+                            "transfer_reason for transfer_required must name at least one concrete hard input blocker id.",
+                        ],
+                    }
+                    if self._stage45_contract_prompt_v1_1c_enabled()
+                    else {}
+                ),
+                "repair_subset_contract": [
+                    "repair_subset is a successful partial local repair outcome, not a failure fallback.",
+                    "Deferred ordinary blockers can prevent repair_all without forcing transfer.",
+                    "Use repair_subset for selected local repairs plus ordinary deferred blockers.",
+                ],
+                "few_shot_contract_examples": [
+                    {
+                        "name": "invalid_missing_prerequisites",
+                        "bad": {
+                            "selected": [
+                                "bad_network_preference",
+                                "bad_wifi_calling",
+                                "break_apn_mms_setting",
+                            ],
+                            "deferred": ["airplane_mode_on", "unseat_sim_card"],
+                        },
+                        "why_invalid": (
+                            "The selected downstream blockers depend on locally repairable service/SIM prerequisites."
+                        ),
+                        "correct_pattern": {
+                            "selected": [
+                                "airplane_mode_on",
+                                "unseat_sim_card",
+                                "bad_network_preference",
+                                "bad_wifi_calling",
+                                "break_apn_mms_setting",
+                            ],
+                            "deferred": [],
+                            "repairability": "repairable",
+                        },
+                    },
+                    {
+                        "name": "valid_repair_subset_with_ordinary_defer",
+                        "correct_pattern": {
+                            "selected": [
+                                "airplane_mode_on",
+                                "unseat_sim_card",
+                                "data_mode_off",
+                                "bad_network_preference",
+                                "bad_wifi_calling",
+                                "break_apn_mms_setting",
+                                "break_app_sms_permission",
+                            ],
+                            "deferred": [
+                                "user_abroad_roaming_disabled_on",
+                                "data_usage_exceeded",
+                            ],
+                            "repairability": "partially_repairable",
+                        },
+                        "why_valid": (
+                            "The local chain is repaired now and the known account/usage blockers are ordinary defers."
+                        ),
+                    },
+                    {
+                        "name": "dataset10_style_local_chain_plus_account_usage_defer",
+                        "abstract_case": (
+                            "A local MMS chain is active and repairable: airplane mode, SIM seating, data mode, "
+                            "network preference, Wi-Fi calling, and APN/MMS app settings. The same case also has "
+                            "can_be_deferred=true usage/account roaming policy blockers."
+                        ),
+                        "bad": {
+                            "selected": [
+                                "airplane_mode_on",
+                                "unseat_sim_card",
+                                "data_mode_off",
+                                "bad_network_preference",
+                                "bad_wifi_calling",
+                                "break_apn_mms_setting",
+                                "data_usage_exceeded",
+                                "user_abroad_roaming_disabled_on",
+                            ],
+                            "deferred": [],
+                            "repairability": "repairable",
+                        },
+                        "why_invalid": (
+                            "The usage/account policy blockers are ordinary defers. Selecting them creates a false repair_all."
+                        ),
+                        "correct_pattern": {
+                            "selected": [
+                                "airplane_mode_on",
+                                "unseat_sim_card",
+                                "data_mode_off",
+                                "bad_network_preference",
+                                "bad_wifi_calling",
+                                "break_apn_mms_setting",
+                            ],
+                            "deferred": [
+                                "data_usage_exceeded",
+                                "user_abroad_roaming_disabled_on",
+                            ],
+                            "repairability": "partially_repairable",
+                        },
+                        "terminal_expectation": (
+                            "Stage 5 should normally return repair_subset for this plan, not repair_all and not transfer."
+                        ),
+                    },
+                    {
+                        "name": "permission_blocker_must_close_with_local_mms_chain",
+                        "abstract_case": (
+                            "A local app permission blocker is active, has canonical local permission repair, "
+                            "and APN/Wi-Fi/MMS downstream repairs are selected."
+                        ),
+                        "bad": {
+                            "selected": [
+                                "airplane_mode_on",
+                                "unseat_sim_card",
+                                "bad_network_preference",
+                                "bad_wifi_calling",
+                                "break_apn_mms_setting",
+                            ],
+                            "deferred": ["break_app_storage_permission"],
+                        },
+                        "why_invalid": (
+                            "The active local app permission blocker is repairable now and is part of the MMS closure chain."
+                        ),
+                        "correct_pattern": {
+                            "selected": [
+                                "airplane_mode_on",
+                                "unseat_sim_card",
+                                "bad_network_preference",
+                                "bad_wifi_calling",
+                                "break_apn_mms_setting",
+                                "break_app_storage_permission",
+                            ],
+                            "deferred": [],
+                        },
+                    },
+                    *(
+                        [
+                            {
+                                "name": "invalid_upstream_only_local_subset",
+                                "abstract_case": (
+                                    "Service/SIM/data upstream blockers are active and locally repairable. "
+                                    "Downstream MMS/APN/Wi-Fi/app-permission blockers are also active input blockers "
+                                    "with canonical local Stage 4 repair steps. No account/usage/policy ordinary defer "
+                                    "or hard-transfer condition applies to those downstream blockers."
+                                ),
+                                "bad": {
+                                    "selected": ["unseat_sim_card"],
+                                    "deferred": [
+                                        "bad_wifi_calling",
+                                        "break_apn_mms_setting",
+                                        "break_app_sms_permission",
+                                    ],
+                                    "repairability": "partially_repairable",
+                                },
+                                "why_invalid": (
+                                    "This is an upstream-only subset that leaves connected local MMS blockers deferred "
+                                    "without an ordinary_defer or hard_transfer reason."
+                                ),
+                                "correct_pattern": {
+                                    "selected": [
+                                        "unseat_sim_card",
+                                        "bad_wifi_calling",
+                                        "break_apn_mms_setting",
+                                        "break_app_sms_permission",
+                                    ],
+                                    "deferred": [],
+                                    "repairability": "repairable",
+                                },
+                            }
+                        ]
+                        if self._stage45_contract_prompt_v1_1c_enabled()
+                        else []
+                    ),
+                ],
+                "report_only_contract_self_check_keys": [
+                    "has_concrete_transfer_blocker",
+                    "ids_are_input_blockers_only",
+                ],
+                "required_report_only_diagnostic": {
+                    "key": "contract_self_check",
+                    "not_for_decision": True,
+                    "must_include_keys": [
+                        "has_concrete_transfer_blocker",
+                        "ids_are_input_blockers_only",
+                    ],
+                },
+            }
+        return {
+            "version": self._stage45_contract_prompt_version(),
+            "blocker_classes": {
+                "local_repair_now": (
+                    "Active blocker with affirmative evidence, available canonical repair steps whose tools are allowed in Stage 4, "
+                    "no hybrid requirement, and no non-deferable external/manual/assistant-side requirement."
+                ),
+                "ordinary_defer": (
+                    "Known or ambiguous blocker intentionally left unresolved while a local subset is repaired; "
+                    "supports repair_subset rather than transfer when no explicit hard-transfer condition is present."
+                ),
+                "hard_transfer_required": (
+                    "Active blocker requiring hybrid, non-deferable assistant-side, external/manual/nonlocal handling, missing/disallowed required tools, or verified local repair impossibility."
+                ),
+            },
+            "selected_deferred_contract": [
+                "selected_blocker_ids are the blockers the agent will repair now.",
+                "deferred_blocker_ids are known blockers intentionally left unresolved.",
+                "selected and deferred must partition the active input blockers.",
+                "ordinary_defer blockers belong in deferred_blocker_ids, not selected_blocker_ids.",
+                "hard_transfer_required blockers also belong in deferred_blocker_ids, but they force repairability=transfer_required rather than repair_subset.",
+                "can_be_deferred=true is evidence for ordinary_defer, not automatic proof; exact local repair evidence and allowed tools can still justify selected.",
+                "transfer_required requires at least one active hard_transfer_required blocker and must name the concrete blocker ids in contract_self_check.",
+            ],
+            "prerequisite_closure_contract": [
+                "If a selected blocker has an active locally repairable depends_on prerequisite, that prerequisite must also be selected.",
+                "Do not select downstream blockers while deferring active prerequisites that satisfy local_repair_now.",
+                "If an active local permission/configuration prerequisite has allowed canonical repair steps, select it before closing downstream repair that depends on it.",
+            ],
+            "repair_subset_contract": [
+                "repair_subset is a successful partial local repair outcome, not a failure fallback.",
+                "Deferred ordinary blockers can prevent repair_all without forcing transfer.",
+                "Use repair_subset for selected local repairs plus ordinary deferred blockers.",
+            ],
+            "few_shot_contract_examples": [
+                {
+                    "name": "invalid_missing_prerequisites",
+                    "bad": {
+                        "selected": [
+                            "downstream_connectivity_blocker",
+                            "downstream_app_configuration_blocker",
+                        ],
+                        "deferred": ["active_local_prerequisite_a", "active_local_prerequisite_b"],
+                    },
+                    "why_invalid": (
+                        "The selected downstream blockers depend on active locally repairable prerequisites."
+                    ),
+                    "correct_pattern": {
+                        "selected": [
+                            "active_local_prerequisite_a",
+                            "active_local_prerequisite_b",
+                            "downstream_connectivity_blocker",
+                            "downstream_app_configuration_blocker",
+                        ],
+                        "deferred": [],
+                        "repairability": "repairable",
+                    },
+                },
+                {
+                    "name": "valid_partial_repair_with_ordinary_defer",
+                    "correct_pattern": {
+                        "selected": "all active blockers classified local_repair_now",
+                        "deferred": "all active blockers classified ordinary_defer",
+                        "repairability": "partially_repairable",
+                        "transfer_reason": None,
+                    },
+                    "why_valid": (
+                        "Deferable unresolved blockers support repair_subset when no explicit hard-transfer condition is present."
+                    ),
+                },
+                {
+                    "name": "invalid_hard_transfer_as_ordinary_defer",
+                    "abstract_case": (
+                        "A blocker has an explicit hard condition such as hybrid_required=true, non-deferable assistant-side handling, "
+                        "external/manual handling, or missing required tools."
+                    ),
+                    "bad": {
+                        "selected": "local repair subset only",
+                        "deferred": "hard blocker placed as ordinary_defer",
+                        "repairability": "partially_repairable",
+                    },
+                    "why_invalid": (
+                        "A blocker with an explicit hard-transfer condition cannot be represented as ordinary_defer."
+                    ),
+                    "correct_pattern": {
+                        "selected": "local repair subset if any",
+                        "deferred": "ordinary_defer blockers plus hard_transfer_required blockers",
+                        "repairability": "transfer_required",
+                        "contract_self_check.hard_transfer_blocker_ids": "concrete hard blocker ids",
+                    },
+                },
+                {
+                    "name": "permission_or_configuration_prerequisite_must_close_with_downstream_repair",
+                    "abstract_case": (
+                        "A local permission or configuration prerequisite is active, has allowed canonical local repair, "
+                        "and a downstream repair depending on it is selected."
+                    ),
+                    "bad": {
+                        "selected": [
+                            "active_upstream_local_blocker",
+                            "downstream_repair_blocker",
+                        ],
+                        "deferred": ["active_local_permission_or_configuration_prerequisite"],
+                    },
+                    "why_invalid": (
+                        "The active local prerequisite is repairable now and is part of the downstream closure chain."
+                    ),
+                    "correct_pattern": {
+                        "selected": [
+                            "active_upstream_local_blocker",
+                            "active_local_permission_or_configuration_prerequisite",
+                            "downstream_repair_blocker",
+                        ],
+                        "deferred": [],
+                    },
+                },
+                {
+                    "name": "valid_transfer",
+                    "correct_pattern": {
+                        "selected": [],
+                        "deferred": "all active blockers",
+                        "repairability": "transfer_required",
+                    },
+                    "why_valid": (
+                        "Use only when an active hard_transfer_required blocker requires external/manual/nonlocal handling."
+                    ),
+                },
+            ],
+            "report_only_contract_self_check_keys": [
+                "selected_deferred_partition_ok",
+                "local_repair_now_blocker_ids",
+                "ordinary_defer_blocker_ids",
+                "hard_transfer_blocker_ids",
+                "hard_transfer_reason_by_blocker",
+                "ordinary_defer_not_used_for_transfer_ok",
+                "hard_transfer_not_softened_to_subset_ok",
+                "dependency_closure_ok",
+                "active_local_prerequisites_selected_ok",
+                "selected_repair_tools_available_ok",
+            ],
+            "required_report_only_diagnostic": {
+                "key": "contract_self_check",
+                "not_for_decision": True,
+                "must_include_keys": [
+                    "selected_deferred_partition_ok",
+                    "local_repair_now_blocker_ids",
+                    "ordinary_defer_blocker_ids",
+                    "hard_transfer_blocker_ids",
+                    "hard_transfer_reason_by_blocker",
+                    "ordinary_defer_not_used_for_transfer_ok",
+                    "hard_transfer_not_softened_to_subset_ok",
+                    "dependency_closure_ok",
+                    "active_local_prerequisites_selected_ok",
+                    "selected_repair_tools_available_ok",
+                ],
+            },
+        }
+
     def _stage5_terminal_decision_rules(self, *, mode: str) -> list[str]:
         rules = [
             "Choose the terminal action from blocker-specific evidence and the stage4 repairability plan.",
@@ -1662,6 +2213,175 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "Deep terminal policy: do not choose transfer simply because the case is complex or verification took more rounds.",
             ]
         return "\n".join(f"- {rule}" for rule in mode_rules)
+
+    def _stage5_contract_prompt_v1_system_rules(self) -> str:
+        if not self._stage45_contract_prompt_v1_enabled():
+            return ""
+        if self._stage45_contract_prompt_v1_1b_enabled():
+            version_label = self._stage45_contract_prompt_version()
+            c_edit_rules = (
+                "- If you change Stage 4 selected_blocker_ids, deferred_blocker_ids, or final_action, the change must be tied to concrete input blocker ids and concrete verification evidence.\n"
+                "- Do not turn a Stage 4 repairable plan with selected local blockers into transfer or an empty selected set unless verification proves a hard_transfer_required blocker or verified local repair impossibility for concrete input blocker ids.\n"
+                "- can_send_mms=false alone is not a concrete blocker id and is not enough to rewrite selected/deferred; map it to input blocker ids or preserve the Stage 4 blocker plan.\n"
+                if self._stage45_contract_prompt_v1_1c_enabled()
+                else ""
+            )
+            return (
+                f"Stage 5 selected/deferred contract {version_label}:\n"
+                "- Stage 5 is verification and terminal closure, not a new planning stage.\n"
+                "- Default to preserving the Stage 4 selected/deferred plan.\n"
+                "- Change Stage 4 selected/deferred only if verification evidence proves a selected repair failed, a deferred blocker was actually repaired, or a hard_transfer_required blocker is explicit.\n"
+                f"{c_edit_rules}"
+                "- selected_blocker_ids and deferred_blocker_ids must contain only blocker ids from stage4_output.per_blocker.\n"
+                "- Never put verification signals such as can_send_mms, post_repair_can_send_mms, tool names, observed_state keys, or generic symptoms into selected_blocker_ids or deferred_blocker_ids.\n"
+                "- For repair_subset, success does not require can_send_mms=true; selected blockers can be repaired while ordinary deferred blockers remain unresolved.\n"
+                "- If can_send_mms remains false only because ordinary deferred blockers remain, choose repair_subset rather than transfer.\n"
+                "- If Stage 4 deferred can_be_deferred=true account/usage/policy blockers such as data_usage_exceeded or user_abroad_roaming_disabled_on, preserve them as deferred ordinary blockers unless verification proves they were repaired.\n"
+                "- Do not upgrade to repair_all by moving ordinary deferred account/usage/policy blockers into selected.\n"
+                "- Transfer requires explicit external/manual/nonlocal handling, Stage 4 transfer_required, or verified local repair impossibility.\n"
+                "- Include a short report-only contract_self_check object in the JSON. It is diagnostic only and must include has_concrete_transfer_blocker and ids_are_input_blockers_only.\n"
+            )
+        return (
+            "Stage 5 selected/deferred contract v1.2:\n"
+            "- Stage 5 is verification and terminal closure, not a new planning stage.\n"
+            "- Default to preserving the Stage 4 selected/deferred plan, but do not blindly preserve it when verification maps a concrete selected blocker to failed repair evidence or maps a concrete deferred blocker to repaired evidence.\n"
+            "- Change Stage 4 selected/deferred only when the change is tied to concrete input blocker ids from stage4_output.per_blocker and concrete blocker-matched verification evidence.\n"
+            "- selected_blocker_ids and deferred_blocker_ids must contain only blocker ids from stage4_output.per_blocker. Verification tool names, observed_state keys, can_send_mms, post_repair_can_send_mms, and generic symptoms are not blocker ids.\n"
+            "- For repair_subset, success does not require can_send_mms=true; selected blockers can be repaired while ordinary deferred blockers remain unresolved.\n"
+            "- can_send_mms=false is an important failure signal, not a blocker id. Use it to trigger blocker-matched verification or to downgrade repair_all only when the failure maps to concrete input blocker ids.\n"
+            "- If can_send_mms=false remains only because ordinary deferred blockers remain, choose repair_subset rather than transfer.\n"
+            "- If Stage 4 deferred can_be_deferred account/usage/policy blockers, preserve them as deferred ordinary blockers unless verification proves they were repaired or proves they are actually hard_transfer_required by concrete metadata/evidence.\n"
+            "- Do not upgrade to repair_all by moving ordinary deferred blockers into selected. Do not report repair_all when can_send_mms=false maps to any unrepaired concrete input blocker.\n"
+            "- Transfer requires explicit external/manual/nonlocal handling, Stage 4 transfer_required with concrete hard blocker ids, or verification-proved local repair impossibility for concrete input blocker ids.\n"
+            "- Include a required report-only contract_self_check object in the JSON. It is diagnostic only and must not be used as a substitute for the final_action fields.\n"
+        )
+
+    def _stage5_contract_prompt_v1_payload(self, stage4_output: dict[str, Any]) -> dict[str, Any] | None:
+        if not self._stage45_contract_prompt_v1_enabled():
+            return None
+        stage4_selected = [
+            row.get("blocker_id")
+            for row in stage4_output.get("per_blocker", [])
+            if isinstance(row, dict) and row.get("blocker_id") and row.get("should_repair")
+        ]
+        stage4_deferred = [
+            row.get("blocker_id")
+            for row in stage4_output.get("per_blocker", [])
+            if isinstance(row, dict) and row.get("blocker_id") and not row.get("should_repair")
+        ]
+        return {
+            "version": self._stage45_contract_prompt_version(),
+            "default_stage4_plan": {
+                "repairability": stage4_output.get("repairability"),
+                "selected_blocker_ids": stage4_selected,
+                "deferred_blocker_ids": stage4_deferred,
+                "transfer_reason": stage4_output.get("transfer_reason"),
+            },
+            **(
+                {
+                    "stage5_plan_preservation_rules": [
+                        "Preserve Stage 4 selected/deferred unless verification evidence proves a change.",
+                        "Do not convert partially_repairable to transfer because evidence is incomplete.",
+                        "repair_subset with ordinary deferred blockers is a normal terminal outcome.",
+                        "If Stage 4 repairability is partially_repairable and no hard_transfer_required blocker is explicit, final_action should normally be repair_subset.",
+                        "Do not move ordinary deferred account/usage/policy blockers into selected merely to make repair_all.",
+                        "selected_blocker_ids and deferred_blocker_ids must contain only input blocker ids from stage4_output.per_blocker.",
+                        "can_send_mms, post_repair_can_send_mms, verification tool names, observed_state keys, and generic symptoms are not blocker ids.",
+                        *(
+                            [
+                                "Any change to Stage 4 selected/deferred/final_action must name concrete input blocker ids and verification evidence.",
+                                "Do not replace a Stage 4 repairable local plan with transfer or empty selected ids unless concrete verification proves a hard-transfer blocker or local repair impossibility.",
+                                "can_send_mms=false alone is a verification signal, not a blocker id or sufficient reason to rewrite the Stage 4 blocker plan.",
+                            ]
+                            if self._stage45_contract_prompt_v1_1c_enabled()
+                            else []
+                        ),
+                    ],
+                    "repair_subset_verification_contract": [
+                        "repair_subset success_condition is partial_resolution_only.",
+                        "repair_subset does not require can_send_mms=true when deferred ordinary blockers remain.",
+                        "Use verification to confirm selected repairs and identify remaining blockers, not to force transfer from partial repair.",
+                    ],
+                    "report_only_contract_self_check_keys": [
+                        "has_concrete_transfer_blocker",
+                        "ids_are_input_blockers_only",
+                    ],
+                    "required_report_only_diagnostic": {
+                        "key": "contract_self_check",
+                        "not_for_decision": True,
+                        "must_include_keys": [
+                            "has_concrete_transfer_blocker",
+                            "ids_are_input_blockers_only",
+                        ],
+                    },
+                }
+                if self._stage45_contract_prompt_v1_1b_enabled()
+                else {}
+            ),
+            **(
+                {}
+                if self._stage45_contract_prompt_v1_1b_enabled()
+                else {
+            "stage5_plan_preservation_rules": [
+                "Preserve Stage 4 selected/deferred unless blocker-matched verification evidence proves a concrete input blocker changed status.",
+                "Do not blindly preserve Stage 4 if concrete verification proves a selected repair failed, a deferred blocker was repaired, or a hard-transfer blocker is explicit.",
+                "Do not convert partially_repairable to transfer because evidence is incomplete.",
+                "repair_subset with ordinary deferred blockers is a normal terminal outcome.",
+                "If Stage 4 repairability is partially_repairable and no hard_transfer_required blocker is explicit, final_action should normally be repair_subset.",
+                "Do not move ordinary deferred blockers into selected merely to make repair_all.",
+                "Do not shrink selected_blocker_ids because of can_send_mms=false unless the failure is mapped to concrete selected blocker ids.",
+            ],
+            "repair_subset_verification_contract": [
+                "repair_subset success_condition is partial_resolution_only.",
+                "repair_subset does not require can_send_mms=true when deferred ordinary blockers remain.",
+                "Use verification to confirm selected repairs and identify remaining concrete blockers, not to force transfer from partial repair.",
+                "can_send_mms=false can justify repair_subset instead of repair_all when it maps to concrete unrepaired input blockers.",
+                "can_send_mms=false alone does not justify transfer or selected/deferred rewrite when ordinary deferred blockers already explain the remaining failure.",
+            ],
+            "repair_all_verification_contract": [
+                "If Stage 4 repairability is repairable and Stage 4 selected every input blocker, choose repair_all only if blocker-matched verification does not contradict the completed repairs.",
+                "If can_send_mms=false after a planned repair_all, do not ignore it. Map the failure to concrete input blocker ids when possible.",
+                "If can_send_mms=false maps to a selected blocker that failed repair, choose repair_subset with that concrete blocker deferred or transfer only if the blocker is hard_transfer_required.",
+                "If can_send_mms=false cannot be mapped to a concrete input blocker after required verification, preserve the Stage 4 blocker plan but do not invent blocker ids.",
+            ],
+            "hard_transfer_preservation_contract": [
+                "If Stage 4 transfer_required is supported by concrete hard_transfer_blocker_ids, preserve transfer.",
+                "If Stage 4 transfer_required has no concrete hard blocker evidence and verification supports local repair or ordinary defers, do not preserve transfer blindly.",
+                "A hard-transfer decision must name concrete input blocker ids and hard conditions; unresolved ordinary_defer blockers are not enough.",
+            ],
+            "report_only_contract_self_check_keys": [
+                "selected_ids_are_input_blockers_only_ok",
+                "no_verification_signal_used_as_blocker_id_ok",
+                "preserved_stage4_plan_or_named_concrete_change_ok",
+                "changed_blocker_ids",
+                "change_reason_by_blocker",
+                "can_send_mms_not_used_as_blocker_id_ok",
+                "can_send_mms_false_checked_against_concrete_blockers_ok",
+                "repair_all_not_reported_despite_mapped_failure_ok",
+                "transfer_has_concrete_hard_blocker_ok",
+                "selected_deferred_partition_ok",
+                "ordinary_defer_preserved_or_concretely_changed_ok",
+            ],
+            "required_report_only_diagnostic": {
+                "key": "contract_self_check",
+                "not_for_decision": True,
+                "must_include_keys": [
+                    "selected_ids_are_input_blockers_only_ok",
+                    "no_verification_signal_used_as_blocker_id_ok",
+                    "preserved_stage4_plan_or_named_concrete_change_ok",
+                    "changed_blocker_ids",
+                    "change_reason_by_blocker",
+                    "can_send_mms_not_used_as_blocker_id_ok",
+                    "can_send_mms_false_checked_against_concrete_blockers_ok",
+                    "repair_all_not_reported_despite_mapped_failure_ok",
+                    "transfer_has_concrete_hard_blocker_ok",
+                    "selected_deferred_partition_ok",
+                    "ordinary_defer_preserved_or_concretely_changed_ok",
+                ],
+            },
+                }
+            ),
+        }
 
     def _build_agent_execution_contract(
         self,
@@ -1978,7 +2698,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "Do not do fresh diagnosis beyond minimal execution-time grounding.\n"
             "Do not produce customer-facing prose.\n"
             "Return JSON only.\n"
-            "Your output must be a JSON object with top-level keys: per_blocker, repairability, transfer_reason, decision_policy_version.\n"
+            "Your output must be a JSON object with top-level keys: per_blocker, repairability, transfer_reason, decision_policy_version, contract_self_check.\n"
             "per_blocker must include every input blocker_id exactly once and each row must contain blocker_id and should_repair.\n"
             "Allowed repairability values: repairable, partially_repairable, transfer_required.\n"
             "Stage4 policy bias:\n"
@@ -2003,6 +2723,8 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "- Deep agents must confirm decisive preconditions before repair, then execute evidence-supported local non-hybrid canonical repairs.\n"
             "- If Stage 3 observed_state affirmatively supports a local blocker and repair_metadata provides a canonical step, do not treat that blocker as ambiguous.\n"
             "If transfer is required, provide a non-null short snake_case transfer_reason. Otherwise use null.\n"
+            + self._stage4_contract_prompt_v1_system_rules()
+            +
             "Output JSON only. No markdown. No explanation outside the JSON."
         )
         blocker_ids = [
@@ -2060,6 +2782,10 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                         "repairability",
                         "transfer_reason",
                         "decision_policy_version",
+                        "contract_self_check",
+                    ],
+                    "report_only_required_keys": [
+                        "contract_self_check",
                     ],
                     "repairability_values": [
                         "repairable",
@@ -2091,7 +2817,9 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     "Use partially_repairable only when remaining deferred blockers are ordinary defers, not hard_transfer_required blockers",
                     "Use transfer_required when any active hard_transfer_required blocker remains unresolved",
                     "Do not downgrade a hard transfer case to partially_repairable because local repair tools succeeded",
+                    *self._stage4_contract_prompt_extra_normalization_rules(),
                 ],
+                "stage4_contract_prompt_v1": self._stage4_contract_prompt_v1_payload(),
             },
             ensure_ascii=False,
         )
@@ -2137,9 +2865,11 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "- repair_subset is valid only when remaining deferred blockers are ordinary defers, not active hard_transfer_required blockers.\n"
             + self._stage5_system_terminal_rules(mode=deliberation_mode)
             + "\n"
+            + self._stage5_contract_prompt_v1_system_rules()
+            +
             "Output must be a JSON object with at least these top-level keys: "
             "final_action, selected_blocker_ids, deferred_blocker_ids, response_mode, verification_plan, "
-            "transfer_reason, cancelled_reservation_ids, refused_reservation_ids.\n"
+            "transfer_reason, cancelled_reservation_ids, refused_reservation_ids, contract_self_check.\n"
             "You may also include verification_observed_state, verification_evidence, verification_summary, post_repair_can_send_mms, post_repair_blocker_ids.\n"
             "Do not include explanations outside the JSON."
         )
@@ -2187,6 +2917,10 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                         "transfer_reason",
                         "cancelled_reservation_ids",
                         "refused_reservation_ids",
+                        "contract_self_check",
+                    ],
+                    "report_only_required_keys": [
+                        "contract_self_check",
                     ],
                     "final_action_values": [
                         "repair_all",
@@ -2211,8 +2945,10 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                     "Use verification tools to inspect the current post-repair state before deciding",
                     "If any blocker was replayed or selected, verification should usually include can_send_mms",
                     "Do not execute repair tools in Stage 5",
+                    *self._stage5_contract_prompt_extra_normalization_rules(),
                     "Do not include tools, prose, or execution details outside the JSON object",
                 ],
+                "stage5_contract_prompt_v1": self._stage5_contract_prompt_v1_payload(stage4_output),
             },
             ensure_ascii=False,
         )
@@ -2716,6 +3452,15 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "db_hash_before_execution": db_hash_before,
             "db_hash_after_execution": db_hash_after,
             "stage4_raw_json_extracted": deepcopy(stage4_diagnostics["raw_json_extracted"]),
+            "stage4_contract_prompt_version": (
+                self._stage45_contract_prompt_version()
+            ),
+            "stage4_contract_self_check": (
+                deepcopy(final_output.get("contract_self_check"))
+                if isinstance(final_output, dict)
+                and isinstance(final_output.get("contract_self_check"), dict)
+                else None
+            ),
             "stage4_raw_action_hint": stage4_diagnostics["raw_action_hint"],
             "stage4_selected_before_normalization": list(
                 stage4_diagnostics["selected_before_normalization"]
@@ -3323,6 +4068,14 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "final_action": final_action,
                 "selected_blocker_ids": selected_blocker_ids,
                 "deferred_blocker_ids": deferred_blocker_ids,
+                "stage5_contract_prompt_version": (
+                    self._stage45_contract_prompt_version()
+                ),
+                "contract_self_check": (
+                    deepcopy(data.get("contract_self_check"))
+                    if isinstance(data.get("contract_self_check"), dict)
+                    else None
+                ),
                 "response_mode": "telecom_structured_execution",
                 "verification_plan": verification_plan,
                 "transfer_reason": transfer_reason,
@@ -3348,6 +4101,14 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "final_action": "transfer",
                 "selected_blocker_ids": [],
                 "deferred_blocker_ids": list(blocker_ids),
+                "stage5_contract_prompt_version": (
+                    self._stage45_contract_prompt_version()
+                ),
+                "contract_self_check": (
+                    deepcopy(data.get("contract_self_check"))
+                    if isinstance(data.get("contract_self_check"), dict)
+                    else None
+                ),
                 "response_mode": "telecom_structured_execution",
                 "verification_plan": verification_plan,
                 "transfer_reason": transfer_reason,
@@ -3575,6 +4336,14 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             "final_action": final_action,
             "selected_blocker_ids": selected_blocker_ids,
             "deferred_blocker_ids": deferred_blocker_ids,
+            "stage5_contract_prompt_version": (
+                self._stage45_contract_prompt_version()
+            ),
+            "contract_self_check": (
+                deepcopy(data.get("contract_self_check"))
+                if isinstance(data.get("contract_self_check"), dict)
+                else None
+            ),
             "response_mode": "telecom_structured_execution",
             "verification_plan": verification_plan,
             "transfer_reason": transfer_reason,

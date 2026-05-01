@@ -542,6 +542,7 @@ def main(*, json_stdout: Any = JSON_STDOUT) -> None:
     result = {
         "stage_name": stage_name,
         "original_task_id": original_task_id,
+        "model": model,
         "db_hash_before_replay": db_hash_before_replay,
         "db_hash_after_replay": db_hash_after_replay,
         "db_hash_before": db_hash_before,

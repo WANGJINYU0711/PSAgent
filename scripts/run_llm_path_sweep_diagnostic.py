@@ -109,6 +109,35 @@ def json_ready(value: Any) -> Any:
     return json.loads(json.dumps(value, ensure_ascii=False, default=str))
 
 
+def extract_contract_self_check(
+    normalized_output: dict[str, Any],
+    stage_trace: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Return report-only self-check even if a legacy normalized output dropped it."""
+
+    direct = normalized_output.get("contract_self_check")
+    if isinstance(direct, dict):
+        return json_ready(direct)
+
+    raw_output = stage_trace.get("raw_output")
+    if isinstance(raw_output, dict) and isinstance(raw_output.get("contract_self_check"), dict):
+        return json_ready(raw_output["contract_self_check"])
+
+    for message in reversed(stage_trace.get("llm_raw_output", []) or []):
+        if not isinstance(message, dict):
+            continue
+        content = message.get("content")
+        if not isinstance(content, str) or "contract_self_check" not in content:
+            continue
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict) and isinstance(parsed.get("contract_self_check"), dict):
+            return json_ready(parsed["contract_self_check"])
+    return None
+
+
 def index_rows_by_task_id(rows: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     indexed: dict[str, dict[str, Any]] = {}
     for row in rows:
@@ -381,6 +410,7 @@ def flatten_stage_resource_summary(stage_trace: dict[str, dict[str, Any]]) -> li
             {
                 "stage_id": row.get("stage_id", stage_name),
                 "stage_name": row.get("stage_name", stage_name),
+                "model": row.get("model"),
                 "agent_id": row.get("agent_id"),
                 "agent_deliberation_mode": row.get("agent_deliberation_mode"),
                 "stage_requirement": row.get("stage_requirement"),
@@ -498,6 +528,12 @@ def flatten_record_for_csv(record: dict[str, Any]) -> dict[str, Any]:
         "path_agent_ids": json.dumps(record["path_agent_ids"], ensure_ascii=False),
         "offline_path_match": record["offline_path_match"],
         "raw_terminal_penalty": record["raw_terminal_penalty"],
+        "raw_terminal_penalty_exec_clean_v4": record.get("raw_terminal_penalty_exec_clean_v4"),
+        "terminal_adjustment_reasons": json.dumps(
+            record.get("terminal_adjustment_reasons", []), ensure_ascii=False
+        ),
+        "terminal_clear_success_proxy": record.get("terminal_clear_success_proxy"),
+        "terminal_auxiliary_success_proxy": record.get("terminal_auxiliary_success_proxy"),
         "raw_path_cost_component": record["raw_path_cost_component"],
         "raw_reasoning_cost_component": record["raw_reasoning_cost_component"],
         "raw_total_cost": record["raw_total_cost"],
@@ -519,6 +555,10 @@ def flatten_record_for_csv(record: dict[str, Any]) -> dict[str, Any]:
         "final_action": record["final_action"],
         "stage4_repairability": record.get("stage4_repairability"),
         "stage4_transfer_reason": record.get("stage4_transfer_reason"),
+        "stage4_contract_prompt_version": record.get("stage4_contract_prompt_version"),
+        "stage4_contract_self_check": json.dumps(
+            record.get("stage4_contract_self_check"), ensure_ascii=False
+        ),
         "stage4_should_repair_true_count": record.get("stage4_should_repair_true_count"),
         "stage4_llm_call_count": record.get("stage4_llm_call_count"),
         "stage4_json_retry_count": record.get("stage4_json_retry_count"),
@@ -538,6 +578,19 @@ def flatten_record_for_csv(record: dict[str, Any]) -> dict[str, Any]:
             record.get("stage4_completion_added_blockers", []) or []
         ),
         "stage5_raw_action_hint": record.get("stage5_raw_action_hint"),
+        "stage5_contract_prompt_version": record.get("stage5_contract_prompt_version"),
+        "stage5_contract_self_check": json.dumps(
+            record.get("stage5_contract_self_check"), ensure_ascii=False
+        ),
+        "stage5_replay_tool_names": json.dumps(
+            record.get("stage5_replay_tool_names", []), ensure_ascii=False
+        ),
+        "stage5_executed_tool_names": json.dumps(
+            record.get("stage5_executed_tool_names", []), ensure_ascii=False
+        ),
+        "stage4_executed_tool_names": json.dumps(
+            record.get("stage4_executed_tool_names", []), ensure_ascii=False
+        ),
         "selected_blocker_ids": json.dumps(record["selected_blocker_ids"], ensure_ascii=False),
         "deferred_blocker_ids": json.dumps(record["deferred_blocker_ids"], ensure_ascii=False),
         "exact_match": record["exact_match"],
@@ -876,6 +929,22 @@ def run_selected_path_job(job: dict[str, Any]) -> dict[str, Any]:
         "path_route_summary": str(path_row["path_route_summary"]),
         "offline_path_match": float(path_row["path_match"]),
         "raw_terminal_penalty": float(result.raw_terminal_penalty),
+        "raw_terminal_penalty_exec_clean_v4": episode_log.get(
+            "raw_terminal_penalty_exec_clean_v4"
+        ),
+        "terminal_adjustment_enabled": bool(
+            episode_log.get("terminal_adjustment_enabled", False)
+        ),
+        "terminal_adjustment_floor": episode_log.get("terminal_adjustment_floor"),
+        "terminal_adjustment_reasons": list(
+            episode_log.get("terminal_adjustment_reasons", []) or []
+        ),
+        "terminal_clear_success_proxy": bool(
+            episode_log.get("clear_success_proxy", bool(result.success))
+        ),
+        "terminal_auxiliary_success_proxy": bool(
+            episode_log.get("auxiliary_success_proxy", True)
+        ),
         "raw_path_cost_component": float(result.raw_path_cost_component),
         "raw_reasoning_cost_component": float(result.raw_reasoning_cost_component),
         "raw_total_cost": raw_total_cost_base,
@@ -894,6 +963,8 @@ def run_selected_path_job(job: dict[str, Any]) -> dict[str, Any]:
         "stage5_output": json_ready(stage5_output),
         "stage4_repairability": stage4_output.get("repairability"),
         "stage4_transfer_reason": stage4_output.get("transfer_reason"),
+        "stage4_contract_prompt_version": stage4_output.get("stage4_contract_prompt_version"),
+        "stage4_contract_self_check": json_ready(stage4_output.get("stage4_contract_self_check")),
         "stage4_per_blocker": stage4_per_blocker,
         "stage4_should_repair_true_count": sum(
             1 for blocker_row in stage4_per_blocker if blocker_row.get("should_repair") is True
@@ -950,7 +1021,21 @@ def run_selected_path_job(job: dict[str, Any]) -> dict[str, Any]:
         "stage5_raw_action_hint": stage5_stage_trace.get("raw_output", {}).get("final_action")
         if isinstance(stage5_stage_trace.get("raw_output"), dict)
         else None,
+        "stage5_contract_prompt_version": stage5_output.get("stage5_contract_prompt_version"),
+        "stage5_contract_self_check": extract_contract_self_check(
+            stage5_output,
+            stage5_stage_trace,
+        ),
         "stage5_llm_raw_output": json_ready(stage5_stage_trace.get("llm_raw_output", [])),
+        "stage5_replay_tool_names": [
+            call.get("name") for call in stage5_stage_trace.get("replay_tool_calls", []) or []
+        ],
+        "stage5_executed_tool_names": [
+            call.get("name") for call in stage5_stage_trace.get("executed_tool_calls", []) or []
+        ],
+        "stage4_executed_tool_names": [
+            call.get("name") for call in stage4_stage_trace.get("executed_tool_calls", []) or []
+        ],
         "exact_match": bool(result.success),
         "stage_resource_summary": stage_resource_summary,
         "first_private_barrier_stage": episode_log.get("first_private_barrier_stage"),
