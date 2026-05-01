@@ -1,14 +1,14 @@
 {
   "direct_multistage_exp3": {
-    "last_uploaded_episode_index": 17
+    "last_uploaded_episode_index": 18
   },
   "epsilon_exp3": {
-    "last_uploaded_episode_index": 15
-  },
-  "risky_ps": {
     "last_uploaded_episode_index": 16
   },
+  "risky_ps": {
+    "last_uploaded_episode_index": 17
+  },
   "risky_ps_old": {
-    "last_uploaded_episode_index": 18
+    "last_uploaded_episode_index": 19
   }
 }

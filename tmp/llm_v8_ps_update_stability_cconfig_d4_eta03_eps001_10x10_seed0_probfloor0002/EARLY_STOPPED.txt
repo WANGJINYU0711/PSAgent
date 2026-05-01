@@ -1,0 +1,1 @@
+Stopped after t>=75 early-stop check: no clear PS benefit under margin/rolling criteria.
