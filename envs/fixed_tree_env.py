@@ -81,6 +81,13 @@ def _env_flag(name: str) -> bool:
     return str(os.environ.get(name, "")).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_float(name: str, default: float) -> float:
+    raw = str(os.environ.get(name, "")).strip()
+    if not raw:
+        return default
+    return float(raw)
+
+
 def leaf_starts_shared_upload(
     path: Sequence[str],
     agent_lookup: Mapping[str, Any],
@@ -372,7 +379,13 @@ class FixedTreeEnvironment:
             raise ValueError(f"Unsupported executor_name: {self.executor_name}")
 
         flat_profile_switch_path_cost = (
-            family_kind == "shared_basin_strong_prefix_dedup_profile_switch"
+            family_kind
+            in {
+                "shared_basin_strong_prefix_dedup_profile_switch",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+            }
             and str(os.environ.get("PSAGENT_PROFILE_SWITCH_FLAT_PATH_COST", "")).strip()
             in {"1", "true", "True", "yes", "on"}
         )
@@ -1574,16 +1587,32 @@ class FixedTreeEnvironment:
                 base_stage_token = float(
                     stage_reasoning_components.get("raw_reasoning_cost_component_token", 0.0) or 0.0
                 )
+                reasoning_cost_multiplier = _env_float(
+                    "PSAGENT_TELECOM_REASONING_COST_MULTIPLIER",
+                    1.0,
+                )
                 normalized_requirement = self._normalize_deliberation_mode(requirement)
                 normalized_mode = self._normalize_deliberation_mode(realized_mode)
                 mode_mismatch_stage_cost = 0.0
                 if mode_mismatch_cost_enabled or mode_mismatch_report_only_enabled:
                     if normalized_requirement == "deep" and normalized_mode == "fast":
-                        mode_mismatch_stage_cost = TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2
+                        mode_mismatch_stage_cost = _env_float(
+                            "PSAGENT_TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST",
+                            TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2,
+                        )
                     elif normalized_requirement == "fast" and normalized_mode == "deep":
-                        mode_mismatch_stage_cost = TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2
-                weighted_stage_api = round(base_stage_api * multiplier, 6)
-                weighted_stage_token = round(base_stage_token * multiplier, 6)
+                        mode_mismatch_stage_cost = _env_float(
+                            "PSAGENT_TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST",
+                            TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2,
+                        )
+                weighted_stage_api = round(
+                    base_stage_api * multiplier * reasoning_cost_multiplier,
+                    6,
+                )
+                weighted_stage_token = round(
+                    base_stage_token * multiplier * reasoning_cost_multiplier,
+                    6,
+                )
                 if mode_mismatch_cost_enabled and mode_mismatch_stage_cost:
                     weighted_stage_api = round(weighted_stage_api + mode_mismatch_stage_cost, 6)
                     weighted_stage_token = round(
@@ -1600,6 +1629,7 @@ class FixedTreeEnvironment:
                         "deliberation_requirement": normalized_requirement,
                         "deliberation_mode": normalized_mode,
                         "reasoning_match_multiplier": multiplier,
+                        "reasoning_cost_multiplier": reasoning_cost_multiplier,
                         "mode_mismatch_cost_enabled": mode_mismatch_cost_enabled,
                         "mode_mismatch_report_only_enabled": (
                             mode_mismatch_report_only_enabled
@@ -1640,13 +1670,23 @@ class FixedTreeEnvironment:
                 ),
                 "mode_mismatch_cost_enabled": mode_mismatch_cost_enabled,
                 "mode_mismatch_report_only_enabled": mode_mismatch_report_only_enabled,
+                "reasoning_cost_multiplier": _env_float(
+                    "PSAGENT_TELECOM_REASONING_COST_MULTIPLIER",
+                    1.0,
+                ),
                 "mode_mismatch_fast_on_deep_cost": (
-                    TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2
+                    _env_float(
+                        "PSAGENT_TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST",
+                        TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2,
+                    )
                     if mode_mismatch_cost_enabled or mode_mismatch_report_only_enabled
                     else 0.0
                 ),
                 "mode_mismatch_deep_on_fast_cost": (
-                    TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2
+                    _env_float(
+                        "PSAGENT_TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST",
+                        TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2,
+                    )
                     if mode_mismatch_cost_enabled or mode_mismatch_report_only_enabled
                     else 0.0
                 ),
@@ -1775,10 +1815,26 @@ class FixedTreeEnvironment:
         realized_mode = self._normalize_deliberation_mode(actual_mode)
         if _env_flag("PSAGENT_TELECOM_REASONING_WEIGHT_CALIBRATION_V3"):
             if required_mode == realized_mode:
+                if required_mode == "fast":
+                    return _env_float(
+                        "PSAGENT_TELECOM_REASONING_CALIBRATED_FAST_MATCH_DISCOUNT",
+                        LLM_BENCH_REASONING_CALIBRATED_MATCH_DISCOUNT,
+                    )
+                if required_mode == "deep":
+                    return _env_float(
+                        "PSAGENT_TELECOM_REASONING_CALIBRATED_DEEP_MATCH_DISCOUNT",
+                        LLM_BENCH_REASONING_CALIBRATED_MATCH_DISCOUNT,
+                    )
                 return LLM_BENCH_REASONING_CALIBRATED_MATCH_DISCOUNT
             if required_mode == "deep":
-                return LLM_BENCH_REASONING_CALIBRATED_MISMATCH_PENALTY_DEEP_REQUIRED
-            return LLM_BENCH_REASONING_CALIBRATED_MISMATCH_PENALTY_FAST_REQUIRED
+                return _env_float(
+                    "PSAGENT_TELECOM_REASONING_CALIBRATED_FAST_ON_DEEP_PENALTY",
+                    LLM_BENCH_REASONING_CALIBRATED_MISMATCH_PENALTY_DEEP_REQUIRED,
+                )
+            return _env_float(
+                "PSAGENT_TELECOM_REASONING_CALIBRATED_DEEP_ON_FAST_PENALTY",
+                LLM_BENCH_REASONING_CALIBRATED_MISMATCH_PENALTY_FAST_REQUIRED,
+            )
         if required_mode == realized_mode:
             return LLM_BENCH_REASONING_MATCH_DISCOUNT
         if required_mode == "deep":
@@ -1791,6 +1847,9 @@ class FixedTreeEnvironment:
             not in {
                 "shared_basin_strong_prefix_dedup",
                 "shared_basin_strong_prefix_dedup_profile_switch",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
             }
             or self.current_instance is None
             or self.family_agent_map is None
@@ -1809,7 +1868,12 @@ class FixedTreeEnvironment:
         node_semantics = [str(getattr(agent, "node_semantic", "")) for agent in family_agents]
         safe_prefix = node_semantics[0] == "safe_core"
         trap_like_path = base_aliases[0] == "stage1_n4" or route_labels[0] == "mixed_stage1_intake"
-        if self.family_kind == "shared_basin_strong_prefix_dedup_profile_switch":
+        if self.family_kind in {
+            "shared_basin_strong_prefix_dedup_profile_switch",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+        }:
             trap_like_path = trap_like_path or route_labels[0] == "trap_stage1_intake"
             target_stage5_labels = {"target_stage5_verify", "target_stage5_decision"}
             profile_shared_or_target_prefix = route_labels[0] in {
@@ -1832,10 +1896,21 @@ class FixedTreeEnvironment:
                 and route_labels[3] in {"general_stage4_repair", "general_stage4_verify"}
                 and route_labels[4] in target_stage5_labels
             )
-            decoy_path = (
-                route_labels[3].startswith("barrier_stage4_")
-                or route_labels[4].startswith("barrier_stage5_")
-            )
+            if self.family_kind in {
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+            }:
+                decoy_path = (
+                    not trap_like_path
+                    and not profile_clean_target_route
+                    and any(label.startswith("trap_") for label in route_labels[1:])
+                )
+            else:
+                decoy_path = (
+                    route_labels[3].startswith("barrier_stage4_")
+                    or route_labels[4].startswith("barrier_stage5_")
+                )
         else:
             target_safe_subtree = (
                 safe_prefix
@@ -1890,7 +1965,13 @@ class FixedTreeEnvironment:
 
     def _profile_switch_flat_path_cost_enabled(self) -> bool:
         return (
-            self.family_kind == "shared_basin_strong_prefix_dedup_profile_switch"
+            self.family_kind
+            in {
+                "shared_basin_strong_prefix_dedup_profile_switch",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+            }
             and str(os.environ.get("PSAGENT_PROFILE_SWITCH_FLAT_PATH_COST", "")).strip()
             in {"1", "true", "True", "yes", "on"}
         )

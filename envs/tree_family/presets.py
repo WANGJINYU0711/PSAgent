@@ -16,6 +16,24 @@ SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_SPEC_PATH = (
     / "tree_specs"
     / "shared_basin_strong_4of5_prefix_dedup_profile_switch.json"
 )
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V1_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v1.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V2_NEUTRAL_4OF5_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V3_EFFICIENT_ANCHOR_4OF5_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5.json"
+)
 
 
 def build_neutral_family_spec() -> dict:
@@ -807,6 +825,36 @@ def build_shared_basin_strong_prefix_dedup_profile_switch_family_spec() -> dict:
         ),
         "source_family_name": "shared_basin_strong_prefix_dedup",
     }
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1_family_spec() -> dict:
+    config = deepcopy(build_shared_basin_strong_prefix_dedup_profile_switch_family_spec())
+    config["family_name"] = "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1"
+    config["prefix_dedup_topology_spec_path"] = str(
+        SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V1_SPEC_PATH
+    )
+    config["source_family_name"] = "shared_basin_strong_prefix_dedup_profile_switch"
+    return config
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5_family_spec() -> dict:
+    config = deepcopy(build_shared_basin_strong_prefix_dedup_profile_switch_family_spec())
+    config["family_name"] = "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5"
+    config["prefix_dedup_topology_spec_path"] = str(
+        SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V2_NEUTRAL_4OF5_SPEC_PATH
+    )
+    config["source_family_name"] = "shared_basin_strong_prefix_dedup_profile_switch"
+    return config
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5_family_spec() -> dict:
+    config = deepcopy(build_shared_basin_strong_prefix_dedup_profile_switch_family_spec())
+    config["family_name"] = "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5"
+    config["prefix_dedup_topology_spec_path"] = str(
+        SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V3_EFFICIENT_ANCHOR_4OF5_SPEC_PATH
+    )
+    config["source_family_name"] = "shared_basin_strong_prefix_dedup_profile_switch"
+    return config
 
 
 def _build_shared_basin_strong_gonly_variant(

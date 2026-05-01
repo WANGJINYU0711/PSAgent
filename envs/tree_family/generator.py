@@ -17,6 +17,9 @@ from .presets import (
     build_shared_basin_strong_family_spec,
     build_shared_basin_strong_prefix_dedup_family_spec,
     build_shared_basin_strong_prefix_dedup_profile_switch_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5_family_spec,
     build_strong_family_spec,
 )
 from .specs import AgentSpec, CAPABILITY_NAMES, FamilySpec
@@ -187,6 +190,12 @@ class TreeFamilyGenerator:
             return build_shared_basin_strong_prefix_dedup_family_spec()
         if kind == "shared_basin_strong_prefix_dedup_profile_switch":
             return build_shared_basin_strong_prefix_dedup_profile_switch_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5_family_spec()
         if kind == "shared_basin_strong_2of5_gonly":
             return build_shared_basin_strong_2of5_gonly_family_spec()
         if kind == "shared_basin_strong_all_share_gonly":

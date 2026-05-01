@@ -1,0 +1,61 @@
+{
+  "schema_version": "profile_switch_local_exec_clean_v3_100_trap_attempt_note",
+  "purpose": "Trace why local_exec_clean_v3_100 used target fallback additions instead of trap additions.",
+  "requested_goal": "Remove v2 unchanged_source_profile neutral tasks and refill the 100-task clean dataset with execution-clean profile-switch tasks, preferably trap.",
+  "trap_candidate_attempts": [
+    {
+      "addition_profile": "trap",
+      "candidate_count": 47,
+      "stage123_model": "gpt-4o-mini",
+      "stage45_model": "gpt-4.1-mini",
+      "extra_env": {
+        "PSAGENT_TELECOM_STAGE45_CONTRACT_PROMPT_V1_1B": false,
+        "PSAGENT_TELECOM_EXEC_CLEAN_TERMINAL_V4": false
+      },
+      "observed_result": "47 executed; 0 passed clear_success && subset_clean. Run stopped with: Only found 0 passing trap additions; need 8."
+    },
+    {
+      "addition_profile": "trap",
+      "candidate_count": 47,
+      "stage123_model": "gpt-4o-mini",
+      "stage45_model": "gpt-4.1-mini",
+      "extra_env": {
+        "PSAGENT_TELECOM_STAGE45_CONTRACT_PROMPT_V1_1B": true,
+        "PSAGENT_TELECOM_EXEC_CLEAN_TERMINAL_V4": false
+      },
+      "observed_result": "Stopped early after 14 completed candidates; 0 passed clear_success && subset_clean."
+    },
+    {
+      "addition_profile": "trap",
+      "candidate_count": 47,
+      "stage123_model": "gpt-4o-mini",
+      "stage45_model": "gpt-4.1-mini",
+      "extra_env": {
+        "PSAGENT_TELECOM_STAGE45_CONTRACT_PROMPT_V1_1B": true,
+        "PSAGENT_TELECOM_EXEC_CLEAN_TERMINAL_V4": true
+      },
+      "observed_result": "Stopped early after 12 completed candidates; 0 passed clear_success && subset_clean."
+    }
+  ],
+  "successful_retry": {
+    "addition_profile": "trap_broad",
+    "candidate_pool_count": 1388,
+    "candidate_count_executed_in_final_run": 40,
+    "selected_count": 8,
+    "stage123_model": "gpt-4o-mini",
+    "stage45_model": "gpt-4.1-mini",
+    "extra_env": {
+      "PSAGENT_TELECOM_STAGE45_CONTRACT_PROMPT_V1_1B": true,
+      "PSAGENT_TELECOM_EXEC_CLEAN_TERMINAL_V4": false
+    },
+    "final_run_result": "40 broad trap candidates executed; 24 passed execution calibration, 8 selected for the final 100-task dataset by diversity; selected additions had exact_match/subset_clean/clear_success/strict_clean all equal to 1.0.",
+    "final_dataset_profile_counts": {
+      "trap_pre_switch": 27,
+      "target_post_switch": 69,
+      "target_specialist_post_switch": 4,
+      "unchanged_source_profile": 0
+    },
+    "output_dataset": "data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_exec_clean_v3_100/tasks.json",
+    "output_buckets": "analysis/shared_basin_prefix_dedup_profile_switch_local_exec_clean_v3_100_schedule_buckets.json"
+  }
+}

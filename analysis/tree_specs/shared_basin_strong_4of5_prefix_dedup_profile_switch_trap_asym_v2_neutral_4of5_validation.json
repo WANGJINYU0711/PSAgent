@@ -1,0 +1,274 @@
+{
+  "tree_name": "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
+  "depth": 5,
+  "num_paths": 250,
+  "total_agent_ids": 380,
+  "per_stage_node_counts": {
+    "stage1": 4,
+    "stage2": 10,
+    "stage3": 29,
+    "stage4": 87,
+    "stage5": 250
+  },
+  "g_counts_by_stage": {
+    "stage1": {
+      "0": 3,
+      "1": 1
+    },
+    "stage2": {
+      "0": 8,
+      "1": 2
+    },
+    "stage3": {
+      "0": 22,
+      "1": 7
+    },
+    "stage4": {
+      "0": 71,
+      "1": 16
+    },
+    "stage5": {
+      "0": 200,
+      "1": 50
+    }
+  },
+  "internal_node_count": 130,
+  "internal_share_count": 104,
+  "internal_private_count": 26,
+  "internal_share_fraction": 0.8,
+  "leaf_node_count": 250,
+  "leaf_share_count": 200,
+  "leaf_private_count": 50,
+  "leaf_share_fraction": 0.8,
+  "root_private_nodes": [
+    {
+      "alias": "stage1_n2__from__root__c02",
+      "base_alias": "stage1_n2"
+    }
+  ],
+  "private_internal_counts_by_base_alias": {
+    "stage1_n2": 1,
+    "stage2_n1": 1,
+    "stage2_n3": 1,
+    "stage3_n1": 2,
+    "stage3_n2": 1,
+    "stage3_n3": 3,
+    "stage3_n4": 1,
+    "stage4_n1": 5,
+    "stage4_n2": 7,
+    "stage4_n3": 3,
+    "stage4_n4": 1
+  },
+  "private_leaf_counts_by_base_alias": {
+    "stage5_n1": 13,
+    "stage5_n2": 18,
+    "stage5_n3": 15,
+    "stage5_n4": 4
+  },
+  "private_leaf_counts_by_archetype": {
+    "decoy": 7,
+    "target_shared": 42,
+    "trap_root": 1
+  },
+  "root_branching": 4,
+  "min_branching": 1,
+  "max_branching": 4,
+  "mean_branching": 2.900763358778626,
+  "root_base_path_counts": {
+    "stage1_n1": 91,
+    "stage1_n2": 64,
+    "stage1_n3": 91,
+    "stage1_n4": 4
+  },
+  "stage2_base_path_counts": {
+    "stage2_n1": 62,
+    "stage2_n2": 75,
+    "stage2_n3": 8,
+    "stage2_n4": 105
+  },
+  "mode_pattern_counts": {
+    "ddddd": 81,
+    "ddddf": 9,
+    "dddff": 3,
+    "ddfdd": 6,
+    "ddfff": 2,
+    "dfddd": 36,
+    "dfddf": 4,
+    "dfdff": 2,
+    "dffdd": 9,
+    "dffff": 3,
+    "fdddd": 54,
+    "fdddf": 6,
+    "fddff": 2,
+    "fdfdd": 3,
+    "fdfff": 1,
+    "ffddd": 18,
+    "ffddf": 2,
+    "ffdff": 1,
+    "fffdd": 6,
+    "fffff": 2
+  },
+  "target_shared_path_count": 189,
+  "target_shared_path_fraction": 0.756,
+  "trap_root_path_count": 4,
+  "trap_root_path_fraction": 0.016,
+  "decoy_path_count": 57,
+  "decoy_path_fraction": 0.228,
+  "stage2_full_share_subtree_roots": [
+    {
+      "alias": "stage2_n1__from__n0001__c01",
+      "base_alias": "stage2_n1",
+      "parent_base_alias": "stage1_n1",
+      "descendant_internal_count": 14,
+      "descendant_leaf_count": 31
+    }
+  ],
+  "excluded_base_aliases": [
+    "stage1_n5",
+    "stage2_n5",
+    "stage3_n5",
+    "stage4_n5",
+    "stage5_n5"
+  ],
+  "base_edge_rules": {
+    "ROOT": [
+      "stage1_n1",
+      "stage1_n2",
+      "stage1_n3",
+      "stage1_n4"
+    ],
+    "stage1_n1": [
+      "stage2_n1",
+      "stage2_n2",
+      "stage2_n4"
+    ],
+    "stage1_n3": [
+      "stage2_n1",
+      "stage2_n2",
+      "stage2_n4"
+    ],
+    "stage1_n2": [
+      "stage2_n2",
+      "stage2_n3",
+      "stage2_n4"
+    ],
+    "stage1_n4": [
+      "stage2_n3"
+    ],
+    "stage2_n1": [
+      "stage3_n1",
+      "stage3_n2",
+      "stage3_n3"
+    ],
+    "stage2_n2": [
+      "stage3_n1",
+      "stage3_n3",
+      "stage3_n4"
+    ],
+    "stage2_n3": [
+      "stage3_n4"
+    ],
+    "stage2_n4": [
+      "stage3_n1",
+      "stage3_n2",
+      "stage3_n3",
+      "stage3_n4"
+    ],
+    "stage3_n1": [
+      "stage4_n1",
+      "stage4_n2",
+      "stage4_n3"
+    ],
+    "stage3_n2": [
+      "stage4_n1",
+      "stage4_n2",
+      "stage4_n3"
+    ],
+    "stage3_n3": [
+      "stage4_n1",
+      "stage4_n2",
+      "stage4_n3",
+      "stage4_n4"
+    ],
+    "stage3_n4": [
+      "stage4_n2",
+      "stage4_n4"
+    ],
+    "stage4_n1": [
+      "stage5_n1",
+      "stage5_n2",
+      "stage5_n3"
+    ],
+    "stage4_n2": [
+      "stage5_n1",
+      "stage5_n2",
+      "stage5_n3"
+    ],
+    "stage4_n3": [
+      "stage5_n1",
+      "stage5_n2",
+      "stage5_n3",
+      "stage5_n4"
+    ],
+    "stage4_n4": [
+      "stage5_n4"
+    ]
+  },
+  "metadata": {
+    "purpose": "Paper-facing neutral 4/5-share trap-asymmetric profile-switch topology: same path topology as trap_asym_v1, but g is assigned by seeded weighted sampling rather than by protecting the entire target basin.",
+    "source_spec": "analysis/tree_specs/shared_basin_strong_4of5_minimal.json",
+    "preserve_connectivity_pattern": true,
+    "preserve_g": false,
+    "agent_reuse_policy": "parent_specific_clone",
+    "cross_prefix_agent_reuse_removed": true,
+    "compatible_with": [
+      "barriershare_controlled_sim",
+      "risky_ps",
+      "run_shared_basin_repeated_smoke_setup"
+    ],
+    "llm_runner_requires_adapter": true,
+    "not_directly_compatible_with_current_shared_basin_llm_runner": false,
+    "source_tree_name": "shared_basin_strong_4of5_prefix_dedup_profile_switch",
+    "profile_switch_version": "profile_switch_v1",
+    "notes": [
+      "Topology only; profile capabilities, deliberation modes, and base_cost ranges are unchanged.",
+      "Exactly 4/5 of expanded internal nodes and exactly 4/5 of expanded leaf nodes are g=0.",
+      "One concrete stage2_n1 subtree under stage1_n1 is forced full-share to satisfy the stage2 shared-subtree requirement.",
+      "One root child outside stage1_n1 is sampled as g=1 with trap-root downweighted, so root has a barrier without making the trap branch the default private mass sink.",
+      "All remaining private nodes are selected by seeded weighted sampling over target, decoy, and trap candidates; target paths may receive private leaves."
+    ],
+    "profile_switch_variant": "trap_asym_v2_neutral_4of5",
+    "g_layout_policy": "seeded_weighted_sampling_with_minimal_anchor_constraints_v1",
+    "g_layout_seed": 20260501,
+    "g_layout_metadata": {
+      "seed": 20260501,
+      "anchor_root_base_alias": "stage1_n1",
+      "anchor_stage2_base_alias": "stage2_n1",
+      "protected_anchor_subtree_alias_count": 45,
+      "root_private_alias": "stage1_n2__from__root__c02",
+      "root_private_base_alias": "stage1_n2",
+      "internal_private_target": 26,
+      "leaf_private_target": 50,
+      "sampling_weights": {
+        "root_private_candidate_weights": {
+          "stage1_n2": 1.0,
+          "stage1_n3": 1.0,
+          "stage1_n4": 0.35
+        },
+        "internal": {
+          "target_shared": 0.85,
+          "decoy": 1.0,
+          "trap_root": 0.35,
+          "mixed": 0.8
+        },
+        "leaf": {
+          "target_shared": 0.8,
+          "decoy": 1.0,
+          "trap_root": 0.3
+        }
+      }
+    },
+    "base_cost_policy": "unchanged_from_profile_switch_preset"
+  }
+}
