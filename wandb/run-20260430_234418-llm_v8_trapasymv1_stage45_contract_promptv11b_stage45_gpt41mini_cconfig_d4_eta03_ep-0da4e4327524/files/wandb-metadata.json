@@ -1,0 +1,35 @@
+{
+  "os":  "Linux-5.13.0-30-generic-x86_64-with-glibc2.31",
+  "python":  "CPython 3.13.12",
+  "startedAt":  "2026-04-30T15:44:18.695087Z",
+  "args":  [
+    "--run-dir",
+    "tmp/llm_v8_trapasymv1_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d4_eta03_eps001_10x10_3methods_seed0",
+    "--project",
+    "psagent-llm-smoke",
+    "--entity",
+    "wangjinyu0711-microsoft",
+    "--run-group",
+    "llm_v8_trapasymv1_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d4_eta03_eps001_10x10_3methods_seed0",
+    "--run-name-prefix",
+    "llm_v8_trapasymv1_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d4_eta03_eps001_10x10_3methods_seed0_",
+    "--methods",
+    "risky_ps",
+    "direct_multistage_exp3",
+    "epsilon_exp3",
+    "--poll-seconds",
+    "30",
+    "--finish-when-complete"
+  ],
+  "program":  "/home/ubuntu/data/PSAgent/scripts/live_wandb_partial_uploader.py",
+  "codePath":  "scripts/live_wandb_partial_uploader.py",
+  "codePathLocal":  "scripts/live_wandb_partial_uploader.py",
+  "git":  {
+    "remote":  "git@github.com:WANGJINYU0711/PSAgent.git",
+    "commit":  "7e61b3e7fa9cfe242ea31adb9598c8f9c64235da"
+  },
+  "root":  "/home/ubuntu/data/PSAgent",
+  "host":  "wangjinyu",
+  "executable":  "/home/ubuntu/miniforge3/bin/python",
+  "writerId":  "so4vof53784wqcybaikcu5knp7vy26la"
+}

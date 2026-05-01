@@ -1,0 +1,90 @@
+_wandb:
+    value:
+        cli_version: 0.26.1
+        e:
+            dd1vhc6rhc31c40p61k3v7c6fryvqof5:
+                args:
+                    - --run-dir
+                    - tmp/llm_v8_trapasymv1_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d4_eta03_eps001_10x10_3methods_seed0
+                    - --project
+                    - psagent-llm-smoke
+                    - --entity
+                    - wangjinyu0711-microsoft
+                    - --run-group
+                    - llm_v8_trapasymv1_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d4_eta03_eps001_10x10_3methods_seed0
+                    - --run-name-prefix
+                    - llm_v8_trapasymv1_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d4_eta03_eps001_10x10_3methods_seed0_
+                    - --methods
+                    - risky_ps
+                    - direct_multistage_exp3
+                    - epsilon_exp3
+                    - --poll-seconds
+                    - "30"
+                    - --finish-when-complete
+                codePath: scripts/live_wandb_partial_uploader.py
+                codePathLocal: scripts/live_wandb_partial_uploader.py
+                executable: /home/ubuntu/miniforge3/bin/python
+                git:
+                    commit: 7e61b3e7fa9cfe242ea31adb9598c8f9c64235da
+                    remote: git@github.com:WANGJINYU0711/PSAgent.git
+                host: wangjinyu
+                os: Linux-5.13.0-30-generic-x86_64-with-glibc2.31
+                program: /home/ubuntu/data/PSAgent/scripts/live_wandb_partial_uploader.py
+                python: CPython 3.13.12
+                root: /home/ubuntu/data/PSAgent
+                startedAt: "2026-04-30T15:59:56.118682Z"
+                writerId: dd1vhc6rhc31c40p61k3v7c6fryvqof5
+        m:
+            - "1": episode_index
+              "6":
+                - 3
+              "7": []
+            - "2": '*'
+              "5": 1
+              "6":
+                - 1
+              "7": []
+        python_version: 3.13.12
+        t:
+            "3":
+                - 2
+                - 5
+                - 7
+                - 13
+                - 14
+                - 16
+                - 61
+                - 62
+            "4": 3.13.12
+            "5": 0.26.1
+            "8":
+                - 2
+            "10":
+                - 20
+            "12": 0.26.1
+            "13": linux-x86_64
+dataset:
+    value: data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_exec_clean_v2_100/tasks.json
+executor_name:
+    value: llm_bench
+family_kind:
+    value: shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1
+horizon:
+    value: 100
+live_partial_uploader:
+    value: true
+method:
+    value: epsilon_exp3
+methods:
+    value:
+        - risky_ps
+        - direct_multistage_exp3
+        - epsilon_exp3
+repeats:
+    value: 10
+run_dir:
+    value: tmp/llm_v8_trapasymv1_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d4_eta03_eps001_10x10_3methods_seed0
+schedule_mode:
+    value: trap_switch
+seed:
+    value: 0
