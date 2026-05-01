@@ -1,7 +1,0 @@
-layer,method,episodes,raw_total_cost_mean,post_raw_total_cost_mean,raw_terminal_penalty_mean,post_raw_terminal_penalty_mean,pre_trap_stage1_frac,post_trap_stage1_frac,trap_like_good_n,trap_like_bad_n,post_trap_like_bad_n,target_safe_specialist_good_n,post_target_safe_specialist_good_n,neutral_n,trap_like_bad_terminal_mean,target_good_terminal_mean,path_cost_mean,final_transfer_nontransfer_n
-layer1_profilefix,direct_multistage_exp3,20,17.3706183,21.138428066666666,12.075,15.633333333333333,0.0,0.26666666666666666,0,4,4,0,0,16,19.0,,0.06961500000000001,9
-layer1_profilefix,epsilon_exp3,20,15.082694799999999,18.04573733333333,9.7,12.5,0.4,0.06666666666666667,2,1,1,0,0,17,20.5,,0.06988000000000001,5
-layer1_profilefix,risky_ps_linear,20,13.812925799999999,16.522165933333333,8.675,11.2,0.2,0.13333333333333333,1,2,2,0,0,17,17.5,,0.07118000000000001,6
-layer2_flatcost,direct_multistage_exp3,20,13.639430899999999,15.956649533333332,8.3,10.466666666666667,0.0,0.26666666666666666,0,4,4,0,0,16,19.0,,0.06929500000000001,4
-layer2_flatcost,epsilon_exp3,20,15.0614996,18.065141200000003,9.8,12.633333333333333,0.4,0.13333333333333333,2,2,2,0,0,16,17.5,,0.06925,7
-layer2_flatcost,risky_ps_linear,20,16.16190485,19.515391466666664,11.0,14.166666666666666,0.2,0.13333333333333333,1,2,2,0,0,17,18.5,,0.07090500000000001,8

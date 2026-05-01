@@ -1,9 +1,0 @@
-{
-  "method": "risky_ps_safe_conditional_ix",
-  "scheduled_episodes": 100,
-  "completed_episodes": 97,
-  "last_completed_episode_index": 96,
-  "status": "running",
-  "model": "gpt-4o-mini",
-  "updated_at": "2026-04-26T23:02:18.244703"
-}

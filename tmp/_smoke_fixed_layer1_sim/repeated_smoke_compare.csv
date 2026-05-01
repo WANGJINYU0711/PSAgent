@@ -1,4 +1,0 @@
-method,total_cost_mean,raw_total_cost_mean,raw_total_cost_api_mean,raw_total_cost_token_mean,raw_outcome_penalty_mean,raw_policy_penalty_mean,raw_terminal_penalty_mean,raw_path_cost_component_mean,raw_reasoning_cost_component_mean,raw_reasoning_cost_component_api_mean,raw_reasoning_cost_component_token_mean,exact_match_mean,mean_llm_call_count,mean_total_tokens,mean_api_cost_usd_raw,mean_generation_time_seconds,mean_episode_wall_clock_seconds
-risky_ps_linear,0.12118458056729028,4.016057,0.0,0.0,3.8,0.0,3.8,0.06976,0.14629699999999998,0.0,0.0,0.2,0.0,0.0,0.0,0.0,0.0
-epsilon_exp3,0.14400407362703682,4.772295000000001,0.0,0.0,4.55,0.0,4.55,0.06941,0.152885,0.0,0.0,0.2,0.0,0.0,0.0,0.0,0.0
-direct_multistage_exp3,0.15750401327700664,5.219683,0.0,0.0,5.0,0.0,5.0,0.07089000000000001,0.148793,0.0,0.0,0.1,0.0,0.0,0.0,0.0,0.0

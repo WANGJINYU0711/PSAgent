@@ -1,9 +1,0 @@
-{
-  "method": "random_path",
-  "scheduled_episodes": 20,
-  "completed_episodes": 20,
-  "last_completed_episode_index": 19,
-  "status": "complete",
-  "model": "gpt-4o-mini",
-  "updated_at": "2026-04-26T19:33:38.012826"
-}

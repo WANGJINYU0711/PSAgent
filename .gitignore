@@ -16,6 +16,8 @@ checkpoints/
 *.ckpt
 *.pt
 *.pth
+tmp/
+**/tmp/
 
 # Large local reference notes; keep only curated writing docs tracked.
 paper/agent_reference/*.md

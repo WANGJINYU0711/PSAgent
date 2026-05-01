@@ -1,8 +1,0 @@
-{
-  "attempted": true,
-  "ok": true,
-  "project": "psagent-llm-smoke",
-  "run_name": "llm_v8_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d4_eta03_eps001_10x10_3methods_seed0_seed1",
-  "attempt": "unique_artifact_paths",
-  "url": "https://wandb.ai/wangjinyu0711-microsoft/psagent-llm-smoke/runs/yj7y49kq"
-}

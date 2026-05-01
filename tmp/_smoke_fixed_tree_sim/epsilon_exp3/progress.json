@@ -1,9 +1,0 @@
-{
-  "method": "epsilon_exp3",
-  "scheduled_episodes": 10,
-  "completed_episodes": 10,
-  "last_completed_episode_index": 9,
-  "status": "complete",
-  "model": "simulated",
-  "updated_at": "2026-04-29T00:38:23.369728"
-}

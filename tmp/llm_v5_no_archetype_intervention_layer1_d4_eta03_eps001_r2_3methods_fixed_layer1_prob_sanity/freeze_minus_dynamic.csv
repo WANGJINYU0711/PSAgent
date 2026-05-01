@@ -1,4 +1,0 @@
-method_short,method,delta_definition,pre_cumulative_cost_avg_delta,post_cost_avg_delta,total_cost_avg_delta,post_target_good_fraction_delta,post_target_bad_fraction_delta,post_trap_basin_fraction_delta
-eps,epsilon_exp3,freeze_minus_dynamic,0.0,0.03333333333333344,0.025000000000000022,0.0,0.06666666666666665,0.0
-exp,direct_multistage_exp3,freeze_minus_dynamic,0.0,0.09999999999999998,0.07499999999999996,-0.06666666666666667,-0.06666666666666665,0.06666666666666668
-ps,risky_ps_linear,freeze_minus_dynamic,0.0,0.10000000000000009,0.07500000000000007,-0.06666666666666668,0.06666666666666668,-0.06666666666666667

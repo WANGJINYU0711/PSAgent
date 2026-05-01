@@ -1,2 +1,0 @@
-t=1: leader=epsilon_exp3 avg=4.1897, runner_up=risky_ps, margin=0.0332
-t=3: leader=risky_ps avg=4.0819, runner_up=epsilon_exp3, margin=1.4900
