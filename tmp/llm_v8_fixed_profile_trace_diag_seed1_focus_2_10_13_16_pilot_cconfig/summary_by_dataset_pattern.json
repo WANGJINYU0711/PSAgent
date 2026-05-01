@@ -1,0 +1,348 @@
+[
+  {
+    "dataset_index": 2,
+    "group": "canonical_pattern",
+    "pattern": "ddddd",
+    "n": 1,
+    "terminal_mean": 0.0,
+    "terminal_values": [
+      0.0
+    ],
+    "final_counts": {
+      "repair_all": 1
+    },
+    "selected_missing_counts": {
+      "": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 0.0
+  },
+  {
+    "dataset_index": 2,
+    "group": "canonical_pattern",
+    "pattern": "fdddd",
+    "n": 1,
+    "terminal_mean": 18.5,
+    "terminal_values": [
+      18.5
+    ],
+    "final_counts": {
+      "transfer": 1
+    },
+    "selected_missing_counts": {
+      "airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|unseat_sim_card": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 2,
+    "group": "canonical_pattern",
+    "pattern": "ffddd",
+    "n": 1,
+    "terminal_mean": 18.5,
+    "terminal_values": [
+      18.5
+    ],
+    "final_counts": {
+      "transfer": 1
+    },
+    "selected_missing_counts": {
+      "airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|unseat_sim_card": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 2,
+    "group": "observed_high_terminal_exact_match",
+    "pattern": "fdddd",
+    "n": 3,
+    "terminal_mean": 13.833333333333334,
+    "terminal_values": [
+      10.0,
+      13.0,
+      18.5
+    ],
+    "final_counts": {
+      "repair_subset": 2,
+      "transfer": 1
+    },
+    "selected_missing_counts": {
+      "airplane_mode_on|unseat_sim_card": 1,
+      "airplane_mode_on|bad_network_preference|bad_wifi_calling|unseat_sim_card": 1,
+      "airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|unseat_sim_card": 1
+    },
+    "deferred_missing_counts": {
+      "": 3
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 10,
+    "group": "canonical_pattern",
+    "pattern": "ddddd",
+    "n": 1,
+    "terminal_mean": 20.5,
+    "terminal_values": [
+      20.5
+    ],
+    "final_counts": {
+      "transfer": 1
+    },
+    "selected_missing_counts": {
+      "airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 10,
+    "group": "canonical_pattern",
+    "pattern": "fdddd",
+    "n": 1,
+    "terminal_mean": 12.0,
+    "terminal_values": [
+      12.0
+    ],
+    "final_counts": {
+      "repair_subset": 1
+    },
+    "selected_missing_counts": {
+      "bad_wifi_calling": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 10,
+    "group": "canonical_pattern",
+    "pattern": "ffddd",
+    "n": 1,
+    "terminal_mean": 23.5,
+    "terminal_values": [
+      23.5
+    ],
+    "final_counts": {
+      "transfer": 1
+    },
+    "selected_missing_counts": {
+      "airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card": 1
+    },
+    "deferred_missing_counts": {
+      "data_usage_exceeded": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 10,
+    "group": "observed_high_terminal_exact_match",
+    "pattern": "fdddd",
+    "n": 3,
+    "terminal_mean": 13.333333333333334,
+    "terminal_values": [
+      6.0,
+      15.0,
+      19.0
+    ],
+    "final_counts": {
+      "repair_subset": 3
+    },
+    "selected_missing_counts": {
+      "": 1,
+      "airplane_mode_on|data_mode_off|unseat_sim_card": 1,
+      "airplane_mode_on|bad_network_preference|bad_wifi_calling|data_mode_off|unseat_sim_card": 1
+    },
+    "deferred_missing_counts": {
+      "": 1,
+      "data_usage_exceeded|user_abroad_roaming_disabled_on": 2
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 13,
+    "group": "canonical_pattern",
+    "pattern": "ddddd",
+    "n": 1,
+    "terminal_mean": 6.0,
+    "terminal_values": [
+      6.0
+    ],
+    "final_counts": {
+      "repair_subset": 1
+    },
+    "selected_missing_counts": {
+      "": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 13,
+    "group": "canonical_pattern",
+    "pattern": "fdddd",
+    "n": 1,
+    "terminal_mean": 6.0,
+    "terminal_values": [
+      6.0
+    ],
+    "final_counts": {
+      "repair_subset": 1
+    },
+    "selected_missing_counts": {
+      "": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 13,
+    "group": "canonical_pattern",
+    "pattern": "ffddd",
+    "n": 1,
+    "terminal_mean": 17.0,
+    "terminal_values": [
+      17.0
+    ],
+    "final_counts": {
+      "repair_subset": 1
+    },
+    "selected_missing_counts": {
+      "airplane_mode_on|bad_network_preference|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off": 1
+    },
+    "deferred_missing_counts": {
+      "data_usage_exceeded": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 13,
+    "group": "observed_high_terminal_exact_match",
+    "pattern": "fdddd",
+    "n": 1,
+    "terminal_mean": 24.5,
+    "terminal_values": [
+      24.5
+    ],
+    "final_counts": {
+      "transfer": 1
+    },
+    "selected_missing_counts": {
+      "airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 16,
+    "group": "canonical_pattern",
+    "pattern": "ddddd",
+    "n": 1,
+    "terminal_mean": 0.0,
+    "terminal_values": [
+      0.0
+    ],
+    "final_counts": {
+      "repair_all": 1
+    },
+    "selected_missing_counts": {
+      "": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 0.0
+  },
+  {
+    "dataset_index": 16,
+    "group": "canonical_pattern",
+    "pattern": "fdddd",
+    "n": 1,
+    "terminal_mean": 15.0,
+    "terminal_values": [
+      15.0
+    ],
+    "final_counts": {
+      "repair_subset": 1
+    },
+    "selected_missing_counts": {
+      "airplane_mode_on|bad_network_preference|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 16,
+    "group": "canonical_pattern",
+    "pattern": "ffddd",
+    "n": 1,
+    "terminal_mean": 22.5,
+    "terminal_values": [
+      22.5
+    ],
+    "final_counts": {
+      "transfer": 1
+    },
+    "selected_missing_counts": {
+      "airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 1.0
+  },
+  {
+    "dataset_index": 16,
+    "group": "observed_high_terminal_exact_match",
+    "pattern": "fdddd",
+    "n": 1,
+    "terminal_mean": 0.0,
+    "terminal_values": [
+      0.0
+    ],
+    "final_counts": {
+      "repair_all": 1
+    },
+    "selected_missing_counts": {
+      "": 1
+    },
+    "deferred_missing_counts": {
+      "": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 0.0
+  }
+]

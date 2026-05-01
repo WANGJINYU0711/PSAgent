@@ -1,0 +1,66 @@
+{
+  "specialist_episode_count": 32,
+  "specialist_task_hit_ids": [
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]"
+  ],
+  "schedule_episode_indices": [
+    26,
+    27,
+    28,
+    29,
+    36,
+    37,
+    38,
+    39,
+    46,
+    47,
+    48,
+    49,
+    56,
+    57,
+    58,
+    59,
+    66,
+    67,
+    68,
+    69,
+    76,
+    77,
+    78,
+    79,
+    86,
+    87,
+    88,
+    89,
+    96,
+    97,
+    98,
+    99
+  ],
+  "methods": {
+    "risky_ps": {
+      "specialist_episode_count": 32,
+      "specialist_unshared_path_fraction": 0.09375,
+      "specialist_shared_path_fraction": 0.90625,
+      "specialist_total_cost_mean": 0.3693869017568659,
+      "specialist_raw_terminal_penalty_mean": 7.65625
+    },
+    "direct_multistage_exp3": {
+      "specialist_episode_count": 32,
+      "specialist_unshared_path_fraction": 0.0625,
+      "specialist_shared_path_fraction": 0.9375,
+      "specialist_total_cost_mean": 0.3685933292945611,
+      "specialist_raw_terminal_penalty_mean": 7.40625
+    },
+    "epsilon_exp3": {
+      "specialist_episode_count": 32,
+      "specialist_unshared_path_fraction": 0.09375,
+      "specialist_shared_path_fraction": 0.90625,
+      "specialist_total_cost_mean": 0.37848272583467957,
+      "specialist_raw_terminal_penalty_mean": 7.90625
+    }
+  }
+}

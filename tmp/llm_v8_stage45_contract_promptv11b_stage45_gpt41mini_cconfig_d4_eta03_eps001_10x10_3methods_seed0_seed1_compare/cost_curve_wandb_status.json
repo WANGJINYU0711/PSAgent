@@ -1,0 +1,23 @@
+{
+  "attempted": true,
+  "ok": true,
+  "mode": "wandb_native_line_series",
+  "url": "https://wandb.ai/wangjinyu0711-microsoft/psagent-llm-smoke/runs/yj7y49kq",
+  "csvs": [
+    "tmp/llm_v8_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d4_eta03_eps001_10x10_3methods_seed0_seed1_compare/cumulative_raw_total_cost_per_episode_seed0.csv",
+    "tmp/llm_v8_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d4_eta03_eps001_10x10_3methods_seed0_seed1_compare/cumulative_raw_total_cost_per_episode_seed1.csv"
+  ],
+  "combined_csv": "tmp/llm_v8_stage45_contract_promptv11b_stage45_gpt41mini_cconfig_d4_eta03_eps001_10x10_3methods_seed0_seed1_compare/cumulative_raw_total_cost_per_episode_all_seeds.csv",
+  "final_means": {
+    "0": {
+      "risky_ps": 8.259917649999998,
+      "direct_multistage_exp3": 7.553809550000002,
+      "epsilon_exp3": 8.487075249999998
+    },
+    "1": {
+      "risky_ps": 8.15856185,
+      "direct_multistage_exp3": 7.994325449999999,
+      "epsilon_exp3": 8.337466849999998
+    }
+  }
+}

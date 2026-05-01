@@ -1,0 +1,32 @@
+{
+  "script": "/home/ubuntu/data/PSAgent/scripts/run_llm_fixed_profile_trace_diagnostic.py",
+  "data": "/home/ubuntu/data/PSAgent/data/derived/telecom_mms_fixed_tree_base_v2_100_capabilities_time_profile_switch_local_exec_clean_v2_100/tasks.json",
+  "bucket_file": "/home/ubuntu/data/PSAgent/analysis/shared_basin_prefix_dedup_profile_switch_local_exec_clean_v2_100_smoke10_schedule_buckets.json",
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch",
+  "seed": 1,
+  "model": "gpt-4o-mini",
+  "dataset_indices": [
+    13,
+    32,
+    41,
+    50,
+    51,
+    57,
+    64,
+    77,
+    78,
+    79,
+    86,
+    90,
+    96
+  ],
+  "patterns": [
+    "fdddd"
+  ],
+  "repeats": 1,
+  "include_observed_high_terminal": false,
+  "high_terminal_threshold": 10.0,
+  "max_observed_paths": 0,
+  "parallelism": 4,
+  "job_count": 13
+}

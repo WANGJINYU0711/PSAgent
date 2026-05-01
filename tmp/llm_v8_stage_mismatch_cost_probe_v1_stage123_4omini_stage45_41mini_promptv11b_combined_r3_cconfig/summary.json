@@ -1,0 +1,568 @@
+{
+  "by_match": {
+    "matched": {
+      "n": 12,
+      "raw_total_cost_mean": 8.078,
+      "raw_terminal_penalty_mean": 3.5,
+      "raw_total_cost_with_token_penalty_mean": 27.848,
+      "raw_path_cost_component_mean": 0.068,
+      "raw_reasoning_cost_component_mean": 4.509,
+      "api_cost_total_usd_raw_mean": 0.013712,
+      "total_tokens_total_mean": 60997.9,
+      "prompt_tokens_total_mean": 59857.1,
+      "completion_tokens_total_mean": 1140.8,
+      "terminal_values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        12.0,
+        0.0,
+        6.0,
+        12.0,
+        0.0,
+        12.0
+      ],
+      "total_values": [
+        2.842,
+        2.813,
+        2.816,
+        2.815,
+        2.822,
+        2.815,
+        19.244,
+        8.293,
+        13.654,
+        17.163,
+        4.655,
+        16.998
+      ],
+      "token_total_values": [
+        42.592,
+        42.313,
+        42.316,
+        42.315,
+        42.322,
+        42.315,
+        19.244,
+        8.293,
+        13.654,
+        17.163,
+        4.655,
+        16.998
+      ],
+      "clear_success": 9,
+      "aux_success": 8,
+      "exact_match": 9,
+      "final_counts": {
+        "repair_all": 9,
+        "repair_subset": 3
+      }
+    },
+    "mismatched": {
+      "n": 12,
+      "raw_total_cost_mean": 13.953,
+      "raw_terminal_penalty_mean": 7.083,
+      "raw_total_cost_with_token_penalty_mean": 37.266,
+      "raw_path_cost_component_mean": 0.068,
+      "raw_reasoning_cost_component_mean": 6.802,
+      "api_cost_total_usd_raw_mean": 0.010004,
+      "total_tokens_total_mean": 45604.1,
+      "prompt_tokens_total_mean": 44502.9,
+      "completion_tokens_total_mean": 1101.2,
+      "terminal_values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        14.0,
+        15.0,
+        14.0,
+        14.0,
+        14.0,
+        14.0
+      ],
+      "total_values": [
+        6.832,
+        6.444,
+        6.87,
+        6.409,
+        6.41,
+        6.436,
+        21.096,
+        22.192,
+        21.64,
+        21.204,
+        20.926,
+        20.982
+      ],
+      "token_total_values": [
+        6.832,
+        6.444,
+        6.87,
+        6.409,
+        6.41,
+        6.436,
+        67.846,
+        69.192,
+        70.89,
+        67.454,
+        66.176,
+        66.232
+      ],
+      "clear_success": 6,
+      "aux_success": 6,
+      "exact_match": 6,
+      "final_counts": {
+        "repair_all": 8,
+        "repair_subset": 4
+      }
+    }
+  },
+  "by_task_type_pattern": {
+    "('mostly_d', 'ddddd')": {
+      "n": 6,
+      "raw_total_cost_mean": 13.334,
+      "raw_terminal_penalty_mean": 7.0,
+      "raw_total_cost_with_token_penalty_mean": 13.334,
+      "raw_path_cost_component_mean": 0.078,
+      "raw_reasoning_cost_component_mean": 6.257,
+      "api_cost_total_usd_raw_mean": 0.019408,
+      "total_tokens_total_mean": 84858.7,
+      "prompt_tokens_total_mean": 83350.2,
+      "completion_tokens_total_mean": 1508.5,
+      "terminal_values": [
+        12.0,
+        0.0,
+        6.0,
+        12.0,
+        0.0,
+        12.0
+      ],
+      "total_values": [
+        19.244,
+        8.293,
+        13.654,
+        17.163,
+        4.655,
+        16.998
+      ],
+      "token_total_values": [
+        19.244,
+        8.293,
+        13.654,
+        17.163,
+        4.655,
+        16.998
+      ],
+      "clear_success": 3,
+      "aux_success": 2,
+      "exact_match": 3,
+      "final_counts": {
+        "repair_all": 3,
+        "repair_subset": 3
+      }
+    },
+    "('mostly_d', 'fffff')": {
+      "n": 6,
+      "raw_total_cost_mean": 21.34,
+      "raw_terminal_penalty_mean": 14.167,
+      "raw_total_cost_with_token_penalty_mean": 67.965,
+      "raw_path_cost_component_mean": 0.059,
+      "raw_reasoning_cost_component_mean": 7.115,
+      "api_cost_total_usd_raw_mean": 0.011226,
+      "total_tokens_total_mean": 43002.8,
+      "prompt_tokens_total_mean": 42036.8,
+      "completion_tokens_total_mean": 966.0,
+      "terminal_values": [
+        14.0,
+        15.0,
+        14.0,
+        14.0,
+        14.0,
+        14.0
+      ],
+      "total_values": [
+        21.096,
+        22.192,
+        21.64,
+        21.204,
+        20.926,
+        20.982
+      ],
+      "token_total_values": [
+        67.846,
+        69.192,
+        70.89,
+        67.454,
+        66.176,
+        66.232
+      ],
+      "clear_success": 0,
+      "aux_success": 0,
+      "exact_match": 0,
+      "final_counts": {
+        "repair_subset": 4,
+        "repair_all": 2
+      }
+    },
+    "('mostly_f', 'ddddd')": {
+      "n": 6,
+      "raw_total_cost_mean": 6.567,
+      "raw_terminal_penalty_mean": 0.0,
+      "raw_total_cost_with_token_penalty_mean": 6.567,
+      "raw_path_cost_component_mean": 0.078,
+      "raw_reasoning_cost_component_mean": 6.489,
+      "api_cost_total_usd_raw_mean": 0.008782,
+      "total_tokens_total_mean": 48205.3,
+      "prompt_tokens_total_mean": 46969.0,
+      "completion_tokens_total_mean": 1236.3,
+      "terminal_values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "total_values": [
+        6.832,
+        6.444,
+        6.87,
+        6.409,
+        6.41,
+        6.436
+      ],
+      "token_total_values": [
+        6.832,
+        6.444,
+        6.87,
+        6.409,
+        6.41,
+        6.436
+      ],
+      "clear_success": 6,
+      "aux_success": 6,
+      "exact_match": 6,
+      "final_counts": {
+        "repair_all": 6
+      }
+    },
+    "('mostly_f', 'fffff')": {
+      "n": 6,
+      "raw_total_cost_mean": 2.821,
+      "raw_terminal_penalty_mean": 0.0,
+      "raw_total_cost_with_token_penalty_mean": 42.362,
+      "raw_path_cost_component_mean": 0.059,
+      "raw_reasoning_cost_component_mean": 2.762,
+      "api_cost_total_usd_raw_mean": 0.008017,
+      "total_tokens_total_mean": 37137.2,
+      "prompt_tokens_total_mean": 36364.0,
+      "completion_tokens_total_mean": 773.2,
+      "terminal_values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "total_values": [
+        2.842,
+        2.813,
+        2.816,
+        2.815,
+        2.822,
+        2.815
+      ],
+      "token_total_values": [
+        42.592,
+        42.313,
+        42.316,
+        42.315,
+        42.322,
+        42.315
+      ],
+      "clear_success": 6,
+      "aux_success": 6,
+      "exact_match": 6,
+      "final_counts": {
+        "repair_all": 6
+      }
+    }
+  },
+  "by_dataset_pattern": {
+    "(1, 'ddddd')": {
+      "n": 3,
+      "raw_total_cost_mean": 6.715,
+      "raw_terminal_penalty_mean": 0.0,
+      "raw_total_cost_with_token_penalty_mean": 6.715,
+      "raw_path_cost_component_mean": 0.078,
+      "raw_reasoning_cost_component_mean": 6.638,
+      "api_cost_total_usd_raw_mean": 0.008472,
+      "total_tokens_total_mean": 49247.0,
+      "prompt_tokens_total_mean": 47962.0,
+      "completion_tokens_total_mean": 1285.0,
+      "terminal_values": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "total_values": [
+        6.832,
+        6.444,
+        6.87
+      ],
+      "token_total_values": [
+        6.832,
+        6.444,
+        6.87
+      ],
+      "clear_success": 3,
+      "aux_success": 3,
+      "exact_match": 3,
+      "final_counts": {
+        "repair_all": 3
+      }
+    },
+    "(1, 'fffff')": {
+      "n": 3,
+      "raw_total_cost_mean": 2.824,
+      "raw_terminal_penalty_mean": 0.0,
+      "raw_total_cost_with_token_penalty_mean": 42.407,
+      "raw_path_cost_component_mean": 0.059,
+      "raw_reasoning_cost_component_mean": 2.765,
+      "api_cost_total_usd_raw_mean": 0.007746,
+      "total_tokens_total_mean": 37155.0,
+      "prompt_tokens_total_mean": 36372.7,
+      "completion_tokens_total_mean": 782.3,
+      "terminal_values": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "total_values": [
+        2.842,
+        2.813,
+        2.816
+      ],
+      "token_total_values": [
+        42.592,
+        42.313,
+        42.316
+      ],
+      "clear_success": 3,
+      "aux_success": 3,
+      "exact_match": 3,
+      "final_counts": {
+        "repair_all": 3
+      }
+    },
+    "(11, 'ddddd')": {
+      "n": 3,
+      "raw_total_cost_mean": 12.939,
+      "raw_terminal_penalty_mean": 8.0,
+      "raw_total_cost_with_token_penalty_mean": 12.939,
+      "raw_path_cost_component_mean": 0.078,
+      "raw_reasoning_cost_component_mean": 4.861,
+      "api_cost_total_usd_raw_mean": 0.016755,
+      "total_tokens_total_mean": 65030.3,
+      "prompt_tokens_total_mean": 63559.3,
+      "completion_tokens_total_mean": 1471.0,
+      "terminal_values": [
+        12.0,
+        0.0,
+        12.0
+      ],
+      "total_values": [
+        17.163,
+        4.655,
+        16.998
+      ],
+      "token_total_values": [
+        17.163,
+        4.655,
+        16.998
+      ],
+      "clear_success": 1,
+      "aux_success": 1,
+      "exact_match": 1,
+      "final_counts": {
+        "repair_all": 2,
+        "repair_subset": 1
+      }
+    },
+    "(11, 'fffff')": {
+      "n": 3,
+      "raw_total_cost_mean": 21.037,
+      "raw_terminal_penalty_mean": 14.0,
+      "raw_total_cost_with_token_penalty_mean": 66.621,
+      "raw_path_cost_component_mean": 0.059,
+      "raw_reasoning_cost_component_mean": 6.979,
+      "api_cost_total_usd_raw_mean": 0.010921,
+      "total_tokens_total_mean": 42168.7,
+      "prompt_tokens_total_mean": 41217.3,
+      "completion_tokens_total_mean": 951.3,
+      "terminal_values": [
+        14.0,
+        14.0,
+        14.0
+      ],
+      "total_values": [
+        21.204,
+        20.926,
+        20.982
+      ],
+      "token_total_values": [
+        67.454,
+        66.176,
+        66.232
+      ],
+      "clear_success": 0,
+      "aux_success": 0,
+      "exact_match": 0,
+      "final_counts": {
+        "repair_all": 1,
+        "repair_subset": 2
+      }
+    },
+    "(3, 'ddddd')": {
+      "n": 3,
+      "raw_total_cost_mean": 6.418,
+      "raw_terminal_penalty_mean": 0.0,
+      "raw_total_cost_with_token_penalty_mean": 6.418,
+      "raw_path_cost_component_mean": 0.078,
+      "raw_reasoning_cost_component_mean": 6.341,
+      "api_cost_total_usd_raw_mean": 0.009092,
+      "total_tokens_total_mean": 47163.7,
+      "prompt_tokens_total_mean": 45976.0,
+      "completion_tokens_total_mean": 1187.7,
+      "terminal_values": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "total_values": [
+        6.409,
+        6.41,
+        6.436
+      ],
+      "token_total_values": [
+        6.409,
+        6.41,
+        6.436
+      ],
+      "clear_success": 3,
+      "aux_success": 3,
+      "exact_match": 3,
+      "final_counts": {
+        "repair_all": 3
+      }
+    },
+    "(3, 'fffff')": {
+      "n": 3,
+      "raw_total_cost_mean": 2.817,
+      "raw_terminal_penalty_mean": 0.0,
+      "raw_total_cost_with_token_penalty_mean": 42.317,
+      "raw_path_cost_component_mean": 0.059,
+      "raw_reasoning_cost_component_mean": 2.759,
+      "api_cost_total_usd_raw_mean": 0.008287,
+      "total_tokens_total_mean": 37119.3,
+      "prompt_tokens_total_mean": 36355.3,
+      "completion_tokens_total_mean": 764.0,
+      "terminal_values": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "total_values": [
+        2.815,
+        2.822,
+        2.815
+      ],
+      "token_total_values": [
+        42.315,
+        42.322,
+        42.315
+      ],
+      "clear_success": 3,
+      "aux_success": 3,
+      "exact_match": 3,
+      "final_counts": {
+        "repair_all": 3
+      }
+    },
+    "(5, 'ddddd')": {
+      "n": 3,
+      "raw_total_cost_mean": 13.73,
+      "raw_terminal_penalty_mean": 6.0,
+      "raw_total_cost_with_token_penalty_mean": 13.73,
+      "raw_path_cost_component_mean": 0.078,
+      "raw_reasoning_cost_component_mean": 7.653,
+      "api_cost_total_usd_raw_mean": 0.022061,
+      "total_tokens_total_mean": 104687.0,
+      "prompt_tokens_total_mean": 103141.0,
+      "completion_tokens_total_mean": 1546.0,
+      "terminal_values": [
+        12.0,
+        0.0,
+        6.0
+      ],
+      "total_values": [
+        19.244,
+        8.293,
+        13.654
+      ],
+      "token_total_values": [
+        19.244,
+        8.293,
+        13.654
+      ],
+      "clear_success": 2,
+      "aux_success": 1,
+      "exact_match": 2,
+      "final_counts": {
+        "repair_all": 1,
+        "repair_subset": 2
+      }
+    },
+    "(5, 'fffff')": {
+      "n": 3,
+      "raw_total_cost_mean": 21.643,
+      "raw_terminal_penalty_mean": 14.333,
+      "raw_total_cost_with_token_penalty_mean": 69.309,
+      "raw_path_cost_component_mean": 0.059,
+      "raw_reasoning_cost_component_mean": 7.251,
+      "api_cost_total_usd_raw_mean": 0.011532,
+      "total_tokens_total_mean": 43837.0,
+      "prompt_tokens_total_mean": 42856.3,
+      "completion_tokens_total_mean": 980.7,
+      "terminal_values": [
+        14.0,
+        15.0,
+        14.0
+      ],
+      "total_values": [
+        21.096,
+        22.192,
+        21.64
+      ],
+      "token_total_values": [
+        67.846,
+        69.192,
+        70.89
+      ],
+      "clear_success": 0,
+      "aux_success": 0,
+      "exact_match": 0,
+      "final_counts": {
+        "repair_subset": 2,
+        "repair_all": 1
+      }
+    }
+  }
+}

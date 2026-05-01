@@ -1,0 +1,73 @@
+[
+  {
+    "dataset_index": 5,
+    "group": "canonical_pattern",
+    "pattern": "ddddd",
+    "n": 3,
+    "terminal_mean": 6.0,
+    "terminal_values": [
+      6.0,
+      6.0,
+      6.0
+    ],
+    "final_counts": {
+      "repair_subset": 3
+    },
+    "selected_missing_counts": {
+      "": 3
+    },
+    "deferred_missing_counts": {
+      "": 3
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 0.0
+  },
+  {
+    "dataset_index": 8,
+    "group": "canonical_pattern",
+    "pattern": "ddddd",
+    "n": 3,
+    "terminal_mean": 3.3333333333333335,
+    "terminal_values": [
+      0.0,
+      10.0,
+      0.0
+    ],
+    "final_counts": {
+      "repair_subset": 2,
+      "repair_all": 1
+    },
+    "selected_missing_counts": {
+      "": 3
+    },
+    "deferred_missing_counts": {
+      "": 2,
+      "data_usage_exceeded": 1
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 0.3333333333333333
+  },
+  {
+    "dataset_index": 11,
+    "group": "canonical_pattern",
+    "pattern": "ddddd",
+    "n": 3,
+    "terminal_mean": 0.0,
+    "terminal_values": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "final_counts": {
+      "repair_subset": 3
+    },
+    "selected_missing_counts": {
+      "": 3
+    },
+    "deferred_missing_counts": {
+      "": 3
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 0.0
+  }
+]

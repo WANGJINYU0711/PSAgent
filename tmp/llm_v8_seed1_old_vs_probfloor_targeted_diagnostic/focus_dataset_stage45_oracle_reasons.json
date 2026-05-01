@@ -1,0 +1,370 @@
+{
+  "2": {
+    "original_task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|unseat_sim_card[PERSONA:Easy]",
+    "expected_terminal_action": "repair_all",
+    "repairability": "repairable",
+    "selected_blockers": [
+      "airplane_mode_on",
+      "unseat_sim_card",
+      "bad_network_preference",
+      "bad_wifi_calling",
+      "break_apn_mms_setting",
+      "break_app_storage_permission"
+    ],
+    "deferred_blockers": [],
+    "oracle_actions": [
+      "toggle_airplane_mode",
+      "reseat_sim_card",
+      "set_network_mode_preference",
+      "toggle_wifi_calling",
+      "reset_apn_settings",
+      "reboot_device",
+      "grant_app_permission"
+    ],
+    "stage4_blocker_reasons": {
+      "airplane_mode_on": "repair_service_blocker",
+      "unseat_sim_card": "repair_service_blocker",
+      "bad_network_preference": "repair_data_blocker",
+      "bad_wifi_calling": "repair_mms_app_blocker",
+      "break_apn_mms_setting": "repair_mms_app_blocker",
+      "break_app_storage_permission": "repair_mms_app_blocker"
+    },
+    "stage4_blocker_decisions": {
+      "airplane_mode_on": "repair",
+      "unseat_sim_card": "repair",
+      "bad_network_preference": "repair",
+      "bad_wifi_calling": "repair",
+      "break_apn_mms_setting": "repair",
+      "break_app_storage_permission": "repair"
+    },
+    "stage4_blocker_deps": {
+      "airplane_mode_on": [],
+      "unseat_sim_card": [
+        "airplane_mode_on"
+      ],
+      "bad_network_preference": [
+        "airplane_mode_on",
+        "unseat_sim_card"
+      ],
+      "bad_wifi_calling": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "bad_network_preference"
+      ],
+      "break_apn_mms_setting": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "bad_network_preference"
+      ],
+      "break_app_storage_permission": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "bad_network_preference"
+      ]
+    },
+    "stage5_success_condition": "can_send_mms_true",
+    "stage5_required_postchecks": [
+      "can_send_mms"
+    ],
+    "transfer_reason": null
+  },
+  "10": {
+    "original_task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "expected_terminal_action": "repair_subset",
+    "repairability": "partially_repairable",
+    "selected_blockers": [
+      "airplane_mode_on",
+      "unseat_sim_card",
+      "data_mode_off",
+      "bad_network_preference",
+      "bad_wifi_calling",
+      "break_apn_mms_setting",
+      "break_app_sms_permission"
+    ],
+    "deferred_blockers": [
+      "user_abroad_roaming_disabled_on",
+      "data_usage_exceeded"
+    ],
+    "oracle_actions": [
+      "toggle_airplane_mode",
+      "reseat_sim_card",
+      "toggle_data",
+      "set_network_mode_preference",
+      "toggle_wifi_calling",
+      "reset_apn_settings",
+      "reboot_device",
+      "grant_app_permission"
+    ],
+    "stage4_blocker_reasons": {
+      "airplane_mode_on": "repair_service_blocker",
+      "unseat_sim_card": "repair_service_blocker",
+      "data_mode_off": "repair_data_blocker",
+      "bad_network_preference": "repair_data_blocker",
+      "bad_wifi_calling": "repair_mms_app_blocker",
+      "break_apn_mms_setting": "repair_mms_app_blocker",
+      "break_app_sms_permission": "repair_mms_app_blocker",
+      "user_abroad_roaming_disabled_on": "defer_data_blocker",
+      "data_usage_exceeded": "defer_data_blocker"
+    },
+    "stage4_blocker_decisions": {
+      "airplane_mode_on": "repair",
+      "unseat_sim_card": "repair",
+      "data_mode_off": "repair",
+      "bad_network_preference": "repair",
+      "bad_wifi_calling": "repair",
+      "break_apn_mms_setting": "repair",
+      "break_app_sms_permission": "repair",
+      "user_abroad_roaming_disabled_on": "defer",
+      "data_usage_exceeded": "defer"
+    },
+    "stage4_blocker_deps": {
+      "airplane_mode_on": [],
+      "unseat_sim_card": [
+        "airplane_mode_on"
+      ],
+      "data_mode_off": [
+        "airplane_mode_on",
+        "unseat_sim_card"
+      ],
+      "bad_network_preference": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off"
+      ],
+      "bad_wifi_calling": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off",
+        "user_abroad_roaming_disabled_on",
+        "data_usage_exceeded",
+        "bad_network_preference"
+      ],
+      "break_apn_mms_setting": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off",
+        "user_abroad_roaming_disabled_on",
+        "data_usage_exceeded",
+        "bad_network_preference"
+      ],
+      "break_app_sms_permission": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off",
+        "user_abroad_roaming_disabled_on",
+        "data_usage_exceeded",
+        "bad_network_preference"
+      ],
+      "user_abroad_roaming_disabled_on": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off"
+      ],
+      "data_usage_exceeded": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off"
+      ]
+    },
+    "stage5_success_condition": "partial_resolution_only",
+    "stage5_required_postchecks": [],
+    "transfer_reason": null
+  },
+  "13": {
+    "original_task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "expected_terminal_action": "repair_subset",
+    "repairability": "partially_repairable",
+    "selected_blockers": [
+      "airplane_mode_on",
+      "unseat_sim_card",
+      "data_mode_off",
+      "user_abroad_roaming_enabled_off",
+      "bad_network_preference",
+      "bad_wifi_calling",
+      "break_apn_mms_setting",
+      "break_app_both_permissions"
+    ],
+    "deferred_blockers": [
+      "data_usage_exceeded"
+    ],
+    "oracle_actions": [
+      "toggle_airplane_mode",
+      "reseat_sim_card",
+      "toggle_data",
+      "toggle_roaming",
+      "set_network_mode_preference",
+      "toggle_wifi_calling",
+      "reset_apn_settings",
+      "reboot_device",
+      "grant_app_permission",
+      "grant_app_permission"
+    ],
+    "stage4_blocker_reasons": {
+      "airplane_mode_on": "repair_service_blocker",
+      "unseat_sim_card": "repair_service_blocker",
+      "data_mode_off": "repair_data_blocker",
+      "user_abroad_roaming_enabled_off": "repair_data_blocker",
+      "bad_network_preference": "repair_data_blocker",
+      "bad_wifi_calling": "repair_mms_app_blocker",
+      "break_apn_mms_setting": "repair_mms_app_blocker",
+      "break_app_both_permissions": "repair_mms_app_blocker",
+      "data_usage_exceeded": "defer_data_blocker"
+    },
+    "stage4_blocker_decisions": {
+      "airplane_mode_on": "repair",
+      "unseat_sim_card": "repair",
+      "data_mode_off": "repair",
+      "user_abroad_roaming_enabled_off": "repair",
+      "bad_network_preference": "repair",
+      "bad_wifi_calling": "repair",
+      "break_apn_mms_setting": "repair",
+      "break_app_both_permissions": "repair",
+      "data_usage_exceeded": "defer"
+    },
+    "stage4_blocker_deps": {
+      "airplane_mode_on": [],
+      "unseat_sim_card": [
+        "airplane_mode_on"
+      ],
+      "data_mode_off": [
+        "airplane_mode_on",
+        "unseat_sim_card"
+      ],
+      "user_abroad_roaming_enabled_off": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off"
+      ],
+      "bad_network_preference": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off"
+      ],
+      "bad_wifi_calling": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off",
+        "user_abroad_roaming_enabled_off",
+        "data_usage_exceeded",
+        "bad_network_preference"
+      ],
+      "break_apn_mms_setting": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off",
+        "user_abroad_roaming_enabled_off",
+        "data_usage_exceeded",
+        "bad_network_preference"
+      ],
+      "break_app_both_permissions": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off",
+        "user_abroad_roaming_enabled_off",
+        "data_usage_exceeded",
+        "bad_network_preference"
+      ],
+      "data_usage_exceeded": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off"
+      ]
+    },
+    "stage5_success_condition": "partial_resolution_only",
+    "stage5_required_postchecks": [],
+    "transfer_reason": null
+  },
+  "16": {
+    "original_task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "expected_terminal_action": "repair_all",
+    "repairability": "repairable",
+    "selected_blockers": [
+      "airplane_mode_on",
+      "unseat_sim_card",
+      "data_mode_off",
+      "user_abroad_roaming_enabled_off",
+      "bad_network_preference",
+      "bad_wifi_calling",
+      "break_apn_mms_setting",
+      "break_app_sms_permission"
+    ],
+    "deferred_blockers": [],
+    "oracle_actions": [
+      "toggle_airplane_mode",
+      "reseat_sim_card",
+      "toggle_data",
+      "toggle_roaming",
+      "set_network_mode_preference",
+      "toggle_wifi_calling",
+      "reset_apn_settings",
+      "reboot_device",
+      "grant_app_permission"
+    ],
+    "stage4_blocker_reasons": {
+      "airplane_mode_on": "repair_service_blocker",
+      "unseat_sim_card": "repair_service_blocker",
+      "data_mode_off": "repair_data_blocker",
+      "user_abroad_roaming_enabled_off": "repair_data_blocker",
+      "bad_network_preference": "repair_data_blocker",
+      "bad_wifi_calling": "repair_mms_app_blocker",
+      "break_apn_mms_setting": "repair_mms_app_blocker",
+      "break_app_sms_permission": "repair_mms_app_blocker"
+    },
+    "stage4_blocker_decisions": {
+      "airplane_mode_on": "repair",
+      "unseat_sim_card": "repair",
+      "data_mode_off": "repair",
+      "user_abroad_roaming_enabled_off": "repair",
+      "bad_network_preference": "repair",
+      "bad_wifi_calling": "repair",
+      "break_apn_mms_setting": "repair",
+      "break_app_sms_permission": "repair"
+    },
+    "stage4_blocker_deps": {
+      "airplane_mode_on": [],
+      "unseat_sim_card": [
+        "airplane_mode_on"
+      ],
+      "data_mode_off": [
+        "airplane_mode_on",
+        "unseat_sim_card"
+      ],
+      "user_abroad_roaming_enabled_off": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off"
+      ],
+      "bad_network_preference": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off"
+      ],
+      "bad_wifi_calling": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off",
+        "user_abroad_roaming_enabled_off",
+        "bad_network_preference"
+      ],
+      "break_apn_mms_setting": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off",
+        "user_abroad_roaming_enabled_off",
+        "bad_network_preference"
+      ],
+      "break_app_sms_permission": [
+        "airplane_mode_on",
+        "unseat_sim_card",
+        "data_mode_off",
+        "user_abroad_roaming_enabled_off",
+        "bad_network_preference"
+      ]
+    },
+    "stage5_success_condition": "can_send_mms_true",
+    "stage5_required_postchecks": [
+      "can_send_mms"
+    ],
+    "transfer_reason": null
+  }
+}

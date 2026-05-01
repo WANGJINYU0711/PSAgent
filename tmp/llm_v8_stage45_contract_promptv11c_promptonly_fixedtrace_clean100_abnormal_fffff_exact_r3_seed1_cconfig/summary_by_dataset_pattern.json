@@ -1,0 +1,117 @@
+[
+  {
+    "dataset_index": 18,
+    "group": "canonical_pattern",
+    "pattern": "fffff",
+    "n": 3,
+    "terminal_mean": 0.0,
+    "terminal_values": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "final_counts": {
+      "repair_all": 3
+    },
+    "selected_missing_counts": {
+      "": 3
+    },
+    "deferred_missing_counts": {
+      "": 3
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 0.0
+  },
+  {
+    "dataset_index": 19,
+    "group": "canonical_pattern",
+    "pattern": "fffff",
+    "n": 3,
+    "terminal_mean": 0.0,
+    "terminal_values": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "final_counts": {
+      "repair_all": 3
+    },
+    "selected_missing_counts": {
+      "": 3
+    },
+    "deferred_missing_counts": {
+      "": 3
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 0.0
+  },
+  {
+    "dataset_index": 20,
+    "group": "canonical_pattern",
+    "pattern": "fffff",
+    "n": 3,
+    "terminal_mean": 0.0,
+    "terminal_values": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "final_counts": {
+      "repair_all": 3
+    },
+    "selected_missing_counts": {
+      "": 3
+    },
+    "deferred_missing_counts": {
+      "": 3
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 0.0
+  },
+  {
+    "dataset_index": 21,
+    "group": "canonical_pattern",
+    "pattern": "fffff",
+    "n": 3,
+    "terminal_mean": 0.0,
+    "terminal_values": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "final_counts": {
+      "repair_all": 3
+    },
+    "selected_missing_counts": {
+      "": 3
+    },
+    "deferred_missing_counts": {
+      "": 3
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 0.0
+  },
+  {
+    "dataset_index": 29,
+    "group": "canonical_pattern",
+    "pattern": "fffff",
+    "n": 3,
+    "terminal_mean": 0.0,
+    "terminal_values": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "final_counts": {
+      "repair_all": 3
+    },
+    "selected_missing_counts": {
+      "": 3
+    },
+    "deferred_missing_counts": {
+      "": 3
+    },
+    "completion_pass_rate": 0.0,
+    "normalizer_changed_rate": 0.3333333333333333
+  }
+]

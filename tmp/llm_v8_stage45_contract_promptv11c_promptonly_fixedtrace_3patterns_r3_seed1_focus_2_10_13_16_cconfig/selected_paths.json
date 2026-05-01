@@ -1,0 +1,698 @@
+[
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|unseat_sim_card[PERSONA:Easy]",
+    "path_agent_ids": [
+      "stage1_n1__from__root__c01",
+      "stage2_n1__from__n0001__c01",
+      "stage3_n1__from__n0006__c01",
+      "stage4_n1__from__n0023__c01",
+      "stage5_n1__from__n0074__c01"
+    ],
+    "path_match": 1.0,
+    "stage_matches": {
+      "stage1": 1.0,
+      "stage2": 1.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n1",
+      "stage2_n1",
+      "stage3_n1",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_intake",
+      "target_stage2_router",
+      "target_stage3_apn",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n1|target_stage2_router|target_specialist -> stage3:stage3_n1|target_stage3_apn|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.783,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "fdddd",
+    "required_pattern": "fdddd",
+    "rank": 1,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "fdddd",
+    "source_episode": null,
+    "source_run": null
+  },
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|unseat_sim_card[PERSONA:Easy]",
+    "path_agent_ids": [
+      "stage1_n1__from__root__c01",
+      "stage2_n2__from__n0001__c02",
+      "stage3_n2__from__n0007__c01",
+      "stage4_n1__from__n0025__c01",
+      "stage5_n1__from__n0076__c01"
+    ],
+    "path_match": 0.8,
+    "stage_matches": {
+      "stage1": 1.0,
+      "stage2": 0.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n1",
+      "stage2_n2",
+      "stage3_n2",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_intake",
+      "general_stage2_core",
+      "target_stage3_roaming",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n2|general_stage2_core|general_shared -> stage3:stage3_n2|target_stage3_roaming|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.771,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "ffddd",
+    "required_pattern": "fdddd",
+    "rank": 57,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "ffddd",
+    "source_episode": null,
+    "source_run": null
+  },
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_storage_permission|unseat_sim_card[PERSONA:Easy]",
+    "path_agent_ids": [
+      "stage1_n2__from__root__c02",
+      "stage2_n1__from__n0002__c01",
+      "stage3_n1__from__n0009__c01",
+      "stage4_n1__from__n0032__c01",
+      "stage5_n1__from__n0097__c01"
+    ],
+    "path_match": 0.8,
+    "stage_matches": {
+      "stage1": 0.0,
+      "stage2": 1.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n2",
+      "stage2_n1",
+      "stage3_n1",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_verify",
+      "target_stage2_router",
+      "target_stage3_apn",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n2|general_stage1_verify|general_shared -> stage2:stage2_n1|target_stage2_router|target_specialist -> stage3:stage3_n1|target_stage3_apn|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.776,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "ddddd",
+    "required_pattern": "fdddd",
+    "rank": 83,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "ddddd",
+    "source_episode": null,
+    "source_run": null
+  },
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "path_agent_ids": [
+      "stage1_n1__from__root__c01",
+      "stage2_n1__from__n0001__c01",
+      "stage3_n1__from__n0006__c01",
+      "stage4_n1__from__n0023__c01",
+      "stage5_n1__from__n0074__c01"
+    ],
+    "path_match": 1.0,
+    "stage_matches": {
+      "stage1": 1.0,
+      "stage2": 1.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n1",
+      "stage2_n1",
+      "stage3_n1",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_intake",
+      "target_stage2_router",
+      "target_stage3_apn",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n1|target_stage2_router|target_specialist -> stage3:stage3_n1|target_stage3_apn|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.783,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "fdddd",
+    "required_pattern": "fdddd",
+    "rank": 1,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "fdddd",
+    "source_episode": null,
+    "source_run": null
+  },
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "path_agent_ids": [
+      "stage1_n1__from__root__c01",
+      "stage2_n2__from__n0001__c02",
+      "stage3_n2__from__n0007__c01",
+      "stage4_n1__from__n0025__c01",
+      "stage5_n1__from__n0076__c01"
+    ],
+    "path_match": 0.8,
+    "stage_matches": {
+      "stage1": 1.0,
+      "stage2": 0.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n1",
+      "stage2_n2",
+      "stage3_n2",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_intake",
+      "general_stage2_core",
+      "target_stage3_roaming",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n2|general_stage2_core|general_shared -> stage3:stage3_n2|target_stage3_roaming|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.771,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "ffddd",
+    "required_pattern": "fdddd",
+    "rank": 57,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "ffddd",
+    "source_episode": null,
+    "source_run": null
+  },
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_disabled_on[PERSONA:None]",
+    "path_agent_ids": [
+      "stage1_n2__from__root__c02",
+      "stage2_n1__from__n0002__c01",
+      "stage3_n1__from__n0009__c01",
+      "stage4_n1__from__n0032__c01",
+      "stage5_n1__from__n0097__c01"
+    ],
+    "path_match": 0.8,
+    "stage_matches": {
+      "stage1": 0.0,
+      "stage2": 1.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n2",
+      "stage2_n1",
+      "stage3_n1",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_verify",
+      "target_stage2_router",
+      "target_stage3_apn",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n2|general_stage1_verify|general_shared -> stage2:stage2_n1|target_stage2_router|target_specialist -> stage3:stage3_n1|target_stage3_apn|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.776,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "ddddd",
+    "required_pattern": "fdddd",
+    "rank": 83,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "ddddd",
+    "source_episode": null,
+    "source_run": null
+  },
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "path_agent_ids": [
+      "stage1_n1__from__root__c01",
+      "stage2_n1__from__n0001__c01",
+      "stage3_n1__from__n0006__c01",
+      "stage4_n1__from__n0023__c01",
+      "stage5_n1__from__n0074__c01"
+    ],
+    "path_match": 1.0,
+    "stage_matches": {
+      "stage1": 1.0,
+      "stage2": 1.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n1",
+      "stage2_n1",
+      "stage3_n1",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_intake",
+      "target_stage2_router",
+      "target_stage3_apn",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n1|target_stage2_router|target_specialist -> stage3:stage3_n1|target_stage3_apn|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.783,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "fdddd",
+    "required_pattern": "fdddd",
+    "rank": 1,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "fdddd",
+    "source_episode": null,
+    "source_run": null
+  },
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "path_agent_ids": [
+      "stage1_n1__from__root__c01",
+      "stage2_n2__from__n0001__c02",
+      "stage3_n2__from__n0007__c01",
+      "stage4_n1__from__n0025__c01",
+      "stage5_n1__from__n0076__c01"
+    ],
+    "path_match": 0.8,
+    "stage_matches": {
+      "stage1": 1.0,
+      "stage2": 0.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n1",
+      "stage2_n2",
+      "stage3_n2",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_intake",
+      "general_stage2_core",
+      "target_stage3_roaming",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n2|general_stage2_core|general_shared -> stage3:stage3_n2|target_stage3_roaming|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.771,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "ffddd",
+    "required_pattern": "fdddd",
+    "rank": 57,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "ffddd",
+    "source_episode": null,
+    "source_run": null
+  },
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_both_permissions|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]",
+    "path_agent_ids": [
+      "stage1_n2__from__root__c02",
+      "stage2_n1__from__n0002__c01",
+      "stage3_n1__from__n0009__c01",
+      "stage4_n1__from__n0032__c01",
+      "stage5_n1__from__n0097__c01"
+    ],
+    "path_match": 0.8,
+    "stage_matches": {
+      "stage1": 0.0,
+      "stage2": 1.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n2",
+      "stage2_n1",
+      "stage3_n1",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_verify",
+      "target_stage2_router",
+      "target_stage3_apn",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n2|general_stage1_verify|general_shared -> stage2:stage2_n1|target_stage2_router|target_specialist -> stage3:stage3_n1|target_stage3_apn|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.776,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "ddddd",
+    "required_pattern": "fdddd",
+    "rank": 83,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "ddddd",
+    "source_episode": null,
+    "source_run": null
+  },
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "path_agent_ids": [
+      "stage1_n1__from__root__c01",
+      "stage2_n1__from__n0001__c01",
+      "stage3_n1__from__n0006__c01",
+      "stage4_n1__from__n0023__c01",
+      "stage5_n1__from__n0074__c01"
+    ],
+    "path_match": 1.0,
+    "stage_matches": {
+      "stage1": 1.0,
+      "stage2": 1.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n1",
+      "stage2_n1",
+      "stage3_n1",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_intake",
+      "target_stage2_router",
+      "target_stage3_apn",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n1|target_stage2_router|target_specialist -> stage3:stage3_n1|target_stage3_apn|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.783,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "fdddd",
+    "required_pattern": "fdddd",
+    "rank": 1,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "fdddd",
+    "source_episode": null,
+    "source_run": null
+  },
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "path_agent_ids": [
+      "stage1_n1__from__root__c01",
+      "stage2_n2__from__n0001__c02",
+      "stage3_n2__from__n0007__c01",
+      "stage4_n1__from__n0025__c01",
+      "stage5_n1__from__n0076__c01"
+    ],
+    "path_match": 0.8,
+    "stage_matches": {
+      "stage1": 1.0,
+      "stage2": 0.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n1",
+      "stage2_n2",
+      "stage3_n2",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_intake",
+      "general_stage2_core",
+      "target_stage3_roaming",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n1|general_stage1_intake|general_shared -> stage2:stage2_n2|general_stage2_core|general_shared -> stage3:stage3_n2|target_stage3_roaming|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.771,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "ffddd",
+    "required_pattern": "fdddd",
+    "rank": 57,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "ffddd",
+    "source_episode": null,
+    "source_run": null
+  },
+  {
+    "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_mode_off|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:None]",
+    "path_agent_ids": [
+      "stage1_n2__from__root__c02",
+      "stage2_n1__from__n0002__c01",
+      "stage3_n1__from__n0009__c01",
+      "stage4_n1__from__n0032__c01",
+      "stage5_n1__from__n0097__c01"
+    ],
+    "path_match": 0.8,
+    "stage_matches": {
+      "stage1": 0.0,
+      "stage2": 1.0,
+      "stage3": 1.0,
+      "stage4": 1.0,
+      "stage5": 1.0
+    },
+    "path_class": "pure_target",
+    "path_lane_sequence": [
+      "general",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_base_aliases": [
+      "stage1_n2",
+      "stage2_n1",
+      "stage3_n1",
+      "stage4_n1",
+      "stage5_n1"
+    ],
+    "path_route_labels": [
+      "general_stage1_verify",
+      "target_stage2_router",
+      "target_stage3_apn",
+      "target_stage4_repair",
+      "target_stage5_verify"
+    ],
+    "path_node_semantics": [
+      "general_shared",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist",
+      "target_specialist"
+    ],
+    "path_route_summary": "stage1:stage1_n2|general_stage1_verify|general_shared -> stage2:stage2_n1|target_stage2_router|target_specialist -> stage3:stage3_n1|target_stage3_apn|target_specialist -> stage4:stage4_n1|target_stage4_repair|target_specialist -> stage5:stage5_n1|target_stage5_verify|target_specialist",
+    "path_base_cost_sum": 0.776,
+    "first_private_barrier_depth": null,
+    "leaf_type": "shared",
+    "actual_pattern": "ddddd",
+    "required_pattern": "fdddd",
+    "rank": 83,
+    "diagnostic_group": "canonical_pattern",
+    "diagnostic_pattern": "ddddd",
+    "source_episode": null,
+    "source_run": null
+  }
+]
