@@ -29,15 +29,20 @@ fi
 trap cleanup_lock EXIT
 
 session_healthy() {
-  local window_count pane_count dead_panes
+  local window_count pane_count dead_panes window_index window_dead_panes
 
   if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     return 1
   fi
 
   window_count="$(tmux list-windows -t "$SESSION_NAME" 2>/dev/null | wc -l | tr -d ' ')"
-  pane_count="$(tmux list-panes -a -t "$SESSION_NAME" 2>/dev/null | wc -l | tr -d ' ')"
-  dead_panes="$(tmux list-panes -a -t "$SESSION_NAME" -F '#{pane_dead}' 2>/dev/null | rg -c '^1$' || true)"
+  pane_count=0
+  dead_panes=0
+  while IFS= read -r window_index; do
+    pane_count=$((pane_count + $(tmux list-panes -t "${SESSION_NAME}:${window_index}" 2>/dev/null | wc -l | tr -d ' ')))
+    window_dead_panes="$(tmux list-panes -t "${SESSION_NAME}:${window_index}" -F '#{pane_dead}' 2>/dev/null | rg -c '^1$' || true)"
+    dead_panes=$((dead_panes + window_dead_panes))
+  done < <(tmux list-windows -t "$SESSION_NAME" -F '#{window_index}' 2>/dev/null)
 
   if [[ "$window_count" != "11" ]]; then
     return 1
