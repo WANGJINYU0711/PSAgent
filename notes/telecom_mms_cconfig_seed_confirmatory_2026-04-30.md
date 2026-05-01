@@ -346,3 +346,215 @@ The session-level bottom line is:
 - early-stop before late post-switch evidence is not trustworthy
 - the next job is targeted PS instability diagnosis, not another broad cost
   redesign
+
+## 13. Update: fixed-trace Stage 4/5 diagnostic changed the immediate next step
+
+After the seed1 confirmatory diagnosis, we ran a more targeted fixed-profile /
+fixed-path trace study instead of going straight into another confirmatory
+smoke.
+
+Why this mattered:
+
+- exact mode-match cases such as `fdddd on fdddd` were still sometimes getting
+  high terminal penalty
+- that means the main problem is not simply deep/fast ratio or PS update shape
+- PS learns from terminal outcome, not from the mode label; if an exact-match
+  deep path is noisy, PS will be pushed away from the correct profile
+
+Main targeted diagnostic artifacts:
+
+- seed1 old vs probfloor targeted compare:
+  `tmp/llm_v8_seed1_old_vs_probfloor_targeted_diagnostic/report.md`
+- fixed-profile / fixed-path trace pilot v2:
+  `tmp/llm_v8_fixed_profile_trace_diag_seed1_focus_2_10_13_16_pilot_cconfig_v2/`
+- pilot v2 write-up:
+  `tmp/llm_v8_fixed_profile_trace_diag_seed1_focus_2_10_13_16_pilot_cconfig_v2/analysis_report_zh.md`
+
+Focus datasets and patterns:
+
+- datasets: `2, 10, 13, 16`
+- patterns: `fdddd`, `ffddd`, `ddddd`
+
+The pilot conclusion was important:
+
+- do **not** delete tasks yet
+- do **not** enter smoke yet
+- the main exposed issue is Stage 4/5 contract instability on local repair
+  chains
+- no task was proven to be an obvious benchmark/oracle contradiction
+
+Pilot classification:
+
+- `dataset 10`: keep-main + targeted diagnostic
+- `dataset 16`: keep-main + targeted diagnostic
+- `dataset 2`: diagnostic-only for the current exact-path analysis
+- `dataset 13`: diagnostic-only until repeats are cleaner
+- `exclude-from-smoke`: empty for now
+
+Observed failure patterns from the pilot:
+
+- `dataset 10` is **not** "always transfer"; the real issue is
+  selected/deferred boundary instability in `repair_subset`
+- `dataset 2/16` high penalty usually comes from missing upstream local
+  prerequisites such as `airplane_mode_on` / `unseat_sim_card`
+- completion pass was usually not firing, so the bottleneck looked more like
+  Stage 4 raw planning/contract than late Stage 5 cleanup
+
+## 14. User constraint for the fix direction
+
+The user explicitly narrowed the allowed change surface for this line:
+
+- prefer LLM-layer / prompt changes whenever possible
+- normalizer may inspect, expose, and validate, but should **not** directly
+  rewrite `selected` / `deferred` / `final_action` as a new behavior
+- diagnostic fields are allowed only as **report-only**
+- do not add decision-changing retry / fix-up logic in this iteration
+- if a future change would alter terminal decision behavior more directly, bring
+  it back for review first
+
+This constraint matters for future Codex sessions:
+
+- do not "quietly fix" Stage 4/5 by adding normalizer-side auto-correction
+- treat prompt design as the first-line intervention
+
+## 15. Prompt-only Stage 4/5 contract v1
+
+We implemented a prompt-only contract pass under the same C config rather than
+changing PS, terminal semantics, or dataset labels.
+
+Config label:
+
+- `llm_v8_stage45_contract_promptv1_promptonly_cconfig`
+
+Code / export changes:
+
+- executor env flag:
+  `PSAGENT_TELECOM_STAGE45_CONTRACT_PROMPT_V1=1`
+- modified:
+  - `envs/executors/telecom_llm_bench_executor.py`
+  - `scripts/run_llm_path_sweep_diagnostic.py`
+- helper script already present in this line:
+  - `scripts/run_llm_fixed_profile_trace_diagnostic.py`
+
+Prompt-only v1 added:
+
+- Stage 4 prompt:
+  - selected/deferred contract
+  - prerequisite closure wording
+  - `repair_subset != transfer`
+  - local / ordinary defer / hard transfer framing
+  - abstract few-shot style examples
+- Stage 5 prompt:
+  - preserve the Stage 4 plan by default
+  - treat `repair_subset` as `partial_resolution_only`
+  - do not over-transfer without explicit hard reason
+- report-only fields:
+  - `stage4_contract_prompt_version`
+  - `stage4_contract_self_check`
+  - `stage5_contract_prompt_version`
+  - `stage5_contract_self_check`
+
+Important:
+
+- self-check fields are for diagnosis only
+- they do not influence executor decisions
+- there is still **no** normalizer-side auto-correction of the LLM answer
+
+Compile sanity check passed:
+
+```bash
+python -m py_compile \
+  envs/executors/telecom_llm_bench_executor.py \
+  scripts/run_llm_path_sweep_diagnostic.py \
+  scripts/run_llm_fixed_profile_trace_diagnostic.py
+```
+
+## 16. Prompt-only v1 regression runs
+
+Artifacts:
+
+- comparison report:
+  `tmp/llm_v8_stage45_contract_promptv1_promptonly_compare/report_zh.md`
+- fixed trace `fdddd`, repeat `5`:
+  `tmp/llm_v8_stage45_contract_promptv1_promptonly_fixedtrace_fdddd_r5_seed1_focus_2_10_13_16_cconfig/`
+- fixed trace `fdddd/ffddd/ddddd`, repeat `3`:
+  `tmp/llm_v8_stage45_contract_promptv1_promptonly_fixedtrace_3patterns_r3_seed1_focus_2_10_13_16_cconfig/`
+
+Headline outcome:
+
+- prompt-only v1 was directionally successful
+- it improved several exact-path failures without adding hidden behavior changes
+- but it did **not** fully solve dataset `10`, dataset `2` permission closure,
+  or fast-heavy `ffddd` failures
+
+Per-dataset readout:
+
+- `dataset 16` improved the most:
+  - `fdddd` repeat-5 became `5/5` terminal `0.0`, all `repair_all`
+  - expanded `fdddd/ffddd/ddddd` all reached terminal `0.0`
+  - interpretation: prompt contract was enough to stabilize the full local
+    prerequisite chain here
+- `dataset 13` improved strongly on `fdddd` and `ddddd`:
+  - `fdddd` repeat-5 became stable `repair_subset` with terminal `6.0`
+  - `ddddd` also stabilized at terminal `6.0`
+  - but `ffddd` remained bad, usually from missing upstream local blockers
+- `dataset 2` improved partially:
+  - `fdddd` repeat-5 mean terminal dropped to `4.8`
+  - transfer mostly disappeared in repeat-5
+  - remaining issue: `break_app_storage_permission` still gets deferred too
+    often, causing replay to miss `grant_app_permission`
+- `dataset 10` improved partially and remains the main blocker:
+  - no longer "always transfer"
+  - correct cases now end in `repair_subset` with deferred
+    `data_usage_exceeded` / roaming-policy blockers and terminal `6`
+  - remaining failure:
+    - ordinary-defer blockers are sometimes incorrectly selected into
+      `repair_all`, giving terminal around `10`
+    - selected/deferred can still partially flip, giving terminal around `19`
+
+Practical conclusion from prompt-only v1:
+
+- this is a real improvement signal, not noise
+- the right next step is still prompt refinement, not PS retuning and not task
+  deletion
+
+## 17. Current recommendation after this session
+
+This supersedes the earlier "go stabilize PS first" instinct for this exact
+thread.
+
+Recommended order:
+
+1. Do **not** delete tasks from the dataset yet.
+2. Do **not** run the next smoke yet.
+3. Continue with prompt-only `v1.1` on fixed trace first.
+
+Current prompt-only `v1.1` target changes:
+
+- make `contract_self_check` a required diagnostic key, but still report-only
+- strengthen the Stage 4 wording that `can_be_deferred=true` account / usage /
+  policy blockers should stay ordinary-deferred unless there is an actual local
+  canonical repair for them
+- add a stronger dataset-10-style abstract example:
+  - local MMS chain selected
+  - `data_usage_exceeded` and account roaming policy deferred
+  - final action should still be `repair_subset`
+- add an explicit app-permission rule:
+  - if app permission blocker is active and there is a canonical local
+    permission repair, do not defer it while repairing APN / Wi-Fi / MMS
+    downstream blockers
+
+Only after prompt-only `v1.1` shows clear improvement on fixed trace should we
+consider:
+
+- running the latest clean 100-task dataset through a fixed-trace style check
+- and only later returning to smoke / PS comparisons
+
+Short version for handoff:
+
+- the current blocker is Stage 4/5 contract stability on local repair chains
+- exact-match `fdddd` high penalty is a real execution-layer cleanliness issue
+- prompt-only v1 helped materially
+- dataset `10` remains the main repair-subset contract case
+- dataset `16` now looks healthy
+- do not bypass this with task deletion or by immediately tuning PS
