@@ -1,0 +1,1614 @@
+{
+  "tree_name": "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
+  "depth": 5,
+  "num_paths": 30,
+  "total_agent_ids": 60,
+  "per_stage_node_counts": {
+    "stage1": 2,
+    "stage2": 6,
+    "stage3": 7,
+    "stage4": 15,
+    "stage5": 30
+  },
+  "g_counts_by_stage": {
+    "stage1": {
+      "1": 1,
+      "0": 1
+    },
+    "stage2": {
+      "1": 1,
+      "0": 5
+    },
+    "stage3": {
+      "1": 1,
+      "0": 6
+    },
+    "stage4": {
+      "1": 3,
+      "0": 12
+    },
+    "stage5": {
+      "1": 6,
+      "0": 24
+    }
+  },
+  "internal_node_count": 30,
+  "internal_share_count": 24,
+  "internal_private_count": 6,
+  "internal_share_fraction": 0.8,
+  "leaf_node_count": 30,
+  "leaf_share_count": 24,
+  "leaf_private_count": 6,
+  "leaf_share_fraction": 0.8,
+  "leaf_depths": [
+    5
+  ],
+  "root_branching": 2,
+  "min_branching": 1,
+  "max_branching": 5,
+  "full_share_roots_by_stage": {
+    "stage1": [
+      {
+        "alias": "stage1_n1__from__root__c02",
+        "conceptual_alias": "s1_n1_full_share_target_basin_root",
+        "base_alias": "stage1_n1",
+        "descendant_internal_count": 24,
+        "descendant_leaf_count": 24
+      }
+    ],
+    "stage2": [
+      {
+        "alias": "stage2_n1__from__n0002__c01",
+        "conceptual_alias": "s2_n1_target_router_A",
+        "base_alias": "stage2_n1",
+        "descendant_internal_count": 7,
+        "descendant_leaf_count": 8
+      },
+      {
+        "alias": "stage2_n2__from__n0002__c02",
+        "conceptual_alias": "s2_n2_general_core_B",
+        "base_alias": "stage2_n2",
+        "descendant_internal_count": 4,
+        "descendant_leaf_count": 4
+      },
+      {
+        "alias": "stage2_n4__from__n0002__c03",
+        "conceptual_alias": "s2_n3_general_roaming_C",
+        "base_alias": "stage2_n4",
+        "descendant_internal_count": 4,
+        "descendant_leaf_count": 4
+      },
+      {
+        "alias": "stage2_n1__from__n0002__c04",
+        "conceptual_alias": "s2_n4_target_router_D",
+        "base_alias": "stage2_n1",
+        "descendant_internal_count": 4,
+        "descendant_leaf_count": 4
+      },
+      {
+        "alias": "stage2_n2__from__n0002__c05",
+        "conceptual_alias": "s2_n5_general_core_E",
+        "base_alias": "stage2_n2",
+        "descendant_internal_count": 4,
+        "descendant_leaf_count": 4
+      }
+    ],
+    "stage3": [
+      {
+        "alias": "stage3_n1__from__n0004__c01",
+        "conceptual_alias": "s3_n1_target_apn_A1",
+        "base_alias": "stage3_n1",
+        "descendant_internal_count": 3,
+        "descendant_leaf_count": 4
+      },
+      {
+        "alias": "stage3_n2__from__n0004__c02",
+        "conceptual_alias": "s3_n2_target_roaming_A2",
+        "base_alias": "stage3_n2",
+        "descendant_internal_count": 3,
+        "descendant_leaf_count": 4
+      },
+      {
+        "alias": "stage3_n3__from__n0005__c01",
+        "conceptual_alias": "s3_n3_general_network_B1",
+        "base_alias": "stage3_n3",
+        "descendant_internal_count": 3,
+        "descendant_leaf_count": 4
+      },
+      {
+        "alias": "stage3_n2__from__n0006__c01",
+        "conceptual_alias": "s3_n4_target_roaming_C1",
+        "base_alias": "stage3_n2",
+        "descendant_internal_count": 3,
+        "descendant_leaf_count": 4
+      },
+      {
+        "alias": "stage3_n1__from__n0007__c01",
+        "conceptual_alias": "s3_n5_target_apn_D1",
+        "base_alias": "stage3_n1",
+        "descendant_internal_count": 3,
+        "descendant_leaf_count": 4
+      },
+      {
+        "alias": "stage3_n3__from__n0008__c01",
+        "conceptual_alias": "s3_n6_general_network_E1",
+        "base_alias": "stage3_n3",
+        "descendant_internal_count": 3,
+        "descendant_leaf_count": 4
+      }
+    ],
+    "stage4": [
+      {
+        "alias": "stage4_n1__from__n0010__c01",
+        "conceptual_alias": "s4_n03_shared_repair_1_1",
+        "base_alias": "stage4_n1",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      },
+      {
+        "alias": "stage4_n2__from__n0010__c02",
+        "conceptual_alias": "s4_n04_shared_repair_1_2",
+        "base_alias": "stage4_n2",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      },
+      {
+        "alias": "stage4_n1__from__n0011__c01",
+        "conceptual_alias": "s4_n05_shared_repair_2_1",
+        "base_alias": "stage4_n1",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      },
+      {
+        "alias": "stage4_n3__from__n0011__c02",
+        "conceptual_alias": "s4_n06_shared_repair_2_2",
+        "base_alias": "stage4_n3",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      },
+      {
+        "alias": "stage4_n1__from__n0012__c01",
+        "conceptual_alias": "s4_n07_shared_repair_3_1",
+        "base_alias": "stage4_n1",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      },
+      {
+        "alias": "stage4_n2__from__n0012__c02",
+        "conceptual_alias": "s4_n08_shared_repair_3_2",
+        "base_alias": "stage4_n2",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      },
+      {
+        "alias": "stage4_n1__from__n0013__c01",
+        "conceptual_alias": "s4_n09_shared_repair_4_1",
+        "base_alias": "stage4_n1",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      },
+      {
+        "alias": "stage4_n3__from__n0013__c02",
+        "conceptual_alias": "s4_n10_shared_repair_4_2",
+        "base_alias": "stage4_n3",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      },
+      {
+        "alias": "stage4_n1__from__n0014__c01",
+        "conceptual_alias": "s4_n11_shared_repair_5_1",
+        "base_alias": "stage4_n1",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      },
+      {
+        "alias": "stage4_n2__from__n0014__c02",
+        "conceptual_alias": "s4_n12_shared_repair_5_2",
+        "base_alias": "stage4_n2",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      },
+      {
+        "alias": "stage4_n1__from__n0015__c01",
+        "conceptual_alias": "s4_n13_shared_repair_6_1",
+        "base_alias": "stage4_n1",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      },
+      {
+        "alias": "stage4_n3__from__n0015__c02",
+        "conceptual_alias": "s4_n14_shared_repair_6_2",
+        "base_alias": "stage4_n3",
+        "descendant_internal_count": 1,
+        "descendant_leaf_count": 2
+      }
+    ],
+    "stage5": [
+      {
+        "alias": "stage5_n1__from__n0019__c01",
+        "conceptual_alias": "s5_n06_L06_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0019__c02",
+        "conceptual_alias": "s5_n07_L07_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n1__from__n0020__c01",
+        "conceptual_alias": "s5_n08_L08_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0020__c02",
+        "conceptual_alias": "s5_n09_L09_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n1__from__n0021__c01",
+        "conceptual_alias": "s5_n10_L10_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0021__c02",
+        "conceptual_alias": "s5_n11_L11_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n1__from__n0022__c01",
+        "conceptual_alias": "s5_n12_L12_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0022__c02",
+        "conceptual_alias": "s5_n13_L13_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n1__from__n0023__c01",
+        "conceptual_alias": "s5_n14_L14_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0023__c02",
+        "conceptual_alias": "s5_n15_L15_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n1__from__n0024__c01",
+        "conceptual_alias": "s5_n16_L16_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0024__c02",
+        "conceptual_alias": "s5_n17_L17_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n1__from__n0025__c01",
+        "conceptual_alias": "s5_n18_L18_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0025__c02",
+        "conceptual_alias": "s5_n19_L19_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n1__from__n0026__c01",
+        "conceptual_alias": "s5_n20_L20_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0026__c02",
+        "conceptual_alias": "s5_n21_L21_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n1__from__n0027__c01",
+        "conceptual_alias": "s5_n22_L22_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0027__c02",
+        "conceptual_alias": "s5_n23_L23_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n1__from__n0028__c01",
+        "conceptual_alias": "s5_n24_L24_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0028__c02",
+        "conceptual_alias": "s5_n25_L25_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n1__from__n0029__c01",
+        "conceptual_alias": "s5_n26_L26_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0029__c02",
+        "conceptual_alias": "s5_n27_L27_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n1__from__n0030__c01",
+        "conceptual_alias": "s5_n28_L28_deep_target",
+        "base_alias": "stage5_n1",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      },
+      {
+        "alias": "stage5_n2__from__n0030__c02",
+        "conceptual_alias": "s5_n29_L29_deep_target",
+        "base_alias": "stage5_n2",
+        "descendant_internal_count": 0,
+        "descendant_leaf_count": 1
+      }
+    ]
+  },
+  "profile_mode_counts_by_stage": {
+    "stage1": {
+      "fast": 2
+    },
+    "stage2": {
+      "fast": 3,
+      "deep": 3
+    },
+    "stage3": {
+      "fast": 1,
+      "deep": 6
+    },
+    "stage4": {
+      "fast": 3,
+      "deep": 12
+    },
+    "stage5": {
+      "fast": 6,
+      "deep": 24
+    }
+  },
+  "leaf_profile_mode_counts": {
+    "fast": 6,
+    "deep": 24
+  },
+  "trap_path_count": 6,
+  "trap_path_fraction": 0.2,
+  "target_safe_path_count": 24,
+  "target_safe_path_fraction": 0.8,
+  "paths": [
+    {
+      "aliases": [
+        "stage1_n4__from__root__c01",
+        "stage2_n3__from__n0001__c01",
+        "stage3_n4__from__n0003__c01",
+        "stage4_n4__from__n0009__c01",
+        "stage5_n4__from__n0016__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n0_fast_trap_root",
+        "s2_n0_fast_trap_router",
+        "s3_n0_fast_trap_network",
+        "s4_n0_fast_trap_execute_A",
+        "s5_n00_L00_fast_trap"
+      ],
+      "base_aliases": [
+        "stage1_n4",
+        "stage2_n3",
+        "stage3_n4",
+        "stage4_n4",
+        "stage5_n4"
+      ],
+      "g": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "fast",
+        "fast",
+        "fast"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n4__from__root__c01",
+        "stage2_n3__from__n0001__c01",
+        "stage3_n4__from__n0003__c01",
+        "stage4_n4__from__n0009__c01",
+        "stage5_n4__from__n0016__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n0_fast_trap_root",
+        "s2_n0_fast_trap_router",
+        "s3_n0_fast_trap_network",
+        "s4_n0_fast_trap_execute_A",
+        "s5_n01_L01_fast_trap"
+      ],
+      "base_aliases": [
+        "stage1_n4",
+        "stage2_n3",
+        "stage3_n4",
+        "stage4_n4",
+        "stage5_n4"
+      ],
+      "g": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "fast",
+        "fast",
+        "fast"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n4__from__root__c01",
+        "stage2_n3__from__n0001__c01",
+        "stage3_n4__from__n0003__c01",
+        "stage4_n4__from__n0009__c02",
+        "stage5_n4__from__n0017__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n0_fast_trap_root",
+        "s2_n0_fast_trap_router",
+        "s3_n0_fast_trap_network",
+        "s4_n1_fast_trap_execute_B",
+        "s5_n02_L02_fast_trap"
+      ],
+      "base_aliases": [
+        "stage1_n4",
+        "stage2_n3",
+        "stage3_n4",
+        "stage4_n4",
+        "stage5_n4"
+      ],
+      "g": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "fast",
+        "fast",
+        "fast"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n4__from__root__c01",
+        "stage2_n3__from__n0001__c01",
+        "stage3_n4__from__n0003__c01",
+        "stage4_n4__from__n0009__c02",
+        "stage5_n4__from__n0017__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n0_fast_trap_root",
+        "s2_n0_fast_trap_router",
+        "s3_n0_fast_trap_network",
+        "s4_n1_fast_trap_execute_B",
+        "s5_n03_L03_fast_trap"
+      ],
+      "base_aliases": [
+        "stage1_n4",
+        "stage2_n3",
+        "stage3_n4",
+        "stage4_n4",
+        "stage5_n4"
+      ],
+      "g": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "fast",
+        "fast",
+        "fast"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n4__from__root__c01",
+        "stage2_n3__from__n0001__c01",
+        "stage3_n4__from__n0003__c01",
+        "stage4_n4__from__n0009__c03",
+        "stage5_n4__from__n0018__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n0_fast_trap_root",
+        "s2_n0_fast_trap_router",
+        "s3_n0_fast_trap_network",
+        "s4_n2_fast_trap_execute_C",
+        "s5_n04_L04_fast_trap"
+      ],
+      "base_aliases": [
+        "stage1_n4",
+        "stage2_n3",
+        "stage3_n4",
+        "stage4_n4",
+        "stage5_n4"
+      ],
+      "g": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "fast",
+        "fast",
+        "fast"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n4__from__root__c01",
+        "stage2_n3__from__n0001__c01",
+        "stage3_n4__from__n0003__c01",
+        "stage4_n4__from__n0009__c03",
+        "stage5_n4__from__n0018__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n0_fast_trap_root",
+        "s2_n0_fast_trap_router",
+        "s3_n0_fast_trap_network",
+        "s4_n2_fast_trap_execute_C",
+        "s5_n05_L05_fast_trap"
+      ],
+      "base_aliases": [
+        "stage1_n4",
+        "stage2_n3",
+        "stage3_n4",
+        "stage4_n4",
+        "stage5_n4"
+      ],
+      "g": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "fast",
+        "fast",
+        "fast"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c01",
+        "stage3_n1__from__n0004__c01",
+        "stage4_n1__from__n0010__c01",
+        "stage5_n1__from__n0019__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n1_target_router_A",
+        "s3_n1_target_apn_A1",
+        "s4_n03_shared_repair_1_1",
+        "s5_n06_L06_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n1",
+        "stage4_n1",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c01",
+        "stage3_n1__from__n0004__c01",
+        "stage4_n1__from__n0010__c01",
+        "stage5_n2__from__n0019__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n1_target_router_A",
+        "s3_n1_target_apn_A1",
+        "s4_n03_shared_repair_1_1",
+        "s5_n07_L07_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n1",
+        "stage4_n1",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c01",
+        "stage3_n1__from__n0004__c01",
+        "stage4_n2__from__n0010__c02",
+        "stage5_n1__from__n0020__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n1_target_router_A",
+        "s3_n1_target_apn_A1",
+        "s4_n04_shared_repair_1_2",
+        "s5_n08_L08_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n1",
+        "stage4_n2",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c01",
+        "stage3_n1__from__n0004__c01",
+        "stage4_n2__from__n0010__c02",
+        "stage5_n2__from__n0020__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n1_target_router_A",
+        "s3_n1_target_apn_A1",
+        "s4_n04_shared_repair_1_2",
+        "s5_n09_L09_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n1",
+        "stage4_n2",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c01",
+        "stage3_n2__from__n0004__c02",
+        "stage4_n1__from__n0011__c01",
+        "stage5_n1__from__n0021__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n1_target_router_A",
+        "s3_n2_target_roaming_A2",
+        "s4_n05_shared_repair_2_1",
+        "s5_n10_L10_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n2",
+        "stage4_n1",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c01",
+        "stage3_n2__from__n0004__c02",
+        "stage4_n1__from__n0011__c01",
+        "stage5_n2__from__n0021__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n1_target_router_A",
+        "s3_n2_target_roaming_A2",
+        "s4_n05_shared_repair_2_1",
+        "s5_n11_L11_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n2",
+        "stage4_n1",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c01",
+        "stage3_n2__from__n0004__c02",
+        "stage4_n3__from__n0011__c02",
+        "stage5_n1__from__n0022__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n1_target_router_A",
+        "s3_n2_target_roaming_A2",
+        "s4_n06_shared_repair_2_2",
+        "s5_n12_L12_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n2",
+        "stage4_n3",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c01",
+        "stage3_n2__from__n0004__c02",
+        "stage4_n3__from__n0011__c02",
+        "stage5_n2__from__n0022__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n1_target_router_A",
+        "s3_n2_target_roaming_A2",
+        "s4_n06_shared_repair_2_2",
+        "s5_n13_L13_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n2",
+        "stage4_n3",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n2__from__n0002__c02",
+        "stage3_n3__from__n0005__c01",
+        "stage4_n1__from__n0012__c01",
+        "stage5_n1__from__n0023__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n2_general_core_B",
+        "s3_n3_general_network_B1",
+        "s4_n07_shared_repair_3_1",
+        "s5_n14_L14_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n2",
+        "stage3_n3",
+        "stage4_n1",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n2__from__n0002__c02",
+        "stage3_n3__from__n0005__c01",
+        "stage4_n1__from__n0012__c01",
+        "stage5_n2__from__n0023__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n2_general_core_B",
+        "s3_n3_general_network_B1",
+        "s4_n07_shared_repair_3_1",
+        "s5_n15_L15_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n2",
+        "stage3_n3",
+        "stage4_n1",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n2__from__n0002__c02",
+        "stage3_n3__from__n0005__c01",
+        "stage4_n2__from__n0012__c02",
+        "stage5_n1__from__n0024__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n2_general_core_B",
+        "s3_n3_general_network_B1",
+        "s4_n08_shared_repair_3_2",
+        "s5_n16_L16_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n2",
+        "stage3_n3",
+        "stage4_n2",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n2__from__n0002__c02",
+        "stage3_n3__from__n0005__c01",
+        "stage4_n2__from__n0012__c02",
+        "stage5_n2__from__n0024__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n2_general_core_B",
+        "s3_n3_general_network_B1",
+        "s4_n08_shared_repair_3_2",
+        "s5_n17_L17_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n2",
+        "stage3_n3",
+        "stage4_n2",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n4__from__n0002__c03",
+        "stage3_n2__from__n0006__c01",
+        "stage4_n1__from__n0013__c01",
+        "stage5_n1__from__n0025__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n3_general_roaming_C",
+        "s3_n4_target_roaming_C1",
+        "s4_n09_shared_repair_4_1",
+        "s5_n18_L18_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n4",
+        "stage3_n2",
+        "stage4_n1",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n4__from__n0002__c03",
+        "stage3_n2__from__n0006__c01",
+        "stage4_n1__from__n0013__c01",
+        "stage5_n2__from__n0025__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n3_general_roaming_C",
+        "s3_n4_target_roaming_C1",
+        "s4_n09_shared_repair_4_1",
+        "s5_n19_L19_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n4",
+        "stage3_n2",
+        "stage4_n1",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n4__from__n0002__c03",
+        "stage3_n2__from__n0006__c01",
+        "stage4_n3__from__n0013__c02",
+        "stage5_n1__from__n0026__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n3_general_roaming_C",
+        "s3_n4_target_roaming_C1",
+        "s4_n10_shared_repair_4_2",
+        "s5_n20_L20_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n4",
+        "stage3_n2",
+        "stage4_n3",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n4__from__n0002__c03",
+        "stage3_n2__from__n0006__c01",
+        "stage4_n3__from__n0013__c02",
+        "stage5_n2__from__n0026__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n3_general_roaming_C",
+        "s3_n4_target_roaming_C1",
+        "s4_n10_shared_repair_4_2",
+        "s5_n21_L21_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n4",
+        "stage3_n2",
+        "stage4_n3",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c04",
+        "stage3_n1__from__n0007__c01",
+        "stage4_n1__from__n0014__c01",
+        "stage5_n1__from__n0027__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n4_target_router_D",
+        "s3_n5_target_apn_D1",
+        "s4_n11_shared_repair_5_1",
+        "s5_n22_L22_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n1",
+        "stage4_n1",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c04",
+        "stage3_n1__from__n0007__c01",
+        "stage4_n1__from__n0014__c01",
+        "stage5_n2__from__n0027__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n4_target_router_D",
+        "s3_n5_target_apn_D1",
+        "s4_n11_shared_repair_5_1",
+        "s5_n23_L23_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n1",
+        "stage4_n1",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c04",
+        "stage3_n1__from__n0007__c01",
+        "stage4_n2__from__n0014__c02",
+        "stage5_n1__from__n0028__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n4_target_router_D",
+        "s3_n5_target_apn_D1",
+        "s4_n12_shared_repair_5_2",
+        "s5_n24_L24_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n1",
+        "stage4_n2",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n1__from__n0002__c04",
+        "stage3_n1__from__n0007__c01",
+        "stage4_n2__from__n0014__c02",
+        "stage5_n2__from__n0028__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n4_target_router_D",
+        "s3_n5_target_apn_D1",
+        "s4_n12_shared_repair_5_2",
+        "s5_n25_L25_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n1",
+        "stage3_n1",
+        "stage4_n2",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "deep",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n2__from__n0002__c05",
+        "stage3_n3__from__n0008__c01",
+        "stage4_n1__from__n0015__c01",
+        "stage5_n1__from__n0029__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n5_general_core_E",
+        "s3_n6_general_network_E1",
+        "s4_n13_shared_repair_6_1",
+        "s5_n26_L26_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n2",
+        "stage3_n3",
+        "stage4_n1",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n2__from__n0002__c05",
+        "stage3_n3__from__n0008__c01",
+        "stage4_n1__from__n0015__c01",
+        "stage5_n2__from__n0029__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n5_general_core_E",
+        "s3_n6_general_network_E1",
+        "s4_n13_shared_repair_6_1",
+        "s5_n27_L27_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n2",
+        "stage3_n3",
+        "stage4_n1",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n2__from__n0002__c05",
+        "stage3_n3__from__n0008__c01",
+        "stage4_n3__from__n0015__c02",
+        "stage5_n1__from__n0030__c01"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n5_general_core_E",
+        "s3_n6_general_network_E1",
+        "s4_n14_shared_repair_6_2",
+        "s5_n28_L28_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n2",
+        "stage3_n3",
+        "stage4_n3",
+        "stage5_n1"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    },
+    {
+      "aliases": [
+        "stage1_n1__from__root__c02",
+        "stage2_n2__from__n0002__c05",
+        "stage3_n3__from__n0008__c01",
+        "stage4_n3__from__n0015__c02",
+        "stage5_n2__from__n0030__c02"
+      ],
+      "conceptual_aliases": [
+        "s1_n1_full_share_target_basin_root",
+        "s2_n5_general_core_E",
+        "s3_n6_general_network_E1",
+        "s4_n14_shared_repair_6_2",
+        "s5_n29_L29_deep_target"
+      ],
+      "base_aliases": [
+        "stage1_n1",
+        "stage2_n2",
+        "stage3_n3",
+        "stage4_n3",
+        "stage5_n2"
+      ],
+      "g": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "profile_modes": [
+        "fast",
+        "fast",
+        "deep",
+        "deep",
+        "deep"
+      ]
+    }
+  ],
+  "metadata": {
+    "source_tree_name": "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+    "profile_switch_variant": "trap_asym_v6_small30_4of5",
+    "profile_switch_version": "profile_switch_v1",
+    "compatible_with": [
+      "run_shared_basin_repeated_smoke_setup"
+    ],
+    "not_directly_compatible_with_current_shared_basin_llm_runner": false,
+    "preserve_g": false,
+    "g_layout_policy": "small30_exact_internal_and_leaf_4of5_full_stage1_share_basin_v1",
+    "base_cost_policy": "unchanged_from_profile_switch_preset",
+    "purpose": "Compact 30-leaf 4/5-share profile-switch tree for 100-episode pre-switch exploration: preserve the v3 efficient-anchor constraints and the v5 narrow-trap/full-stage1-share-basin structure while raising leaf coverage capacity.",
+    "conceptual_design": {
+      "leaf_depth": 5,
+      "root_depth_including_root": 6,
+      "num_leaves": 30,
+      "trap_leaves": [
+        "L00",
+        "L01",
+        "L02",
+        "L03",
+        "L04",
+        "L05"
+      ],
+      "deep_target_leaves": [
+        "L06",
+        "L07",
+        "L08",
+        "L09",
+        "L10",
+        "L11",
+        "L12",
+        "L13",
+        "L14",
+        "L15",
+        "L16",
+        "L17",
+        "L18",
+        "L19",
+        "L20",
+        "L21",
+        "L22",
+        "L23",
+        "L24",
+        "L25",
+        "L26",
+        "L27",
+        "L28",
+        "L29"
+      ],
+      "leaf_share_fraction": "24/30",
+      "internal_share_fraction": "24/30",
+      "stage1_full_share_root": "s1_n1_full_share_target_basin_root",
+      "stage1_full_share_leaf_count": 24,
+      "trap_root_leaf_count": 6
+    },
+    "notes": [
+      "The JSON schema matches existing v3/v4/v5 prefix-dedup topology specs.",
+      "Exactly 4/5 of leaves are shareable and exactly 4/5 of internal nodes are shareable.",
+      "The stage1_n1 subtree is forced all-share from stage1 through all 24 descendant leaves.",
+      "Trap paths remain narrow: one stage1 fast trap entrance with six private fast terminal leaves.",
+      "No barrier base aliases n5 are included; hard-transfer safety should still be evaluated separately."
+    ]
+  },
+  "expected_checks": {
+    "num_paths_is_30": true,
+    "all_leaves_at_stage5_depth": true,
+    "internal_share_count_is_24_of_30": true,
+    "leaf_share_count_is_24_of_30": true,
+    "stage1_has_one_full_share_root": true,
+    "stage1_full_share_root_covers_24_leaves": true,
+    "trap_path_count_is_6": true,
+    "target_safe_path_count_is_24": true
+  },
+  "validation_errors": []
+}

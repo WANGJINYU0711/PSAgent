@@ -385,6 +385,16 @@ class FixedTreeEnvironment:
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
             }
             and str(os.environ.get("PSAGENT_PROFILE_SWITCH_FLAT_PATH_COST", "")).strip()
             in {"1", "true", "True", "yes", "on"}
@@ -1850,6 +1860,16 @@ class FixedTreeEnvironment:
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
             }
             or self.current_instance is None
             or self.family_agent_map is None
@@ -1873,6 +1893,16 @@ class FixedTreeEnvironment:
             "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
             "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
             "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
         }:
             trap_like_path = trap_like_path or route_labels[0] == "trap_stage1_intake"
             target_stage5_labels = {"target_stage5_verify", "target_stage5_decision"}
@@ -1900,6 +1930,16 @@ class FixedTreeEnvironment:
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
             }:
                 decoy_path = (
                     not trap_like_path
@@ -1971,6 +2011,16 @@ class FixedTreeEnvironment:
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
             }
             and str(os.environ.get("PSAGENT_PROFILE_SWITCH_FLAT_PATH_COST", "")).strip()
             in {"1", "true", "True", "yes", "on"}

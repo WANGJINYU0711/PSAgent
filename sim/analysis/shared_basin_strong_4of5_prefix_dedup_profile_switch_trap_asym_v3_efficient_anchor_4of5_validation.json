@@ -1,0 +1,308 @@
+{
+  "tree_name": "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+  "depth": 5,
+  "num_paths": 250,
+  "total_agent_ids": 380,
+  "per_stage_node_counts": {
+    "stage1": 4,
+    "stage2": 10,
+    "stage3": 29,
+    "stage4": 87,
+    "stage5": 250
+  },
+  "g_counts_by_stage": {
+    "stage1": {
+      "0": 3,
+      "1": 1
+    },
+    "stage2": {
+      "0": 5,
+      "1": 5
+    },
+    "stage3": {
+      "0": 22,
+      "1": 7
+    },
+    "stage4": {
+      "0": 74,
+      "1": 13
+    },
+    "stage5": {
+      "0": 200,
+      "1": 50
+    }
+  },
+  "internal_node_count": 130,
+  "internal_share_count": 104,
+  "internal_private_count": 26,
+  "internal_share_fraction": 0.8,
+  "leaf_node_count": 250,
+  "leaf_share_count": 200,
+  "leaf_private_count": 50,
+  "leaf_share_fraction": 0.8,
+  "root_private_nodes": [
+    {
+      "alias": "stage1_n2__from__root__c02",
+      "base_alias": "stage1_n2"
+    }
+  ],
+  "stage1_full_share_subtree_roots": [
+    {
+      "alias": "stage1_n1__from__root__c01",
+      "base_alias": "stage1_n1",
+      "descendant_internal_count": 45,
+      "descendant_leaf_count": 91
+    }
+  ],
+  "stage2_full_share_subtree_roots": [
+    {
+      "alias": "stage2_n1__from__n0001__c01",
+      "base_alias": "stage2_n1",
+      "parent_base_alias": "stage1_n1",
+      "descendant_internal_count": 14,
+      "descendant_leaf_count": 31
+    },
+    {
+      "alias": "stage2_n2__from__n0001__c02",
+      "base_alias": "stage2_n2",
+      "parent_base_alias": "stage1_n1",
+      "descendant_internal_count": 13,
+      "descendant_leaf_count": 25
+    },
+    {
+      "alias": "stage2_n4__from__n0001__c03",
+      "base_alias": "stage2_n4",
+      "parent_base_alias": "stage1_n1",
+      "descendant_internal_count": 17,
+      "descendant_leaf_count": 35
+    }
+  ],
+  "target_private_leaf_count": 26,
+  "target_private_leaf_fraction_of_target": 0.13756613756613756,
+  "late_trap_leaf_count": 37,
+  "late_trap_shared_leaf_count": 13,
+  "late_trap_private_leaf_count": 24,
+  "late_trap_shared_rate": 0.35135135135135137,
+  "late_trap_shared_rate_requested_max": 0.3,
+  "late_trap_shared_rate_constraint_feasible": false,
+  "late_trap_shared_rate_feasibility_note": "With stage1_n1 whole-subtree all-share and unchanged trap_asym topology, 13 of 37 late-trap leaves are forced share, so the global rate cannot be below 0.351351.",
+  "private_internal_counts_by_base_alias": {
+    "stage1_n2": 1,
+    "stage2_n1": 1,
+    "stage2_n2": 2,
+    "stage2_n3": 1,
+    "stage2_n4": 1,
+    "stage3_n1": 3,
+    "stage3_n3": 2,
+    "stage3_n4": 2,
+    "stage4_n1": 3,
+    "stage4_n2": 4,
+    "stage4_n3": 2,
+    "stage4_n4": 4
+  },
+  "private_leaf_counts_by_base_alias": {
+    "stage5_n1": 8,
+    "stage5_n2": 11,
+    "stage5_n3": 7,
+    "stage5_n4": 24
+  },
+  "private_leaf_counts_by_archetype": {
+    "decoy": 23,
+    "target_shared": 26,
+    "trap_root": 1
+  },
+  "root_branching": 4,
+  "min_branching": 1,
+  "max_branching": 4,
+  "mean_branching": 2.900763358778626,
+  "root_base_path_counts": {
+    "stage1_n1": 91,
+    "stage1_n2": 64,
+    "stage1_n3": 91,
+    "stage1_n4": 4
+  },
+  "stage2_base_path_counts": {
+    "stage2_n1": 62,
+    "stage2_n2": 75,
+    "stage2_n3": 8,
+    "stage2_n4": 105
+  },
+  "mode_pattern_counts": {
+    "ddddd": 81,
+    "ddddf": 9,
+    "dddff": 3,
+    "ddfdd": 6,
+    "ddfff": 2,
+    "dfddd": 36,
+    "dfddf": 4,
+    "dfdff": 2,
+    "dffdd": 9,
+    "dffff": 3,
+    "fdddd": 54,
+    "fdddf": 6,
+    "fddff": 2,
+    "fdfdd": 3,
+    "fdfff": 1,
+    "ffddd": 18,
+    "ffddf": 2,
+    "ffdff": 1,
+    "fffdd": 6,
+    "fffff": 2
+  },
+  "target_shared_path_count": 189,
+  "target_shared_path_fraction": 0.756,
+  "trap_root_path_count": 4,
+  "trap_root_path_fraction": 0.016,
+  "decoy_path_count": 57,
+  "decoy_path_fraction": 0.228,
+  "excluded_base_aliases": [
+    "stage1_n5",
+    "stage2_n5",
+    "stage3_n5",
+    "stage4_n5",
+    "stage5_n5"
+  ],
+  "base_edge_rules": {
+    "ROOT": [
+      "stage1_n1",
+      "stage1_n2",
+      "stage1_n3",
+      "stage1_n4"
+    ],
+    "stage1_n1": [
+      "stage2_n1",
+      "stage2_n2",
+      "stage2_n4"
+    ],
+    "stage1_n3": [
+      "stage2_n1",
+      "stage2_n2",
+      "stage2_n4"
+    ],
+    "stage1_n2": [
+      "stage2_n2",
+      "stage2_n3",
+      "stage2_n4"
+    ],
+    "stage1_n4": [
+      "stage2_n3"
+    ],
+    "stage2_n1": [
+      "stage3_n1",
+      "stage3_n2",
+      "stage3_n3"
+    ],
+    "stage2_n2": [
+      "stage3_n1",
+      "stage3_n3",
+      "stage3_n4"
+    ],
+    "stage2_n3": [
+      "stage3_n4"
+    ],
+    "stage2_n4": [
+      "stage3_n1",
+      "stage3_n2",
+      "stage3_n3",
+      "stage3_n4"
+    ],
+    "stage3_n1": [
+      "stage4_n1",
+      "stage4_n2",
+      "stage4_n3"
+    ],
+    "stage3_n2": [
+      "stage4_n1",
+      "stage4_n2",
+      "stage4_n3"
+    ],
+    "stage3_n3": [
+      "stage4_n1",
+      "stage4_n2",
+      "stage4_n3",
+      "stage4_n4"
+    ],
+    "stage3_n4": [
+      "stage4_n2",
+      "stage4_n4"
+    ],
+    "stage4_n1": [
+      "stage5_n1",
+      "stage5_n2",
+      "stage5_n3"
+    ],
+    "stage4_n2": [
+      "stage5_n1",
+      "stage5_n2",
+      "stage5_n3"
+    ],
+    "stage4_n3": [
+      "stage5_n1",
+      "stage5_n2",
+      "stage5_n3",
+      "stage5_n4"
+    ],
+    "stage4_n4": [
+      "stage5_n4"
+    ]
+  },
+  "metadata": {
+    "purpose": "Paper-facing efficient-anchor 4/5-share trap-asymmetric profile-switch topology: same trap_asym path topology, with a single stage1_n1 whole-subtree shared workflow anchor and closure-aware private placement outside that anchor.",
+    "source_spec": "analysis/tree_specs/shared_basin_strong_4of5_minimal.json",
+    "preserve_connectivity_pattern": true,
+    "preserve_g": false,
+    "agent_reuse_policy": "parent_specific_clone",
+    "cross_prefix_agent_reuse_removed": true,
+    "compatible_with": [
+      "barriershare_controlled_sim",
+      "risky_ps",
+      "run_shared_basin_repeated_smoke_setup"
+    ],
+    "llm_runner_requires_adapter": true,
+    "not_directly_compatible_with_current_shared_basin_llm_runner": false,
+    "source_tree_name": "shared_basin_strong_4of5_prefix_dedup_profile_switch",
+    "profile_switch_version": "profile_switch_v1",
+    "notes": [
+      "Topology only; profile capabilities, deliberation modes, and base_cost ranges are unchanged.",
+      "Exactly 4/5 of expanded internal nodes and exactly 4/5 of expanded leaf nodes are g=0.",
+      "The concrete stage1_n1 subtree is forced all-share, so Risky-PS can use shared mass inside that workflow lane.",
+      "Exactly one root child is private: stage1_n2.",
+      "Target leaves are not fully clean: 25 target_shared leaves are private.",
+      "Non-anchor late-trap leaves are privatized first. Because stage1_n1 itself contains 13 late-trap leaves, global late_trap_shared_rate <= 30% is impossible under this stage1-anchor constraint; the generated layout attains the minimum feasible global late-trap share rate."
+    ],
+    "profile_switch_variant": "trap_asym_v3_efficient_anchor_4of5",
+    "g_layout_policy": "stage1_whole_subtree_anchor_closure_aware_4of5_v1",
+    "g_layout_seed": 20260501,
+    "g_layout_metadata": {
+      "seed": 20260501,
+      "stage1_anchor_base_alias": "stage1_n1",
+      "protected_stage1_anchor_root_alias": "stage1_n1__from__root__c01",
+      "protected_stage1_anchor_alias_count": 136,
+      "protected_stage1_anchor_leaf_count": 91,
+      "root_private_alias": "stage1_n2__from__root__c02",
+      "root_private_base_alias": "stage1_n2",
+      "internal_private_target": 26,
+      "leaf_private_target": 50,
+      "target_private_leaf_target": 25,
+      "late_trap_leaf_count": 37,
+      "forced_stage1_anchor_late_trap_share_count": 13,
+      "minimum_feasible_late_trap_shared_rate": 0.35135135135135137,
+      "sampling_policy": {
+        "leaf": "target-private quota first, then non-anchor late-trap leaves, then weighted residual",
+        "internal": "root barrier first, then weighted toward prefixes covering private leaves / late trap leakage"
+      }
+    },
+    "base_cost_policy": "unchanged_from_profile_switch_preset"
+  },
+  "expected_checks": {
+    "internal_share_count_is_104": true,
+    "leaf_share_count_is_200": true,
+    "one_root_private_barrier": true,
+    "root_private_is_stage1_n2": true,
+    "exactly_one_stage1_full_share_root": true,
+    "stage1_full_share_root_is_stage1_n1": true,
+    "target_private_leaf_count_in_25_35": true
+  },
+  "validation_errors": []
+}

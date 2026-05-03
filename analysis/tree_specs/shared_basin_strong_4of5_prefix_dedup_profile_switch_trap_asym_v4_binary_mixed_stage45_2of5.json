@@ -1,0 +1,549 @@
+{
+  "tree_name": "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5",
+  "depth": 5,
+  "stages": [
+    "stage1",
+    "stage2",
+    "stage3",
+    "stage4",
+    "stage5"
+  ],
+  "metadata": {
+    "source_tree_name": "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45",
+    "profile_switch_variant": "trap_asym_v4_binary_mixed_stage45_2of5",
+    "profile_switch_version": "profile_switch_v1",
+    "compatible_with": [
+      "run_shared_basin_repeated_smoke_setup"
+    ],
+    "not_directly_compatible_with_current_shared_basin_llm_runner": false,
+    "preserve_g": false,
+    "g_layout_policy": "v4_binary_mixed_stage45_2of5_gonly_stage2_deep_subtree_v1",
+    "base_cost_policy": "profile_switch_preset_with_v4_stage3_n4_fastish_nontrap_override",
+    "purpose": "G-only share control for v4 binary mixed stage45 tree. Topology, base aliases, conceptual aliases, profile modes, and route semantics are unchanged from the v4 base tree.",
+    "conceptual_design": {
+      "leaf_depth": 5,
+      "root_depth_including_root": 6,
+      "max_branching": 2,
+      "fast_leaves": [
+        "L0",
+        "L1",
+        "L5"
+      ],
+      "deep_target_leaves": [
+        "L2",
+        "L3",
+        "L4",
+        "L6",
+        "L7"
+      ],
+      "largest_full_share_root": "s1_n1_deep_shared_basin_root",
+      "stage2_full_share_roots": [
+        "s2_n1_deep_shared_A_mixed",
+        "s2_n2_fastish_shared_B_wrapper"
+      ],
+      "stage4_deep_share_roots": [
+        "s4_n2_deep_stage4_A1",
+        "s4_n3_deep_stage4_A2",
+        "s4_n4_deep_stage4_B_repair_anchor"
+      ]
+    },
+    "notes": [
+      "Only expanded-node g values and top-level identifying metadata are changed.",
+      "Use this to isolate PS shared-update behavior from the compact v4 execution topology."
+    ],
+    "source_tree_path": "analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45.json",
+    "share_variant": "2of5",
+    "share_variant_family_kind": "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5"
+  },
+  "nodes": {
+    "stage1": [
+      {
+        "alias": "stage1_n4__from__root__c01",
+        "display_alias": "s1_n0_fast_trap_root (stage1_n4) <- root",
+        "agent_id": "stage1_n4__from__root__c01",
+        "stage": "stage1",
+        "g": 1,
+        "base_alias": "stage1_n4",
+        "source_alias": "stage1_n4",
+        "conceptual_alias": "s1_n0_fast_trap_root",
+        "parent_alias": "ROOT",
+        "parent_base_alias": "ROOT",
+        "parent_serial": "root",
+        "node_serial": "n0001",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "fast",
+        "role_note": "non-share fast trap root, covers L0-L1"
+      },
+      {
+        "alias": "stage1_n3__from__root__c02",
+        "display_alias": "s1_n1_deep_shared_basin_root (stage1_n3) <- root",
+        "agent_id": "stage1_n3__from__root__c02",
+        "stage": "stage1",
+        "g": 1,
+        "base_alias": "stage1_n3",
+        "source_alias": "stage1_n3",
+        "conceptual_alias": "s1_n1_deep_shared_basin_root",
+        "parent_alias": "ROOT",
+        "parent_base_alias": "ROOT",
+        "parent_serial": "root",
+        "node_serial": "n0002",
+        "local_child_index": 2,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "largest full-share basin root, covers L2-L7"
+      }
+    ],
+    "stage2": [
+      {
+        "alias": "stage2_n3__from__n0001__c01",
+        "display_alias": "s2_n0_fast_trap_contract (stage2_n3) <- n0001",
+        "agent_id": "stage2_n3__from__n0001__c01",
+        "stage": "stage2",
+        "g": 1,
+        "base_alias": "stage2_n3",
+        "source_alias": "stage2_n3",
+        "conceptual_alias": "s2_n0_fast_trap_contract",
+        "parent_alias": "stage1_n4__from__root__c01",
+        "parent_base_alias": "stage1_n4",
+        "parent_serial": "n0001",
+        "node_serial": "n0003",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "fast",
+        "role_note": "non-share fast trap contract"
+      },
+      {
+        "alias": "stage2_n1__from__n0002__c01",
+        "display_alias": "s2_n1_deep_shared_A_mixed (stage2_n1) <- n0002",
+        "agent_id": "stage2_n1__from__n0002__c01",
+        "stage": "stage2",
+        "g": 0,
+        "base_alias": "stage2_n1",
+        "source_alias": "stage2_n1",
+        "conceptual_alias": "s2_n1_deep_shared_A_mixed",
+        "parent_alias": "stage1_n3__from__root__c02",
+        "parent_base_alias": "stage1_n3",
+        "parent_serial": "n0002",
+        "node_serial": "n0004",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "4-leaf mixed shared basin with one fast leaf decoy"
+      },
+      {
+        "alias": "stage2_n2__from__n0002__c02",
+        "display_alias": "s2_n2_fastish_shared_B_wrapper (stage2_n2) <- n0002",
+        "agent_id": "stage2_n2__from__n0002__c02",
+        "stage": "stage2",
+        "g": 1,
+        "base_alias": "stage2_n2",
+        "source_alias": "stage2_n2",
+        "conceptual_alias": "s2_n2_fastish_shared_B_wrapper",
+        "parent_alias": "stage1_n3__from__root__c02",
+        "parent_base_alias": "stage1_n3",
+        "parent_serial": "n0002",
+        "node_serial": "n0005",
+        "local_child_index": 2,
+        "clone_scope": "parent_specific",
+        "profile_mode": "fast",
+        "role_note": "fast-deliberation shared wrapper above deep stage4 target leaves"
+      }
+    ],
+    "stage3": [
+      {
+        "alias": "stage3_n4__from__n0003__c01",
+        "display_alias": "s3_n0_fast_trap_A (stage3_n4) <- n0003",
+        "agent_id": "stage3_n4__from__n0003__c01",
+        "stage": "stage3",
+        "g": 1,
+        "base_alias": "stage3_n4",
+        "source_alias": "stage3_n4",
+        "conceptual_alias": "s3_n0_fast_trap_A",
+        "parent_alias": "stage2_n3__from__n0001__c01",
+        "parent_base_alias": "stage2_n3",
+        "parent_serial": "n0003",
+        "node_serial": "n0006",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "fast",
+        "role_note": "non-share fast trap A"
+      },
+      {
+        "alias": "stage3_n1__from__n0003__c02",
+        "display_alias": "s3_n1_mixed_trap_B_deep_hint (stage3_n1) <- n0003",
+        "agent_id": "stage3_n1__from__n0003__c02",
+        "stage": "stage3",
+        "g": 1,
+        "base_alias": "stage3_n1",
+        "source_alias": "stage3_n1",
+        "conceptual_alias": "s3_n1_mixed_trap_B_deep_hint",
+        "parent_alias": "stage2_n3__from__n0001__c01",
+        "parent_base_alias": "stage2_n3",
+        "parent_serial": "n0003",
+        "node_serial": "n0007",
+        "local_child_index": 2,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "non-share deep hint inside fast trap side"
+      },
+      {
+        "alias": "stage3_n1__from__n0004__c01",
+        "display_alias": "s3_n2_deep_A1_shared (stage3_n1) <- n0004",
+        "agent_id": "stage3_n1__from__n0004__c01",
+        "stage": "stage3",
+        "g": 0,
+        "base_alias": "stage3_n1",
+        "source_alias": "stage3_n1",
+        "conceptual_alias": "s3_n2_deep_A1_shared",
+        "parent_alias": "stage2_n1__from__n0002__c01",
+        "parent_base_alias": "stage2_n1",
+        "parent_serial": "n0004",
+        "node_serial": "n0008",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "2-leaf deep shared A1 root"
+      },
+      {
+        "alias": "stage3_n2__from__n0004__c02",
+        "display_alias": "s3_n3_deep_A2_shared_with_decoy (stage3_n2) <- n0004",
+        "agent_id": "stage3_n2__from__n0004__c02",
+        "stage": "stage3",
+        "g": 0,
+        "base_alias": "stage3_n2",
+        "source_alias": "stage3_n2",
+        "conceptual_alias": "s3_n3_deep_A2_shared_with_decoy",
+        "parent_alias": "stage2_n1__from__n0002__c01",
+        "parent_base_alias": "stage2_n1",
+        "parent_serial": "n0004",
+        "node_serial": "n0009",
+        "local_child_index": 2,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "2-leaf deep shared A2 root, one fast terminal decoy"
+      },
+      {
+        "alias": "stage3_n4__from__n0005__c01",
+        "display_alias": "s3_n4_fastish_B_shared_wrapper (stage3_n4) <- n0005",
+        "agent_id": "stage3_n4__from__n0005__c01",
+        "stage": "stage3",
+        "g": 1,
+        "base_alias": "stage3_n4",
+        "source_alias": "stage3_n4",
+        "conceptual_alias": "s3_n4_fastish_B_shared_wrapper",
+        "parent_alias": "stage2_n2__from__n0002__c02",
+        "parent_base_alias": "stage2_n2",
+        "parent_serial": "n0005",
+        "node_serial": "n0010",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "fast",
+        "role_note": "fast-deliberation non-trap wrapper for L6-L7"
+      }
+    ],
+    "stage4": [
+      {
+        "alias": "stage4_n4__from__n0006__c01",
+        "display_alias": "s4_n0_fast_stage4_A (stage4_n4) <- n0006",
+        "agent_id": "stage4_n4__from__n0006__c01",
+        "stage": "stage4",
+        "g": 1,
+        "base_alias": "stage4_n4",
+        "source_alias": "stage4_n4",
+        "conceptual_alias": "s4_n0_fast_stage4_A",
+        "parent_alias": "stage3_n4__from__n0003__c01",
+        "parent_base_alias": "stage3_n4",
+        "parent_serial": "n0006",
+        "node_serial": "n0011",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "fast",
+        "role_note": "non-share fast stage4 trap A"
+      },
+      {
+        "alias": "stage4_n1__from__n0007__c01",
+        "display_alias": "s4_n1_mixed_stage4_B_deep_hint (stage4_n1) <- n0007",
+        "agent_id": "stage4_n1__from__n0007__c01",
+        "stage": "stage4",
+        "g": 1,
+        "base_alias": "stage4_n1",
+        "source_alias": "stage4_n1",
+        "conceptual_alias": "s4_n1_mixed_stage4_B_deep_hint",
+        "parent_alias": "stage3_n1__from__n0003__c02",
+        "parent_base_alias": "stage3_n1",
+        "parent_serial": "n0007",
+        "node_serial": "n0012",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "non-share deep stage4 hint inside fast trap side"
+      },
+      {
+        "alias": "stage4_n1__from__n0008__c01",
+        "display_alias": "s4_n2_deep_stage4_A1 (stage4_n1) <- n0008",
+        "agent_id": "stage4_n1__from__n0008__c01",
+        "stage": "stage4",
+        "g": 0,
+        "base_alias": "stage4_n1",
+        "source_alias": "stage4_n1",
+        "conceptual_alias": "s4_n2_deep_stage4_A1",
+        "parent_alias": "stage3_n1__from__n0004__c01",
+        "parent_base_alias": "stage3_n1",
+        "parent_serial": "n0008",
+        "node_serial": "n0013",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "deep stage4 repair anchor for L2-L3"
+      },
+      {
+        "alias": "stage4_n1__from__n0009__c01",
+        "display_alias": "s4_n3_deep_stage4_A2 (stage4_n1) <- n0009",
+        "agent_id": "stage4_n1__from__n0009__c01",
+        "stage": "stage4",
+        "g": 0,
+        "base_alias": "stage4_n1",
+        "source_alias": "stage4_n1",
+        "conceptual_alias": "s4_n3_deep_stage4_A2",
+        "parent_alias": "stage3_n2__from__n0004__c02",
+        "parent_base_alias": "stage3_n2",
+        "parent_serial": "n0009",
+        "node_serial": "n0014",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "deep stage4 repair anchor for L4 plus L5 fast decoy"
+      },
+      {
+        "alias": "stage4_n1__from__n0010__c01",
+        "display_alias": "s4_n4_deep_stage4_B_repair_anchor (stage4_n1) <- n0010",
+        "agent_id": "stage4_n1__from__n0010__c01",
+        "stage": "stage4",
+        "g": 1,
+        "base_alias": "stage4_n1",
+        "source_alias": "stage4_n1",
+        "conceptual_alias": "s4_n4_deep_stage4_B_repair_anchor",
+        "parent_alias": "stage3_n4__from__n0005__c01",
+        "parent_base_alias": "stage3_n4",
+        "parent_serial": "n0010",
+        "node_serial": "n0015",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "deep stage4 repair anchor below fastish wrapper, covers L6-L7"
+      }
+    ],
+    "stage5": [
+      {
+        "alias": "stage5_n4__from__n0011__c01",
+        "display_alias": "s5_n0_L0_fast_trap_short (stage5_n4) <- n0011",
+        "agent_id": "stage5_n4__from__n0011__c01",
+        "stage": "stage5",
+        "g": 1,
+        "base_alias": "stage5_n4",
+        "source_alias": "stage5_n4",
+        "conceptual_alias": "s5_n0_L0_fast_trap_short",
+        "parent_alias": "stage4_n4__from__n0006__c01",
+        "parent_base_alias": "stage4_n4",
+        "parent_serial": "n0011",
+        "node_serial": "n0016",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "fast",
+        "role_note": "pre-switch fast trap leaf L0"
+      },
+      {
+        "alias": "stage5_n4__from__n0012__c01",
+        "display_alias": "s5_n1_L1_fast_trap_stable (stage5_n4) <- n0012",
+        "agent_id": "stage5_n4__from__n0012__c01",
+        "stage": "stage5",
+        "g": 1,
+        "base_alias": "stage5_n4",
+        "source_alias": "stage5_n4",
+        "conceptual_alias": "s5_n1_L1_fast_trap_stable",
+        "parent_alias": "stage4_n1__from__n0007__c01",
+        "parent_base_alias": "stage4_n1",
+        "parent_serial": "n0012",
+        "node_serial": "n0017",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "fast",
+        "role_note": "pre-switch fast trap leaf L1 with deep hints upstream"
+      },
+      {
+        "alias": "stage5_n1__from__n0013__c01",
+        "display_alias": "s5_n2_L2_deep_target_A1a (stage5_n1) <- n0013",
+        "agent_id": "stage5_n1__from__n0013__c01",
+        "stage": "stage5",
+        "g": 0,
+        "base_alias": "stage5_n1",
+        "source_alias": "stage5_n1",
+        "conceptual_alias": "s5_n2_L2_deep_target_A1a",
+        "parent_alias": "stage4_n1__from__n0008__c01",
+        "parent_base_alias": "stage4_n1",
+        "parent_serial": "n0013",
+        "node_serial": "n0018",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "post-switch deep target L2"
+      },
+      {
+        "alias": "stage5_n2__from__n0013__c02",
+        "display_alias": "s5_n3_L3_deep_target_A1b (stage5_n2) <- n0013",
+        "agent_id": "stage5_n2__from__n0013__c02",
+        "stage": "stage5",
+        "g": 0,
+        "base_alias": "stage5_n2",
+        "source_alias": "stage5_n2",
+        "conceptual_alias": "s5_n3_L3_deep_target_A1b",
+        "parent_alias": "stage4_n1__from__n0008__c01",
+        "parent_base_alias": "stage4_n1",
+        "parent_serial": "n0013",
+        "node_serial": "n0019",
+        "local_child_index": 2,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "post-switch deep target L3"
+      },
+      {
+        "alias": "stage5_n1__from__n0014__c01",
+        "display_alias": "s5_n4_L4_deep_target_A2a (stage5_n1) <- n0014",
+        "agent_id": "stage5_n1__from__n0014__c01",
+        "stage": "stage5",
+        "g": 0,
+        "base_alias": "stage5_n1",
+        "source_alias": "stage5_n1",
+        "conceptual_alias": "s5_n4_L4_deep_target_A2a",
+        "parent_alias": "stage4_n1__from__n0009__c01",
+        "parent_base_alias": "stage4_n1",
+        "parent_serial": "n0014",
+        "node_serial": "n0020",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "post-switch deep target L4"
+      },
+      {
+        "alias": "stage5_n4__from__n0014__c02",
+        "display_alias": "s5_n5_L5_fast_decoy_inside_deep_A (stage5_n4) <- n0014",
+        "agent_id": "stage5_n4__from__n0014__c02",
+        "stage": "stage5",
+        "g": 0,
+        "base_alias": "stage5_n4",
+        "source_alias": "stage5_n4",
+        "conceptual_alias": "s5_n5_L5_fast_decoy_inside_deep_A",
+        "parent_alias": "stage4_n1__from__n0009__c01",
+        "parent_base_alias": "stage4_n1",
+        "parent_serial": "n0014",
+        "node_serial": "n0021",
+        "local_child_index": 2,
+        "clone_scope": "parent_specific",
+        "profile_mode": "fast",
+        "role_note": "shared fast terminal decoy inside s2_n1"
+      },
+      {
+        "alias": "stage5_n1__from__n0015__c01",
+        "display_alias": "s5_n6_L6_deep_target_Ba (stage5_n1) <- n0015",
+        "agent_id": "stage5_n1__from__n0015__c01",
+        "stage": "stage5",
+        "g": 1,
+        "base_alias": "stage5_n1",
+        "source_alias": "stage5_n1",
+        "conceptual_alias": "s5_n6_L6_deep_target_Ba",
+        "parent_alias": "stage4_n1__from__n0010__c01",
+        "parent_base_alias": "stage4_n1",
+        "parent_serial": "n0015",
+        "node_serial": "n0022",
+        "local_child_index": 1,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "post-switch deep target L6 under fastish wrapper"
+      },
+      {
+        "alias": "stage5_n2__from__n0015__c02",
+        "display_alias": "s5_n7_L7_deep_target_Bb (stage5_n2) <- n0015",
+        "agent_id": "stage5_n2__from__n0015__c02",
+        "stage": "stage5",
+        "g": 1,
+        "base_alias": "stage5_n2",
+        "source_alias": "stage5_n2",
+        "conceptual_alias": "s5_n7_L7_deep_target_Bb",
+        "parent_alias": "stage4_n1__from__n0010__c01",
+        "parent_base_alias": "stage4_n1",
+        "parent_serial": "n0015",
+        "node_serial": "n0023",
+        "local_child_index": 2,
+        "clone_scope": "parent_specific",
+        "profile_mode": "deep",
+        "role_note": "post-switch deep target L7 under fastish wrapper"
+      }
+    ]
+  },
+  "edges_by_node_alias": {
+    "ROOT": [
+      "stage1_n4__from__root__c01",
+      "stage1_n3__from__root__c02"
+    ],
+    "stage1_n4__from__root__c01": [
+      "stage2_n3__from__n0001__c01"
+    ],
+    "stage1_n3__from__root__c02": [
+      "stage2_n1__from__n0002__c01",
+      "stage2_n2__from__n0002__c02"
+    ],
+    "stage2_n3__from__n0001__c01": [
+      "stage3_n4__from__n0003__c01",
+      "stage3_n1__from__n0003__c02"
+    ],
+    "stage2_n1__from__n0002__c01": [
+      "stage3_n1__from__n0004__c01",
+      "stage3_n2__from__n0004__c02"
+    ],
+    "stage2_n2__from__n0002__c02": [
+      "stage3_n4__from__n0005__c01"
+    ],
+    "stage3_n4__from__n0003__c01": [
+      "stage4_n4__from__n0006__c01"
+    ],
+    "stage3_n1__from__n0003__c02": [
+      "stage4_n1__from__n0007__c01"
+    ],
+    "stage3_n1__from__n0004__c01": [
+      "stage4_n1__from__n0008__c01"
+    ],
+    "stage3_n2__from__n0004__c02": [
+      "stage4_n1__from__n0009__c01"
+    ],
+    "stage3_n4__from__n0005__c01": [
+      "stage4_n1__from__n0010__c01"
+    ],
+    "stage4_n4__from__n0006__c01": [
+      "stage5_n4__from__n0011__c01"
+    ],
+    "stage4_n1__from__n0007__c01": [
+      "stage5_n4__from__n0012__c01"
+    ],
+    "stage4_n1__from__n0008__c01": [
+      "stage5_n1__from__n0013__c01",
+      "stage5_n2__from__n0013__c02"
+    ],
+    "stage4_n1__from__n0009__c01": [
+      "stage5_n1__from__n0014__c01",
+      "stage5_n4__from__n0014__c02"
+    ],
+    "stage4_n1__from__n0010__c01": [
+      "stage5_n1__from__n0015__c01",
+      "stage5_n2__from__n0015__c02"
+    ],
+    "stage5_n4__from__n0011__c01": [],
+    "stage5_n4__from__n0012__c01": [],
+    "stage5_n1__from__n0013__c01": [],
+    "stage5_n2__from__n0013__c02": [],
+    "stage5_n1__from__n0014__c01": [],
+    "stage5_n4__from__n0014__c02": [],
+    "stage5_n1__from__n0015__c01": [],
+    "stage5_n2__from__n0015__c02": []
+  }
+}

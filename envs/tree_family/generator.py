@@ -19,7 +19,17 @@ from .presets import (
     build_shared_basin_strong_prefix_dedup_profile_switch_family_spec,
     build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1_family_spec,
     build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5_family_spec,
     build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5_family_spec,
     build_strong_family_spec,
 )
 from .specs import AgentSpec, CAPABILITY_NAMES, FamilySpec
@@ -196,6 +206,26 @@ class TreeFamilyGenerator:
             return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5_family_spec()
         if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5":
             return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5_family_spec()
         if kind == "shared_basin_strong_2of5_gonly":
             return build_shared_basin_strong_2of5_gonly_family_spec()
         if kind == "shared_basin_strong_all_share_gonly":

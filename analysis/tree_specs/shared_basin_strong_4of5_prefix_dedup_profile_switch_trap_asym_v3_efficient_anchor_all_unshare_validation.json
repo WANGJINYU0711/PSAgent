@@ -1,0 +1,102 @@
+{
+  "tree_name": "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare",
+  "family_kind": "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare",
+  "share_variant": "all_unshare",
+  "depth": 5,
+  "num_paths": 250,
+  "total_agent_ids": 380,
+  "per_stage_node_counts": {
+    "stage1": 4,
+    "stage2": 10,
+    "stage3": 29,
+    "stage4": 87,
+    "stage5": 250
+  },
+  "g_counts_by_stage": {
+    "stage1": {
+      "1": 4
+    },
+    "stage2": {
+      "1": 10
+    },
+    "stage3": {
+      "1": 29
+    },
+    "stage4": {
+      "1": 87
+    },
+    "stage5": {
+      "1": 250
+    }
+  },
+  "internal_node_count": 130,
+  "internal_share_count": 0,
+  "internal_private_count": 130,
+  "internal_share_fraction": 0.0,
+  "leaf_node_count": 250,
+  "leaf_share_count": 0,
+  "leaf_private_count": 250,
+  "leaf_share_fraction": 0.0,
+  "expected_internal_share_count": 0,
+  "expected_leaf_share_count": 0,
+  "stage1_full_share_subtree_roots": [],
+  "stage2_full_share_subtree_roots": [],
+  "late_trap_leaf_count": 37,
+  "late_trap_shared_leaf_count": 0,
+  "shared_leaf_counts_by_archetype": {},
+  "private_leaf_counts_by_archetype": {
+    "decoy": 57,
+    "target_shared": 189,
+    "trap_root": 4
+  },
+  "target_shared_path_count": 189,
+  "target_shared_path_fraction": 0.756,
+  "trap_root_path_count": 4,
+  "trap_root_path_fraction": 0.016,
+  "decoy_path_count": 57,
+  "decoy_path_fraction": 0.228,
+  "root_branching": 4,
+  "min_branching": 1,
+  "max_branching": 4,
+  "mean_branching": 2.900763358778626,
+  "metadata": {
+    "purpose": "G-only share-ratio control for the paper-facing v3 efficient-anchor profile-switch topology.",
+    "source_spec": "analysis/tree_specs/shared_basin_strong_4of5_minimal.json",
+    "preserve_connectivity_pattern": true,
+    "preserve_g": false,
+    "agent_reuse_policy": "parent_specific_clone",
+    "cross_prefix_agent_reuse_removed": true,
+    "compatible_with": [
+      "barriershare_controlled_sim",
+      "risky_ps",
+      "run_shared_basin_repeated_smoke_setup"
+    ],
+    "llm_runner_requires_adapter": true,
+    "not_directly_compatible_with_current_shared_basin_llm_runner": false,
+    "source_tree_name": "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
+    "profile_switch_version": "profile_switch_v1",
+    "notes": [
+      "Topology, expanded aliases, legal continuations, base aliases, profile capabilities, deliberation modes, and base-cost policy are unchanged from the v3 4/5 main tree.",
+      "Only expanded-node g values are changed, so this isolates PS shared-update structure from execution topology."
+    ],
+    "profile_switch_variant": "trap_asym_v3_efficient_anchor_all_unshare",
+    "g_layout_policy": "v3_same_topology_all_unshare_gonly_v1",
+    "g_layout_seed": 20260501,
+    "g_layout_metadata": {
+      "share_assignment": "all expanded nodes are g=1",
+      "target_share_numerator": 0,
+      "target_share_denominator": 1
+    },
+    "base_cost_policy": "unchanged_from_profile_switch_preset",
+    "source_tree_path": "analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5.json",
+    "share_variant": "all_unshare",
+    "share_variant_family_kind": "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare"
+  },
+  "expected_checks": {
+    "topology_matches_v3_num_paths_250": true,
+    "topology_matches_v3_total_agent_ids_380": true,
+    "internal_share_count_matches_variant": true,
+    "leaf_share_count_matches_variant": true
+  },
+  "validation_errors": []
+}

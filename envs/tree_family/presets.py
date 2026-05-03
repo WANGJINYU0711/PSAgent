@@ -34,6 +34,66 @@ SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V3_EFFICIENT_ANCHOR_4OF5_SPEC
     / "tree_specs"
     / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5.json"
 )
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V3_EFFICIENT_ANCHOR_ALL_SHARE_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V3_EFFICIENT_ANCHOR_2OF5_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V3_EFFICIENT_ANCHOR_ALL_UNSHARE_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V4_BINARY_MIXED_STAGE45_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V4_BINARY_MIXED_STAGE45_4OF5_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V4_BINARY_MIXED_STAGE45_2OF5_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V4_BINARY_MIXED_STAGE45_ALL_SHARE_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V4_BINARY_MIXED_STAGE45_ALL_UNSHARE_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V5_SMALL20_4OF5_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V6_SMALL30_4OF5_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5.json"
+)
 
 
 def build_neutral_family_spec() -> dict:
@@ -854,6 +914,168 @@ def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient
         SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V3_EFFICIENT_ANCHOR_4OF5_SPEC_PATH
     )
     config["source_family_name"] = "shared_basin_strong_prefix_dedup_profile_switch"
+    return config
+
+
+def _build_v3_efficient_anchor_gonly_family_spec(
+    *,
+    family_name: str,
+    topology_spec_path: Path,
+) -> dict:
+    config = deepcopy(build_shared_basin_strong_prefix_dedup_profile_switch_family_spec())
+    config["family_name"] = family_name
+    config["prefix_dedup_topology_spec_path"] = str(topology_spec_path)
+    config["source_family_name"] = (
+        "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5"
+    )
+    return config
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share_family_spec() -> dict:
+    return _build_v3_efficient_anchor_gonly_family_spec(
+        family_name=(
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share"
+        ),
+        topology_spec_path=(
+            SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V3_EFFICIENT_ANCHOR_ALL_SHARE_SPEC_PATH
+        ),
+    )
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5_family_spec() -> dict:
+    return _build_v3_efficient_anchor_gonly_family_spec(
+        family_name=(
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5"
+        ),
+        topology_spec_path=(
+            SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V3_EFFICIENT_ANCHOR_2OF5_SPEC_PATH
+        ),
+    )
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare_family_spec() -> dict:
+    return _build_v3_efficient_anchor_gonly_family_spec(
+        family_name=(
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare"
+        ),
+        topology_spec_path=(
+            SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V3_EFFICIENT_ANCHOR_ALL_UNSHARE_SPEC_PATH
+        ),
+    )
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_family_spec() -> dict:
+    config = deepcopy(build_shared_basin_strong_prefix_dedup_profile_switch_family_spec())
+    config["family_name"] = (
+        "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45"
+    )
+    config["prefix_dedup_topology_spec_path"] = str(
+        SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V4_BINARY_MIXED_STAGE45_SPEC_PATH
+    )
+    config["source_family_name"] = (
+        "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5"
+    )
+
+    # In the v4 compact binary tree, conceptual s3_n4 is a fastish wrapper inside
+    # the target basin, not a terminal trap marker. Keep the fast deliberation
+    # pressure, but make route/semantic compatible with target-safe path logic.
+    stage3_n4 = config["stage_profiles"]["stage3"][3]
+    stage3_n4.update(
+        {
+            "role": "general_shared_network_fast_wrapper",
+            "node_semantic": "general_shared",
+            "profile_kind": "shared_basin",
+            "route_label": "general_stage3_network",
+            "deliberation_mode": "fast",
+            "base_cost_range": (0.105, 0.125),
+        }
+    )
+    return config
+
+
+def _build_v4_binary_mixed_stage45_share_variant_family_spec(
+    *,
+    family_name: str,
+    topology_spec_path: Path,
+) -> dict:
+    config = build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_family_spec()
+    config["family_name"] = family_name
+    config["prefix_dedup_topology_spec_path"] = str(topology_spec_path)
+    config["source_family_name"] = (
+        "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45"
+    )
+    return config
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share_family_spec() -> dict:
+    return _build_v4_binary_mixed_stage45_share_variant_family_spec(
+        family_name=(
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share"
+        ),
+        topology_spec_path=(
+            SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V4_BINARY_MIXED_STAGE45_ALL_SHARE_SPEC_PATH
+        ),
+    )
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5_family_spec() -> dict:
+    return _build_v4_binary_mixed_stage45_share_variant_family_spec(
+        family_name=(
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5"
+        ),
+        topology_spec_path=(
+            SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V4_BINARY_MIXED_STAGE45_4OF5_SPEC_PATH
+        ),
+    )
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5_family_spec() -> dict:
+    return _build_v4_binary_mixed_stage45_share_variant_family_spec(
+        family_name=(
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5"
+        ),
+        topology_spec_path=(
+            SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V4_BINARY_MIXED_STAGE45_2OF5_SPEC_PATH
+        ),
+    )
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare_family_spec() -> dict:
+    return _build_v4_binary_mixed_stage45_share_variant_family_spec(
+        family_name=(
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare"
+        ),
+        topology_spec_path=(
+            SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V4_BINARY_MIXED_STAGE45_ALL_UNSHARE_SPEC_PATH
+        ),
+    )
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5_family_spec() -> dict:
+    config = deepcopy(build_shared_basin_strong_prefix_dedup_profile_switch_family_spec())
+    config["family_name"] = (
+        "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5"
+    )
+    config["prefix_dedup_topology_spec_path"] = str(
+        SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V5_SMALL20_4OF5_SPEC_PATH
+    )
+    config["source_family_name"] = (
+        "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5"
+    )
+    return config
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5_family_spec() -> dict:
+    config = deepcopy(build_shared_basin_strong_prefix_dedup_profile_switch_family_spec())
+    config["family_name"] = (
+        "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5"
+    )
+    config["prefix_dedup_topology_spec_path"] = str(
+        SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V6_SMALL30_4OF5_SPEC_PATH
+    )
+    config["source_family_name"] = (
+        "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5"
+    )
     return config
 
 

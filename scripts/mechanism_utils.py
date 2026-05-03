@@ -16,10 +16,14 @@ Supported mechanisms:
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 import os
+import random
+import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -357,7 +361,6 @@ def _stage_task_summary(
 ) -> dict[str, Any]:
     stage1_input = instance.get("stage1", {}).get("input", {})
     return {
-        "original_task_id": instance.get("original_task_id"),
         "reason_for_call": _trim_text(stage1_input.get("reason_for_call")),
         "known_info": _trim_text(stage1_input.get("known_info")),
         "current_stage": stage_name,
@@ -401,6 +404,58 @@ def _build_stage_choice_candidates(
             }
         )
     return candidates
+
+
+def _stable_alias_seed(
+    *,
+    instance: dict[str, Any],
+    mechanism: str,
+    stage_name: str,
+    current_prefix: tuple[str, ...],
+    episode_seed: str | int | None,
+) -> int:
+    seed_material = {
+        "version": "stage_choice_alias_permutation_v1",
+        "global_seed": os.environ.get("PSAGENT_REPEATED_SMOKE_SEED", ""),
+        "episode_seed": episode_seed,
+        "mechanism": mechanism,
+        "stage_name": stage_name,
+        "current_prefix": list(current_prefix),
+        "instance_id": instance.get("id") or instance.get("instance_id"),
+        "original_task_id": instance.get("original_task_id"),
+    }
+    digest = hashlib.sha256(
+        json.dumps(seed_material, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    return int(digest[:16], 16)
+
+
+def _with_stable_random_option_aliases(
+    candidates: list[dict[str, Any]],
+    *,
+    instance: dict[str, Any],
+    mechanism: str,
+    stage_name: str,
+    current_prefix: tuple[str, ...],
+    episode_seed: str | int | None,
+) -> list[dict[str, Any]]:
+    shuffled_candidates = [dict(row) for row in candidates]
+    rng = random.Random(
+        _stable_alias_seed(
+            instance=instance,
+            mechanism=mechanism,
+            stage_name=stage_name,
+            current_prefix=current_prefix,
+            episode_seed=episode_seed,
+        )
+    )
+    rng.shuffle(shuffled_candidates)
+    if len(candidates) <= 1:
+        return [dict(row, option_alias="option_1") for row in shuffled_candidates]
+    return [
+        dict(row, option_alias=f"option_{idx}")
+        for idx, row in enumerate(shuffled_candidates, start=1)
+    ]
 
 
 def _build_agent_only_stage_candidates(
@@ -510,6 +565,35 @@ def _run_stage_choice_llm_selector(
     system_prompt: str,
     user_prompt: str,
 ) -> dict[str, Any]:
+    def _load_bridge_stdout(stdout: str) -> dict[str, Any]:
+        try:
+            parsed = json.loads(stdout)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+        decoder = json.JSONDecoder()
+        for start, char in enumerate(stdout):
+            if char != "{":
+                continue
+            try:
+                parsed, _ = decoder.raw_decode(stdout[start:])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict):
+                return parsed
+
+        return {
+            "final_output": None,
+            "llm_messages": [
+                {
+                    "bridge_parse_error": "stage_choice_bridge_stdout_not_json",
+                    "stdout_excerpt": stdout[:2000],
+                }
+            ],
+        }
+
     payload = {
         "model": model,
         "llm_args": {"temperature": 0.0},
@@ -517,20 +601,61 @@ def _run_stage_choice_llm_selector(
         "user_prompt": user_prompt,
         "max_rounds": 2,
     }
-    proc = subprocess.run(
-        [str(TAU2_VENV_PYTHON), str(STAGE_CHOICE_BRIDGE)],
-        input=json.dumps(payload, ensure_ascii=False),
-        capture_output=True,
-        text=True,
-        check=False,
-        cwd=str(TAU2_ROOT),
+    attempts = max(
+        1,
+        int(os.environ.get("PSAGENT_TELECOM_LLM_BRIDGE_RETRY_ATTEMPTS", "8") or "8"),
     )
-    if proc.returncode != 0:
-        raise RuntimeError(
-            "stage-choice bridge failed: "
-            + (proc.stderr.strip() or proc.stdout.strip() or f"exit={proc.returncode}")
-        )
-    return json.loads(proc.stdout)
+    sleep_seconds = max(
+        0.0,
+        float(
+            os.environ.get("PSAGENT_TELECOM_LLM_BRIDGE_RETRY_SLEEP_SECONDS", "30")
+            or "30"
+        ),
+    )
+    timeout_seconds = float(
+        os.environ.get("PSAGENT_TELECOM_LLM_BRIDGE_TIMEOUT_SECONDS", "600") or "600"
+    )
+    last_error = ""
+    for attempt in range(1, attempts + 1):
+        try:
+            proc = subprocess.run(
+                [str(TAU2_VENV_PYTHON), str(STAGE_CHOICE_BRIDGE)],
+                input=json.dumps(payload, ensure_ascii=False),
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=str(TAU2_ROOT),
+                timeout=timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            stdout = (
+                exc.stdout.decode("utf-8", errors="replace")
+                if isinstance(exc.stdout, bytes)
+                else (exc.stdout or "")
+            )
+            stderr = (
+                exc.stderr.decode("utf-8", errors="replace")
+                if isinstance(exc.stderr, bytes)
+                else (exc.stderr or "")
+            )
+            proc = subprocess.CompletedProcess(
+                [str(TAU2_VENV_PYTHON), str(STAGE_CHOICE_BRIDGE)],
+                returncode=128 + signal.SIGTERM,
+                stdout=stdout,
+                stderr=(
+                    stderr
+                    + (
+                        "\n"
+                        f"stage-choice bridge Timeout after {timeout_seconds:.1f}s"
+                    )
+                ).strip(),
+            )
+        if proc.returncode == 0:
+            return _load_bridge_stdout(proc.stdout)
+        last_error = proc.stderr.strip() or proc.stdout.strip() or f"exit={proc.returncode}"
+        if attempt < attempts and sleep_seconds > 0.0:
+            time.sleep(sleep_seconds)
+    raise RuntimeError("stage-choice bridge failed: " + last_error)
 
 
 def _run_theta_guided_stage_choice_llm_selector(
@@ -645,6 +770,7 @@ def choose_path_with_mechanism(
     instance: dict[str, Any],
     env: Any,
     mechanism: str,
+    episode_seed: str | int | None = None,
 ) -> tuple[list[str], dict[str, Any], bool]:
     if mechanism == "algorithm_direct":
         path = policy.select_path(instance, env)
@@ -668,7 +794,14 @@ def choose_path_with_mechanism(
 
         for stage_name in env.STAGE_NAMES:
             prefix_alias_before_choice = list(choice_alias_history)
-            candidates = _build_stage_choice_candidates(policy, env, current_prefix, stage_name)
+            candidates = _with_stable_random_option_aliases(
+                _build_stage_choice_candidates(policy, env, current_prefix, stage_name),
+                instance=instance,
+                mechanism=mechanism,
+                stage_name=stage_name,
+                current_prefix=current_prefix,
+                episode_seed=episode_seed,
+            )
             llm_result = _run_theta_guided_stage_choice_llm_selector(
                 instance,
                 env,
@@ -766,7 +899,14 @@ def choose_path_with_mechanism(
 
         for stage_name in env.STAGE_NAMES:
             prefix_alias_before_choice = list(choice_alias_history)
-            candidates = _build_agent_only_stage_candidates(env, current_prefix, stage_name)
+            candidates = _with_stable_random_option_aliases(
+                _build_agent_only_stage_candidates(env, current_prefix, stage_name),
+                instance=instance,
+                mechanism=mechanism,
+                stage_name=stage_name,
+                current_prefix=current_prefix,
+                episode_seed=episode_seed,
+            )
             llm_result = _run_agent_only_stage_choice_llm_selector(
                 instance,
                 env,

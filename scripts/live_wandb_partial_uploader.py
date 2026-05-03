@@ -15,8 +15,19 @@ import json
 import re
 import time
 from collections import defaultdict
+from itertools import product
 from pathlib import Path
 from typing import Any
+
+
+UPLOADER_SCHEMA_VERSION = 2
+PATH_PROFILE_DEPTH = 5
+PATH_PROFILE_ORDER = [
+    "".join(bits) for bits in product(("f", "d"), repeat=PATH_PROFILE_DEPTH)
+]
+PATH_PROFILE_TO_CODE = {
+    pattern: index for index, pattern in enumerate(PATH_PROFILE_ORDER)
+}
 
 
 def load_json(path: Path) -> Any:
@@ -65,6 +76,37 @@ def mode_pattern(ep: dict[str, Any]) -> str:
         else:
             chars.append("u")
     return "".join(chars) or "unknown"
+
+
+def path_profile_code(pattern: str) -> int | None:
+    if pattern in PATH_PROFILE_TO_CODE:
+        return PATH_PROFILE_TO_CODE[pattern]
+    if not pattern or any(ch not in {"f", "d"} for ch in pattern):
+        return None
+    code = 0
+    for ch in pattern:
+        code = code * 2 + (1 if ch == "d" else 0)
+    return code
+
+
+def path_profile_fields(pattern: str) -> dict[str, Any]:
+    code = path_profile_code(pattern)
+    fields: dict[str, Any] = {
+        "path_profile/pattern": pattern,
+        "path_profile/code": code,
+        "path_profile/code_0fffff_31ddddd": code,
+        "path_profile/code_label": (
+            None if code is None else f"{code:02d}:{pattern}"
+        ),
+        "path_profile/deep_fraction": (
+            None if not pattern or pattern == "unknown" else pattern.count("d") / len(pattern)
+        ),
+    }
+    if len(pattern) == PATH_PROFILE_DEPTH and all(ch in {"f", "d"} for ch in pattern):
+        for index, ch in enumerate(pattern, start=1):
+            fields[f"path_profile/stage{index}_is_deep"] = float(ch == "d")
+            fields[f"path_profile/stage{index}_is_fast"] = float(ch == "f")
+    return fields
 
 
 def profile_match_labels(ep: dict[str, Any]) -> tuple[str, str]:
@@ -174,6 +216,12 @@ def build_episode_table(rows: list[dict[str, Any]], wandb_module: Any) -> Any:
         "match_group",
         "mismatch_direction",
         "mode_pattern",
+        "path_profile/code_0fffff_31ddddd",
+        "path_profile/code_label",
+        "selected_path_compact",
+        "selected_leaf_agent",
+        "leaf_coverage/unique_leaf_count",
+        "leaf_coverage/percent",
         "path_deep_count",
         "path_fast_count",
         "path_depth_balance",
@@ -181,6 +229,9 @@ def build_episode_table(rows: list[dict[str, Any]], wandb_module: Any) -> Any:
         "raw_total_cost",
         "raw_terminal_penalty",
         "raw_reasoning_cost_component",
+        "chooser_raw_reasoning_cost_component",
+        "executor_raw_reasoning_cost_component",
+        "combined_with_chooser_raw_total_cost",
         "raw_mode_mismatch_cost_component",
         "root_trap_subtree_prob",
         "stage4_trap_child_prob",
@@ -194,6 +245,13 @@ def build_episode_table(rows: list[dict[str, Any]], wandb_module: Any) -> Any:
     table = wandb_module.Table(columns=columns)
     for row in rows:
         table.add_data(*[row.get(column) for column in columns])
+    return table
+
+
+def build_path_profile_legend_table(wandb_module: Any) -> Any:
+    table = wandb_module.Table(columns=["code", "pattern", "deep_count"])
+    for pattern, code in PATH_PROFILE_TO_CODE.items():
+        table.add_data(code, pattern, pattern.count("d"))
     return table
 
 
@@ -219,6 +277,7 @@ def build_rows(
     previous_cumulative_raw_total_per_episode: float | None = None
     previous_post_total_per_episode: float | None = None
     previous_post_raw_per_episode: float | None = None
+    seen_leaf_agents: set[str] = set()
     phase_state: dict[str, dict[str, float]] = defaultdict(
         lambda: {
             "count": 0.0,
@@ -235,6 +294,21 @@ def build_rows(
         reasoning = float(ep.get("raw_reasoning_cost_component", 0.0))
         path_cost = float(ep.get("raw_path_cost_component", 0.0))
         mode_mismatch = float(ep.get("raw_mode_mismatch_cost_component", 0.0) or 0.0)
+        selected_path = ep.get("selected_path") or []
+        leaf_agent = ""
+        selected_path_compact = ""
+        if isinstance(selected_path, list) and selected_path:
+            leaf_agent = str(selected_path[-1])
+            selected_path_compact = " -> ".join(str(node) for node in selected_path)
+            seen_leaf_agents.add(leaf_agent)
+        configured_leaf_count = int(ep.get("leaf_coverage_denominator", 8) or 8)
+        configured_leaf_count = max(1, configured_leaf_count)
+        chooser_reasoning = float(
+            ep.get("chooser_raw_reasoning_cost_component", 0.0) or 0.0
+        )
+        executor_reasoning = ep.get("executor_raw_reasoning_cost_component")
+        combined_with_chooser_raw_total = ep.get("combined_with_chooser_raw_total_cost")
+        combined_with_chooser_total_cost = ep.get("combined_with_chooser_total_cost")
         exact = float(bool(ep.get("exact_match", False)))
         episode_1based = int(ep["episode_index"]) + 1
         pattern = mode_pattern(ep)
@@ -323,6 +397,12 @@ def build_rows(
             ),
             "family_decoy_path": float(bool(ep.get("family_decoy_path"))),
             "family_fast_stage_count": ep.get("family_fast_stage_count"),
+            "selected_path_compact": selected_path_compact,
+            "selected_leaf_agent": leaf_agent,
+            "leaf_coverage/unique_leaf_count": len(seen_leaf_agents),
+            "leaf_coverage/denominator": configured_leaf_count,
+            "leaf_coverage/fraction": len(seen_leaf_agents) / configured_leaf_count,
+            "leaf_coverage/percent": 100.0 * len(seen_leaf_agents) / configured_leaf_count,
             "selected_shared_path": float(bool(ep.get("selected_shared_path"))),
             "selected_unshared_path": float(bool(ep.get("selected_unshared_path"))),
             "oracle_action": ep.get("oracle_action"),
@@ -335,6 +415,61 @@ def build_rows(
             "raw_reasoning_cost_component": reasoning,
             "raw_path_cost_component": path_cost,
             "raw_mode_mismatch_cost_component": mode_mismatch,
+            "chooser_llm_call_count": ep.get("chooser_llm_call_count"),
+            "executor_llm_call_count": ep.get("executor_llm_call_count"),
+            "chooser_prompt_tokens_total": ep.get("chooser_prompt_tokens_total"),
+            "executor_prompt_tokens_total": ep.get("executor_prompt_tokens_total"),
+            "chooser_completion_tokens_total": ep.get(
+                "chooser_completion_tokens_total"
+            ),
+            "executor_completion_tokens_total": ep.get(
+                "executor_completion_tokens_total"
+            ),
+            "chooser_total_tokens_total": ep.get("chooser_total_tokens_total"),
+            "executor_total_tokens_total": ep.get("executor_total_tokens_total"),
+            "chooser_api_cost_total_usd_raw": ep.get(
+                "chooser_api_cost_total_usd_raw"
+            ),
+            "executor_api_cost_total_usd_raw": ep.get(
+                "executor_api_cost_total_usd_raw"
+            ),
+            "chooser_raw_reasoning_cost_component": chooser_reasoning,
+            "chooser_raw_reasoning_cost_component_api": ep.get(
+                "chooser_raw_reasoning_cost_component_api"
+            ),
+            "chooser_raw_reasoning_cost_component_token": ep.get(
+                "chooser_raw_reasoning_cost_component_token"
+            ),
+            "executor_raw_reasoning_cost_component": executor_reasoning,
+            "combined_with_chooser_llm_call_count": ep.get(
+                "combined_with_chooser_llm_call_count"
+            ),
+            "combined_with_chooser_total_tokens_total": ep.get(
+                "combined_with_chooser_total_tokens_total"
+            ),
+            "combined_with_chooser_api_cost_total_usd_raw": ep.get(
+                "combined_with_chooser_api_cost_total_usd_raw"
+            ),
+            "combined_with_chooser_raw_reasoning_cost_component": ep.get(
+                "combined_with_chooser_raw_reasoning_cost_component"
+            ),
+            "combined_with_chooser_raw_total_cost": (
+                combined_with_chooser_raw_total
+            ),
+            "combined_with_chooser_total_cost": combined_with_chooser_total_cost,
+            "mechanism": ep.get("mechanism"),
+            "backbone_policy": ep.get("backbone_policy"),
+            "max_theta_followed_all_stages": (
+                None
+                if ep.get("followed_max_theta_per_stage") is None
+                else float(all(ep.get("followed_max_theta_per_stage") or []))
+            ),
+            "fallback_stage_count": len(
+                [flag for flag in ep.get("fallback_used_per_stage", []) if flag]
+            ),
+            "invalid_output_stage_count": len(
+                [flag for flag in ep.get("invalid_output_per_stage", []) if flag]
+            ),
             "root_trap_subtree_prob": ep.get("root_trap_subtree_prob"),
             "stage4_trap_child_prob": ep.get("stage4_trap_child_prob"),
             "all_fast_trap_route_prob": ep.get("all_fast_trap_route_prob"),
@@ -364,6 +499,7 @@ def build_rows(
             "post_switch_cumulative_total_cost_per_episode_growth": post_total_growth,
             "progress_phase_20pct": phase_label,
         }
+        row.update(path_profile_fields(pattern))
         for label, state in phase_state.items():
             count = max(1.0, state["count"])
             prefix = f"growth_phases/{label}"
@@ -445,6 +581,8 @@ def main() -> None:
         method: int(state.get(method, {}).get("last_uploaded_episode_index", -1))
         for method in methods
     }
+    if int(state.get("_schema_version", 0) or 0) < UPLOADER_SCHEMA_VERSION:
+        last_uploaded = {method: -1 for method in methods}
 
     while True:
         all_complete = True
@@ -480,12 +618,21 @@ def main() -> None:
                 )
                 wandb_run.define_metric("episode_index")
                 wandb_run.define_metric("*", step_metric="episode_index")
+                wandb_run.define_metric("path_profile/code")
+                wandb_run.define_metric(
+                    "path_profile/code_0fffff_31ddddd",
+                    step_metric="episode_index",
+                )
+                wandb_run.define_metric("leaf_coverage/unique_leaf_count")
                 for row in new_rows:
                     episode_index = int(row["episode_index"])
                     wandb_run.log(row, step=episode_index)
                     last_uploaded[method] = episode_index
                 wandb_run.log(
-                    {"episode_analysis_table": build_episode_table(rows, wandb)},
+                    {
+                        "episode_analysis_table": build_episode_table(rows, wandb),
+                        "p_legend": build_path_profile_legend_table(wandb),
+                    },
                     step=int(new_rows[-1]["episode_index"]),
                 )
                 wandb_run.finish()
@@ -493,8 +640,11 @@ def main() -> None:
                 state_path.write_text(
                     json.dumps(
                         {
-                            m: {"last_uploaded_episode_index": idx}
-                            for m, idx in sorted(last_uploaded.items())
+                            "_schema_version": UPLOADER_SCHEMA_VERSION,
+                            **{
+                                m: {"last_uploaded_episode_index": idx}
+                                for m, idx in sorted(last_uploaded.items())
+                            },
                         },
                         indent=2,
                         sort_keys=True,

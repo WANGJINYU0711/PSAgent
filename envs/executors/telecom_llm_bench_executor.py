@@ -6,6 +6,7 @@ import json
 import math
 import os
 import re
+import signal
 import subprocess
 import time
 import uuid
@@ -1008,24 +1009,44 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         payload_text = json.dumps(payload, ensure_ascii=False)
         max_attempts = max(
             1,
-            int(os.environ.get("PSAGENT_TELECOM_LLM_BRIDGE_RETRY_ATTEMPTS", "4")),
+            int(os.environ.get("PSAGENT_TELECOM_LLM_BRIDGE_RETRY_ATTEMPTS", "8")),
         )
         retry_sleep_seconds = float(
-            os.environ.get("PSAGENT_TELECOM_LLM_BRIDGE_RETRY_SLEEP_SECONDS", "20")
+            os.environ.get("PSAGENT_TELECOM_LLM_BRIDGE_RETRY_SLEEP_SECONDS", "30")
+        )
+        bridge_timeout_seconds = float(
+            os.environ.get("PSAGENT_TELECOM_LLM_BRIDGE_TIMEOUT_SECONDS", "600")
         )
         proc: subprocess.CompletedProcess[str] | None = None
         for attempt in range(1, max_attempts + 1):
-            proc = subprocess.run(
-                cmd,
-                input=payload_text,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                check=False,
-                cwd=str(self.tau2_root),
-                env=child_env,
-            )
+            try:
+                proc = subprocess.run(
+                    cmd,
+                    input=payload_text,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    check=False,
+                    cwd=str(self.tau2_root),
+                    env=child_env,
+                    timeout=bridge_timeout_seconds,
+                )
+            except subprocess.TimeoutExpired as exc:
+                stdout = exc.stdout.decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+                stderr = exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+                proc = subprocess.CompletedProcess(
+                    cmd,
+                    returncode=128 + signal.SIGTERM,
+                    stdout=stdout,
+                    stderr=(
+                        stderr
+                        + (
+                            "\n"
+                            f"Telecom LLM bench bridge Timeout after {bridge_timeout_seconds:.1f}s"
+                        )
+                    ).strip(),
+                )
             if proc.returncode == 0:
                 break
             bridge_error_text = "\n".join(

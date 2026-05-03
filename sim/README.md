@@ -1,12 +1,14 @@
 # BarrierShare Controlled Sim Package
 
-This folder is a standalone copy of the main non-LLM simulation code and the
-two result sets discussed with the advisor:
+This folder is a standalone copy of the main non-LLM simulation code, the
+tree JSONs, and the result sets discussed with the advisor:
 
 1. The screenshot/table run:
    `outputs/barriershare_controlled_sim_prefix_dedup_ps_favored_trap_v9_eta_epsilon_sweep/`
 2. The v10 nonzero-epsilon sweep:
    `outputs/sim_v10_fixed_nonzero_eps_d_eta_eps_sweep_full13_v1/`
+3. The follow-up three-layer top eta/eps ablation summaries:
+   `outputs/sim_three_layer_topetaeps_ablation_v1/`
 
 Run commands below from this `sim/` directory.
 
@@ -19,16 +21,30 @@ Run commands below from this `sim/` directory.
     `--trap-switch-denominator`, `--tree-spec-cost-mode`.
 - `tmp/run_sim_v10_nonzero_eps_d_eta_eps_sweep.py`
   - Aggregated d/eta/epsilon sweep runner for the v10 experiment.
+- `tmp/run_sim_three_layer_topetaeps_ablation.py`
+  - Follow-up top eta/eps ablation runner for v10/v11/v12 cost landscapes.
+- `scripts/build_profile_switch_trap_asym_tree.py`
+- `scripts/build_profile_switch_trap_asym_v2_neutral_tree.py`
+- `scripts/build_profile_switch_trap_asym_v3_efficient_anchor_tree.py`
+  - Builder scripts for the newer trap-asymmetric tree JSONs.
 - `scripts/run_barriershare_controlled_bestof_sweep.py`
   - Best-of hyperparameter sweep helper.
 - `baselines/`
   - PS and baseline policies.
 - `envs/`
   - Minimal environment, tree, executor, and adapter code needed by the runner.
-- `analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup.json`
-  - Tree spec used by both included sim runs.
-- `analysis/shared_basin_strong_4of5_prefix_dedup_validation.json`
-  - Validation metadata used by the runner summaries.
+- `analysis/tree_specs/`
+  - Tree specs used by the sim runs.
+  - The original v10 sweep used
+    `shared_basin_strong_4of5_prefix_dedup.json`.
+  - The latest/current full-run tree setting is included as
+    `shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5.json`.
+  - Earlier trap-asym variants v1 and v2 are included for comparison.
+- `analysis/*_validation.json`
+  - Validation metadata used by the runner summaries. These are intentionally
+    present both next to the tree specs and under `analysis/`, because the
+    runner looks for validation files under `analysis/` when `--tree-spec` is
+    under `analysis/tree_specs/`.
 - `outputs/`
   - Compact result artifacts and summaries. The 4.5GB v10 per-combo raw `runs/`
     directory is intentionally not included; the sweep can regenerate it.
@@ -96,6 +112,12 @@ outputs/barriershare_controlled_sim_prefix_dedup_ps_favored_trap_v9_eta_0.01_eps
 
 ## Reproduce v10 Nonzero-Epsilon Sweep
 
+The original v10 sweep below uses the older prefix-dedup tree:
+
+```text
+analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup.json
+```
+
 Full sweep:
 
 ```bash
@@ -142,6 +164,87 @@ The original notes are included at:
 ```text
 notes/sim_v10_nonzero_eps_d_eta_eps_sweep_full13_v1_report_2026-04-27.md
 notes/sim_three_layer_topetaeps_ablation_v1_report_2026-04-27.md
+```
+
+## Latest Tree JSON
+
+The newer trap-asymmetric profile-switch tree JSONs are included under:
+
+```text
+analysis/tree_specs/
+```
+
+Most important one for the latest/current full-run tree setting:
+
+```text
+analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5.json
+```
+
+Its validation metadata is included at both paths:
+
+```text
+analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5_validation.json
+analysis/shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5_validation.json
+```
+
+To run the controlled sim on this latest tree, pass it explicitly:
+
+```bash
+python scripts/run_barriershare_controlled_sim.py \
+  --output-dir outputs/latest_tree_v3_eta03_eps001_d4_smoke \
+  --tree-spec analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5.json \
+  --tree-spec-role-mode spec_or_agent_id \
+  --tree-spec-cost-mode ps_favored_trap_v10_avg_baited \
+  --trap-switch-denominator 4 \
+  --horizon 1000 \
+  --seeds 0 1 2 3 4 \
+  --cost-noise 0.02 \
+  --specialist-fraction 0.15 \
+  --common-eta-override 0.3 \
+  --common-epsilon-override 0.01 \
+  --methods \
+    risky_ps_old risky_ps risky_ps_ix \
+    risky_ps_safe_conditional risky_ps_safe_conditional_ix risky_ps_direct_cost \
+    epsilon_exp3 direct_multistage_exp3 direct_multistage_exp3_local \
+    naive_mixed_avg naive_mixed random_path
+```
+
+To regenerate the latest tree JSON itself:
+
+```bash
+python scripts/build_profile_switch_trap_asym_v3_efficient_anchor_tree.py
+```
+
+Earlier trap-asym tree JSONs are also included:
+
+```text
+analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v1.json
+analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5.json
+```
+
+## Reproduce Three-Layer Top Eta/Eps Ablation
+
+The compact outputs are included at:
+
+```text
+outputs/sim_three_layer_topetaeps_ablation_v1/
+```
+
+Runner:
+
+```bash
+python tmp/run_sim_three_layer_topetaeps_ablation.py \
+  --output-dir outputs/sim_three_layer_topetaeps_ablation_v1_rerun \
+  --tree-spec analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup.json
+```
+
+To rerun the same ablation on the latest trap-asym v3 efficient-anchor tree,
+change only `--tree-spec`:
+
+```bash
+python tmp/run_sim_three_layer_topetaeps_ablation.py \
+  --output-dir outputs/sim_three_layer_topetaeps_ablation_v1_latest_tree_rerun \
+  --tree-spec analysis/tree_specs/shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5.json
 ```
 
 ## Known Good v10 Points

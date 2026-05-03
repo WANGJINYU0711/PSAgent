@@ -15,6 +15,7 @@ import csv
 import json
 import os
 import pickle
+import random
 import statistics
 import subprocess
 import sys
@@ -45,6 +46,14 @@ from naive_mixed_avg import NaiveMixedAveragePolicy  # noqa: E402
 from oracle_eval import find_best_stationary_path  # noqa: E402
 from random_path import RandomPathPolicy  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
+from risky_ps_const_init import RiskyPSConstInitPolicy  # noqa: E402
+from risky_ps_const_init_conserve import RiskyPSConstInitConservePolicy  # noqa: E402
+from risky_ps_const_init_leaf_ratio_decay import (  # noqa: E402
+    RiskyPSConstInitLeafRatioDecayPolicy,
+)
+from risky_ps_const_init_natural_decay import (  # noqa: E402
+    RiskyPSConstInitNaturalDecayPolicy,
+)
 from risky_ps_direct_cost import RiskyPSDirectCostPolicy  # noqa: E402
 from risky_ps_ix import RiskyPSIXPolicy  # noqa: E402
 from risky_ps_linear import RiskyPSLinearPolicy  # noqa: E402
@@ -64,6 +73,7 @@ MODEL_REQUIRED = "gpt-4o-mini"
 DEFAULT_FAMILY_KIND = "shared_basin_strong"
 SCHEDULE_MODE_STATIONARY = "stationary"
 SCHEDULE_MODE_TRAP_SWITCH = "trap_switch"
+SCHEDULE_MODE_TRAP_ONLY_RANDOM = "trap_only_random"
 TRAP_SWITCH_CYCLE_SOURCE_BUCKET = "bucket"
 TRAP_SWITCH_CYCLE_SOURCE_DATASET = "dataset"
 SEED = int(os.environ.get("PSAGENT_REPEATED_SMOKE_SEED", "0"))
@@ -73,6 +83,10 @@ DEFAULT_EXECUTOR_NAME = "llm_bench"
 POLICY_REGISTRY = {
     "risky_ps_old": RiskyPSOldPolicy,
     "risky_ps": RiskyPSPolicy,
+    "risky_ps_const_init": RiskyPSConstInitPolicy,
+    "risky_ps_const_init_conserve": RiskyPSConstInitConservePolicy,
+    "risky_ps_const_init_leaf_ratio_decay": RiskyPSConstInitLeafRatioDecayPolicy,
+    "risky_ps_const_init_natural_decay": RiskyPSConstInitNaturalDecayPolicy,
     "risky_ps_linear": RiskyPSLinearPolicy,
     "risky_ps_ix": RiskyPSIXPolicy,
     "risky_ps_safe_conditional": RiskyPSSafeConditionalPolicy,
@@ -92,6 +106,10 @@ COMMON_ETA_METHODS = frozenset(
         "epsilon_exp3",
         "risky_ps_old",
         "risky_ps",
+        "risky_ps_const_init",
+        "risky_ps_const_init_conserve",
+        "risky_ps_const_init_leaf_ratio_decay",
+        "risky_ps_const_init_natural_decay",
         "risky_ps_linear",
         "risky_ps_ix",
         "risky_ps_safe_conditional",
@@ -104,6 +122,25 @@ COMMON_EPSILON_METHODS = frozenset(
         "epsilon_exp3",
         "risky_ps_old",
         "risky_ps",
+        "risky_ps_const_init",
+        "risky_ps_const_init_conserve",
+        "risky_ps_const_init_leaf_ratio_decay",
+        "risky_ps_const_init_natural_decay",
+        "risky_ps_linear",
+        "risky_ps_ix",
+        "risky_ps_safe_conditional",
+        "risky_ps_safe_conditional_ix",
+        "risky_ps_direct_cost",
+    }
+)
+PS_SHARED_OVERRIDE_METHODS = frozenset(
+    {
+        "risky_ps_old",
+        "risky_ps",
+        "risky_ps_const_init",
+        "risky_ps_const_init_conserve",
+        "risky_ps_const_init_leaf_ratio_decay",
+        "risky_ps_const_init_natural_decay",
         "risky_ps_linear",
         "risky_ps_ix",
         "risky_ps_safe_conditional",
@@ -170,7 +207,7 @@ def build_policy_kwargs_by_method(
         if common_epsilon_override is not None and method in COMMON_EPSILON_METHODS:
             method_kwargs["epsilon"] = common_epsilon_override
         if method in COMMON_EPSILON_METHODS:
-            if ps_eta_shared_override is not None:
+            if ps_eta_shared_override is not None and method in PS_SHARED_OVERRIDE_METHODS:
                 method_kwargs["eta_shared"] = ps_eta_shared_override
             if ps_loss_clip is not None:
                 method_kwargs["loss_clip"] = ps_loss_clip
@@ -428,6 +465,59 @@ def build_trap_switch_selection(
     return selected, metadata
 
 
+def build_trap_only_random_selection(
+    instances: list[dict[str, Any]],
+    *,
+    total_episodes: int,
+    schedule_buckets: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    trap_ids_raw = schedule_buckets.get("trap_favoring_task_ids")
+    if not isinstance(trap_ids_raw, list):
+        raise ValueError("trap_only_random schedule requires trap_favoring_task_ids.")
+    trap_ids = [str(value) for value in trap_ids_raw]
+    if not trap_ids:
+        raise ValueError("trap_only_random schedule requires a non-empty trap bucket.")
+
+    instances_by_task_id = _instances_by_task_id(instances)
+    missing_ids = [task_id for task_id in trap_ids if task_id not in instances_by_task_id]
+    if missing_ids:
+        raise ValueError(
+            "Trap-only schedule buckets reference task IDs not present in dataset: "
+            + ", ".join(sorted(set(missing_ids))[:10])
+        )
+
+    specialist_task_ids = load_specialist_task_ids(schedule_buckets)
+    rng = random.Random(SEED)
+    selected: list[dict[str, Any]] = []
+    for episode_index in range(total_episodes):
+        task_id = rng.choice(trap_ids)
+        dataset_index, instance = instances_by_task_id[task_id]
+        selected.append(
+            {
+                "episode_index": episode_index,
+                "repeat_index": episode_index,
+                "position_in_cycle": episode_index % len(trap_ids),
+                "dataset_index": dataset_index,
+                "instance": instance,
+                "schedule_phase": "trap_pre_switch",
+                "task_bucket": "trap_favoring",
+                "is_specialist_task": task_id in specialist_task_ids,
+            }
+        )
+
+    metadata = {
+        "cycle_length": len(trap_ids),
+        "total_episodes": total_episodes,
+        "switch_episode": None,
+        "trap_bucket_size": len(trap_ids),
+        "target_bucket_size": 0,
+        "specialist_task_count": len(specialist_task_ids),
+        "trap_only_random": True,
+        "trap_only_random_seed": SEED,
+    }
+    return selected, metadata
+
+
 def build_schedule_selection(
     instances: list[dict[str, Any]],
     *,
@@ -457,6 +547,16 @@ def build_schedule_selection(
             switch_denominator=switch_denominator,
             schedule_buckets=schedule_buckets,
             trap_switch_cycle_source=trap_switch_cycle_source,
+        )
+    if schedule_mode == SCHEDULE_MODE_TRAP_ONLY_RANDOM:
+        if schedule_buckets is None:
+            raise FileNotFoundError(
+                "trap_only_random schedule requires --schedule-buckets with trap_favoring_task_ids."
+            )
+        return build_trap_only_random_selection(
+            instances,
+            total_episodes=repeats,
+            schedule_buckets=schedule_buckets,
         )
     raise ValueError(f"Unsupported schedule_mode: {schedule_mode}")
 
@@ -1728,7 +1828,7 @@ def _assert_existing_run_compatible(
             f"schedule_mode existing={run_config.get('schedule_mode')} requested={schedule_mode}"
         )
     existing_switch_denominator = run_config.get("switch_denominator")
-    if schedule_mode == SCHEDULE_MODE_TRAP_SWITCH:
+    if schedule_mode in {SCHEDULE_MODE_TRAP_SWITCH, SCHEDULE_MODE_TRAP_ONLY_RANDOM}:
         if int(existing_switch_denominator or switch_denominator) != switch_denominator:
             mismatches.append(
                 "switch_denominator "
@@ -1741,18 +1841,19 @@ def _assert_existing_run_compatible(
                 "schedule_buckets "
                 f"existing={existing_schedule_buckets} requested={requested_schedule_buckets}"
             )
-        existing_cycle_source = run_config.get(
-            "trap_switch_cycle_source",
-            run_config.get("schedule_metadata", {}).get(
+        if schedule_mode == SCHEDULE_MODE_TRAP_SWITCH:
+            existing_cycle_source = run_config.get(
                 "trap_switch_cycle_source",
-                TRAP_SWITCH_CYCLE_SOURCE_BUCKET,
-            ),
-        )
-        if str(existing_cycle_source) != str(trap_switch_cycle_source):
-            mismatches.append(
-                "trap_switch_cycle_source "
-                f"existing={existing_cycle_source} requested={trap_switch_cycle_source}"
+                run_config.get("schedule_metadata", {}).get(
+                    "trap_switch_cycle_source",
+                    TRAP_SWITCH_CYCLE_SOURCE_BUCKET,
+                ),
             )
+            if str(existing_cycle_source) != str(trap_switch_cycle_source):
+                mismatches.append(
+                    "trap_switch_cycle_source "
+                    f"existing={existing_cycle_source} requested={trap_switch_cycle_source}"
+                )
     existing_common_eta = run_config.get("common_eta_override")
     if existing_common_eta != common_eta_override:
         mismatches.append(
@@ -1889,7 +1990,9 @@ def initialize_run(
     schedule_rows = serialize_schedule(selected)
     specialist_task_ids = sorted(
         load_specialist_task_ids(
-            schedule_buckets if schedule_mode == SCHEDULE_MODE_TRAP_SWITCH else None
+            schedule_buckets
+            if schedule_mode in {SCHEDULE_MODE_TRAP_SWITCH, SCHEDULE_MODE_TRAP_ONLY_RANDOM}
+            else None
         )
     )
 
@@ -1904,7 +2007,11 @@ def initialize_run(
             "family_kind": family_kind,
             "executor_name": executor_name,
             "schedule_mode": schedule_mode,
-            "switch_denominator": switch_denominator if schedule_mode == SCHEDULE_MODE_TRAP_SWITCH else None,
+            "switch_denominator": (
+                switch_denominator
+                if schedule_mode in {SCHEDULE_MODE_TRAP_SWITCH, SCHEDULE_MODE_TRAP_ONLY_RANDOM}
+                else None
+            ),
             "schedule_buckets": (
                 str(schedule_buckets_path) if schedule_buckets_path is not None else None
             ),
@@ -2744,7 +2851,11 @@ def build_cli() -> argparse.ArgumentParser:
         "--schedule-mode",
         type=str,
         default=SCHEDULE_MODE_STATIONARY,
-        choices=[SCHEDULE_MODE_STATIONARY, SCHEDULE_MODE_TRAP_SWITCH],
+        choices=[
+            SCHEDULE_MODE_STATIONARY,
+            SCHEDULE_MODE_TRAP_SWITCH,
+            SCHEDULE_MODE_TRAP_ONLY_RANDOM,
+        ],
     )
     common_run.add_argument("--switch-denominator", type=int, default=3)
     common_run.add_argument("--schedule-buckets", type=Path)

@@ -41,20 +41,27 @@ from direct_multistage_exp3 import DirectMultiStageExp3Policy  # noqa: E402
 from mechanism_utils import choose_path_with_mechanism  # noqa: E402
 from run_shared_basin_repeated_smoke import (  # noqa: E402
     DATASET_DEFAULT,
-    EXECUTOR_NAME,
-    FAMILY_KIND,
+    DEFAULT_EXECUTOR_NAME,
+    DEFAULT_FAMILY_KIND,
     MODEL_REQUIRED,
     ROOT as RUNNER_ROOT,
     SEED,
     SMOKE10_INDICES,
+    SCHEDULE_MODE_STATIONARY,
+    SCHEDULE_MODE_TRAP_ONLY_RANDOM,
+    SCHEDULE_MODE_TRAP_SWITCH,
+    TRAP_SWITCH_CYCLE_SOURCE_BUCKET,
+    TRAP_SWITCH_CYCLE_SOURCE_DATASET,
     add_cumulative_fields,
     build_env,
     build_repeated_selection,
+    build_schedule_selection,
     build_specialist_summary,
     compare_rows_to_markdown,
     compute_stationary_oracle,
     ensure_model_env,
     flatten_episode as base_flatten_episode,
+    load_schedule_buckets,
     load_instances,
     load_json,
     load_specialist_task_ids,
@@ -72,6 +79,9 @@ from run_shared_basin_repeated_smoke import (  # noqa: E402
 BACKBONE_POLICY = "direct_multistage_exp3"
 DEFAULT_MECHANISMS = ["theta_guided_agent"]
 MECHANISM_CHOICES = ["theta_guided_agent", "agent_only", "algorithm_direct"]
+EXECUTOR_NAME = DEFAULT_EXECUTOR_NAME
+FAMILY_KIND = DEFAULT_FAMILY_KIND
+SCHEDULE_BUCKET_MODES = {SCHEDULE_MODE_TRAP_SWITCH, SCHEDULE_MODE_TRAP_ONLY_RANDOM}
 
 
 def validate_mechanisms(mechanisms: list[str]) -> None:
@@ -88,7 +98,17 @@ def load_run_context(run_dir: Path) -> dict[str, Any]:
     oracle_summary = load_json(run_dir / "stationary_oracle_summary.json")
     instances = load_instances(Path(run_config["dataset"]))
     selected = materialize_schedule(instances, schedule_rows)
-    specialist_task_ids = load_specialist_task_ids()
+    schedule_buckets_path = run_config.get("schedule_buckets")
+    schedule_buckets = (
+        load_schedule_buckets(Path(schedule_buckets_path))
+        if schedule_buckets_path
+        else None
+    )
+    specialist_task_ids = load_specialist_task_ids(
+        schedule_buckets
+        if run_config.get("schedule_mode") in SCHEDULE_BUCKET_MODES
+        else None
+    )
     return {
         "run_config": run_config,
         "schedule_rows": schedule_rows,
@@ -105,6 +125,13 @@ def initialize_run(
     repeats: int,
     mechanisms: list[str],
     model_name: str,
+    family_kind: str,
+    executor_name: str,
+    schedule_mode: str,
+    switch_denominator: int,
+    schedule_buckets_path: Path | None,
+    trap_switch_cycle_source: str,
+    theta_eta: float,
 ) -> Path:
     validate_mechanisms(mechanisms)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -117,24 +144,59 @@ def initialize_run(
         return output_dir
 
     instances = load_instances(data_path)
-    selected = build_repeated_selection(instances, indices=SMOKE10_INDICES, repeats=repeats)
-    oracle_summary = compute_stationary_oracle(selected)
+    schedule_buckets = load_schedule_buckets(schedule_buckets_path)
+    if schedule_mode == SCHEDULE_MODE_STATIONARY:
+        selected = build_repeated_selection(instances, indices=SMOKE10_INDICES, repeats=repeats)
+        schedule_metadata = {
+            "cycle_length": len(SMOKE10_INDICES),
+            "total_episodes": len(selected),
+            "switch_episode": None,
+            "trap_bucket_size": None,
+            "target_bucket_size": None,
+        }
+    else:
+        selected, schedule_metadata = build_schedule_selection(
+            instances,
+            repeats=repeats,
+            schedule_mode=schedule_mode,
+            switch_denominator=switch_denominator,
+            schedule_buckets=schedule_buckets,
+            trap_switch_cycle_source=trap_switch_cycle_source,
+        )
+    oracle_summary = compute_stationary_oracle(selected, family_kind=family_kind)
     schedule_rows = serialize_schedule(selected)
-    specialist_task_ids = sorted(load_specialist_task_ids())
+    specialist_task_ids = sorted(
+        load_specialist_task_ids(
+            schedule_buckets if schedule_mode in SCHEDULE_BUCKET_MODES else None
+        )
+    )
 
     write_json(
         run_config_path,
         {
             "created_at": datetime.now().isoformat(),
             "dataset": str(data_path),
-            "dataset_indices": SMOKE10_INDICES,
+            "dataset_indices": sorted({row["dataset_index"] for row in selected}),
             "repeats": repeats,
             "horizon": len(selected),
-            "family_kind": FAMILY_KIND,
-            "executor_name": EXECUTOR_NAME,
+            "family_kind": family_kind,
+            "executor_name": executor_name,
+            "schedule_mode": schedule_mode,
+            "switch_denominator": switch_denominator if schedule_mode in SCHEDULE_BUCKET_MODES else None,
+            "schedule_buckets": (
+                str(schedule_buckets_path) if schedule_buckets_path is not None else None
+            ),
+            "trap_switch_cycle_source": (
+                trap_switch_cycle_source
+                if schedule_mode == SCHEDULE_MODE_TRAP_SWITCH
+                else None
+            ),
+            "schedule_metadata": schedule_metadata,
             "model": model_name,
             "seed": SEED,
             "backbone_policy": BACKBONE_POLICY,
+            "theta_policy": BACKBONE_POLICY,
+            "theta_policy_kwargs": {"eta": theta_eta},
             "mechanisms": mechanisms,
             "parallelism": "method_only",
         },
@@ -256,29 +318,51 @@ def flatten_mechanism_episode(
     combined_episode_wall_clock_seconds = (
         executor_episode_wall_clock_seconds + chooser_episode_wall_clock_seconds
     )
-    combined_reasoning_components = compute_llm_bench_reasoning_components(
-        prompt_tokens_total=combined_prompt_tokens_total,
-        completion_tokens_total=combined_completion_tokens_total,
-        api_cost_total_usd_raw=combined_api_cost_total_usd_raw,
-        default_mode=str(episode.get("reasoning_cost_mode_default") or "token"),
+    executor_raw_total_cost = float(episode.get("raw_total_cost", 0.0) or 0.0)
+    executor_total_cost = float(episode.get("total_cost", 0.0) or 0.0)
+    executor_raw_total_cost_api = episode.get("raw_total_cost_api")
+    executor_raw_total_cost_token = episode.get("raw_total_cost_token")
+    executor_raw_reasoning_cost_component = float(
+        episode.get("raw_reasoning_cost_component", 0.0) or 0.0
     )
-    combined_raw_total_cost_api = (
-        float(episode["raw_terminal_penalty"])
-        + float(episode["raw_path_cost_component"])
-        + float(combined_reasoning_components["raw_reasoning_cost_component_api"])
+    executor_raw_reasoning_cost_component_api = episode.get(
+        "raw_reasoning_cost_component_api"
     )
-    combined_raw_total_cost_token = (
-        float(episode["raw_terminal_penalty"])
-        + float(episode["raw_path_cost_component"])
-        + float(combined_reasoning_components["raw_reasoning_cost_component_token"])
+    executor_raw_reasoning_cost_component_token = episode.get(
+        "raw_reasoning_cost_component_token"
     )
-    combined_raw_total_cost = (
-        combined_raw_total_cost_api
-        if combined_reasoning_components["reasoning_cost_mode_default"] == "api"
-        else combined_raw_total_cost_token
+    chooser_raw_reasoning_cost_component = float(
+        chooser_reasoning_components["raw_reasoning_cost_component"] or 0.0
     )
-    combined_total_cost = min(
-        combined_raw_total_cost / TELECOM_MMS_TOTAL_UPPER_BOUND_V2_DEFAULT,
+    combined_with_chooser_raw_reasoning_cost_component_api = (
+        None
+        if executor_raw_reasoning_cost_component_api is None
+        else float(executor_raw_reasoning_cost_component_api)
+        + float(chooser_reasoning_components["raw_reasoning_cost_component_api"])
+    )
+    combined_with_chooser_raw_reasoning_cost_component_token = (
+        None
+        if executor_raw_reasoning_cost_component_token is None
+        else float(executor_raw_reasoning_cost_component_token)
+        + float(chooser_reasoning_components["raw_reasoning_cost_component_token"])
+    )
+    combined_with_chooser_raw_total_cost_api = (
+        None
+        if executor_raw_total_cost_api is None
+        else float(executor_raw_total_cost_api)
+        + float(chooser_reasoning_components["raw_reasoning_cost_component_api"])
+    )
+    combined_with_chooser_raw_total_cost_token = (
+        None
+        if executor_raw_total_cost_token is None
+        else float(executor_raw_total_cost_token)
+        + float(chooser_reasoning_components["raw_reasoning_cost_component_token"])
+    )
+    combined_with_chooser_raw_total_cost = (
+        executor_raw_total_cost + chooser_raw_reasoning_cost_component
+    )
+    combined_with_chooser_total_cost = min(
+        combined_with_chooser_raw_total_cost / TELECOM_MMS_TOTAL_UPPER_BOUND_V2_DEFAULT,
         1.0,
     )
     episode.update(
@@ -314,39 +398,64 @@ def flatten_mechanism_episode(
             "executor_llm_round_trip_total_seconds": executor_llm_round_trip_total_seconds,
             "chooser_episode_wall_clock_seconds": chooser_episode_wall_clock_seconds,
             "executor_episode_wall_clock_seconds": executor_episode_wall_clock_seconds,
+            "chooser_raw_reasoning_cost_component": chooser_raw_reasoning_cost_component,
             "chooser_raw_reasoning_cost_component_api": chooser_reasoning_components[
                 "raw_reasoning_cost_component_api"
             ],
             "chooser_raw_reasoning_cost_component_token": chooser_reasoning_components[
                 "raw_reasoning_cost_component_token"
             ],
-            "executor_raw_reasoning_cost_component_api": episode.get(
-                "raw_reasoning_cost_component_api"
+            "executor_raw_reasoning_cost_component": executor_raw_reasoning_cost_component,
+            "executor_raw_reasoning_cost_component_api": (
+                executor_raw_reasoning_cost_component_api
             ),
-            "executor_raw_reasoning_cost_component_token": episode.get(
-                "raw_reasoning_cost_component_token"
+            "executor_raw_reasoning_cost_component_token": (
+                executor_raw_reasoning_cost_component_token
             ),
-            "llm_call_count": chooser_llm_call_count + executor_llm_call_count,
-            "prompt_tokens_total": combined_prompt_tokens_total,
-            "completion_tokens_total": combined_completion_tokens_total,
-            "total_tokens_total": combined_total_tokens_total,
-            "api_cost_total_usd_raw": combined_api_cost_total_usd_raw,
-            "generation_time_total_seconds": combined_generation_time_total_seconds,
-            "llm_round_trip_total_seconds": combined_llm_round_trip_total_seconds,
-            "episode_wall_clock_seconds": combined_episode_wall_clock_seconds,
-            "raw_reasoning_cost_component": combined_reasoning_components[
-                "raw_reasoning_cost_component"
-            ],
-            "raw_reasoning_cost_component_api": combined_reasoning_components[
-                "raw_reasoning_cost_component_api"
-            ],
-            "raw_reasoning_cost_component_token": combined_reasoning_components[
-                "raw_reasoning_cost_component_token"
-            ],
-            "raw_total_cost": combined_raw_total_cost,
-            "raw_total_cost_api": combined_raw_total_cost_api,
-            "raw_total_cost_token": combined_raw_total_cost_token,
-            "total_cost": combined_total_cost,
+            "executor_raw_total_cost": executor_raw_total_cost,
+            "executor_total_cost": executor_total_cost,
+            "executor_raw_total_cost_api": executor_raw_total_cost_api,
+            "executor_raw_total_cost_token": executor_raw_total_cost_token,
+            "combined_with_chooser_llm_call_count": (
+                chooser_llm_call_count + executor_llm_call_count
+            ),
+            "combined_with_chooser_prompt_tokens_total": combined_prompt_tokens_total,
+            "combined_with_chooser_completion_tokens_total": (
+                combined_completion_tokens_total
+            ),
+            "combined_with_chooser_total_tokens_total": combined_total_tokens_total,
+            "combined_with_chooser_api_cost_total_usd_raw": (
+                combined_api_cost_total_usd_raw
+            ),
+            "combined_with_chooser_generation_time_total_seconds": (
+                combined_generation_time_total_seconds
+            ),
+            "combined_with_chooser_llm_round_trip_total_seconds": (
+                combined_llm_round_trip_total_seconds
+            ),
+            "combined_with_chooser_episode_wall_clock_seconds": (
+                combined_episode_wall_clock_seconds
+            ),
+            "combined_with_chooser_raw_reasoning_cost_component": (
+                executor_raw_reasoning_cost_component
+                + chooser_raw_reasoning_cost_component
+            ),
+            "combined_with_chooser_raw_reasoning_cost_component_api": (
+                combined_with_chooser_raw_reasoning_cost_component_api
+            ),
+            "combined_with_chooser_raw_reasoning_cost_component_token": (
+                combined_with_chooser_raw_reasoning_cost_component_token
+            ),
+            "combined_with_chooser_raw_total_cost": (
+                combined_with_chooser_raw_total_cost
+            ),
+            "combined_with_chooser_raw_total_cost_api": (
+                combined_with_chooser_raw_total_cost_api
+            ),
+            "combined_with_chooser_raw_total_cost_token": (
+                combined_with_chooser_raw_total_cost_token
+            ),
+            "combined_with_chooser_total_cost": combined_with_chooser_total_cost,
             "selection_meta": selection_meta,
         }
     )
@@ -396,6 +505,36 @@ def build_mechanism_summary_fields(episodes: list[dict[str, Any]]) -> dict[str, 
         "mean_executor_api_cost_usd_raw": mean(
             [ep.get("executor_api_cost_total_usd_raw", 0.0) for ep in episodes]
         ),
+        "mean_chooser_raw_reasoning_cost_component": mean(
+            [ep.get("chooser_raw_reasoning_cost_component", 0.0) for ep in episodes]
+        ),
+        "mean_executor_raw_reasoning_cost_component": mean(
+            [ep.get("executor_raw_reasoning_cost_component", 0.0) for ep in episodes]
+        ),
+        "mean_combined_with_chooser_llm_call_count": mean(
+            [ep.get("combined_with_chooser_llm_call_count", 0) for ep in episodes]
+        ),
+        "mean_combined_with_chooser_total_tokens": mean(
+            [ep.get("combined_with_chooser_total_tokens_total", 0.0) for ep in episodes]
+        ),
+        "mean_combined_with_chooser_api_cost_usd_raw": mean(
+            [
+                ep.get("combined_with_chooser_api_cost_total_usd_raw", 0.0)
+                for ep in episodes
+            ]
+        ),
+        "mean_combined_with_chooser_raw_reasoning_cost_component": mean(
+            [
+                ep.get("combined_with_chooser_raw_reasoning_cost_component", 0.0)
+                for ep in episodes
+            ]
+        ),
+        "mean_combined_with_chooser_raw_total_cost": mean(
+            [ep.get("combined_with_chooser_raw_total_cost", 0.0) for ep in episodes]
+        ),
+        "mean_combined_with_chooser_total_cost": mean(
+            [ep.get("combined_with_chooser_total_cost", 0.0) for ep in episodes]
+        ),
     }
 
 
@@ -407,6 +546,9 @@ def build_summary(
     model: str,
     oracle_summary: dict[str, Any],
     episodes: list[dict[str, Any]],
+    family_kind: str = FAMILY_KIND,
+    executor_name: str = EXECUTOR_NAME,
+    schedule_mode: str = SCHEDULE_MODE_STATIONARY,
 ) -> dict[str, Any]:
     from run_shared_basin_repeated_smoke import build_summary as base_build_summary  # noqa: E402
 
@@ -415,12 +557,15 @@ def build_summary(
         dataset=dataset,
         repeats=repeats,
         model=model,
+        family_kind=family_kind,
+        executor_name=executor_name,
+        schedule_mode=schedule_mode,
         oracle_summary=oracle_summary,
         episodes=episodes,
     )
     summary["mechanism"] = mechanism
     summary["backbone_policy"] = BACKBONE_POLICY
-    summary["test_name"] = f"{BACKBONE_POLICY}_{mechanism}_smoke10x{repeats}_{FAMILY_KIND}_full_llm"
+    summary["test_name"] = f"{BACKBONE_POLICY}_{mechanism}_smoke10x{repeats}_{family_kind}_full_llm"
     summary.update(build_mechanism_summary_fields(episodes))
     return summary
 
@@ -434,6 +579,9 @@ def build_partial_summary(
     oracle_summary: dict[str, Any],
     episodes: list[dict[str, Any]],
     total_episodes: int,
+    family_kind: str = FAMILY_KIND,
+    executor_name: str = EXECUTOR_NAME,
+    schedule_mode: str = SCHEDULE_MODE_STATIONARY,
     status: str = "running",
 ) -> dict[str, Any]:
     summary = build_summary(
@@ -441,6 +589,9 @@ def build_partial_summary(
         dataset=dataset,
         repeats=repeats,
         model=model,
+        family_kind=family_kind,
+        executor_name=executor_name,
+        schedule_mode=schedule_mode,
         oracle_summary=oracle_summary,
         episodes=episodes,
     )
@@ -467,6 +618,9 @@ def persist_mechanism_state(
     dataset: str,
     repeats: int,
     oracle_summary: dict[str, Any],
+    family_kind: str = FAMILY_KIND,
+    executor_name: str = EXECUTOR_NAME,
+    schedule_mode: str = SCHEDULE_MODE_STATIONARY,
 ) -> None:
     add_cumulative_fields(episodes)
     checkpoint_payload = {
@@ -493,6 +647,9 @@ def persist_mechanism_state(
         dataset=dataset,
         repeats=repeats,
         model=model,
+        family_kind=family_kind,
+        executor_name=executor_name,
+        schedule_mode=schedule_mode,
         oracle_summary=oracle_summary,
         episodes=episodes,
         total_episodes=total_episodes,
@@ -528,14 +685,24 @@ def run_mechanism_worker(
     mechanism_dir = run_dir / mechanism
     mechanism_dir.mkdir(parents=True, exist_ok=True)
 
-    env = build_env(executor_name=EXECUTOR_NAME)
+    family_kind = str(run_config.get("family_kind", FAMILY_KIND))
+    executor_name = str(run_config.get("executor_name", EXECUTOR_NAME))
+    schedule_mode = str(run_config.get("schedule_mode", SCHEDULE_MODE_STATIONARY))
+    theta_policy_kwargs = run_config.get("theta_policy_kwargs", {})
+    theta_eta = float(
+        theta_policy_kwargs.get(
+            "eta",
+            run_config.get("common_eta_override", 0.2) or 0.2,
+        )
+    )
+    env = build_env(executor_name=executor_name, family_kind=family_kind)
     checkpoint = load_mechanism_checkpoint(mechanism_dir)
     if checkpoint is not None:
         policy = checkpoint["policy"]
         episodes = list(checkpoint["episodes"])
         model = checkpoint.get("model", getattr(env.family_executor, "model", MODEL_REQUIRED))
     else:
-        policy = DirectMultiStageExp3Policy(seed=SEED)
+        policy = DirectMultiStageExp3Policy(seed=SEED, eta=theta_eta)
         policy.bind_env(env)
         policy.reset()
         episodes = []
@@ -552,6 +719,9 @@ def run_mechanism_worker(
             model=model,
             dataset=run_config["dataset"],
             repeats=int(run_config["repeats"]),
+            family_kind=family_kind,
+            executor_name=executor_name,
+            schedule_mode=schedule_mode,
             oracle_summary=oracle_summary,
         )
         return
@@ -569,6 +739,7 @@ def run_mechanism_worker(
             row["instance"],
             env,
             mechanism,
+            episode_seed=episode_index,
         )
         env.reset(row["instance"])
         result = env.run_path(path)
@@ -603,6 +774,9 @@ def run_mechanism_worker(
             model=model,
             dataset=run_config["dataset"],
             repeats=int(run_config["repeats"]),
+            family_kind=family_kind,
+            executor_name=executor_name,
+            schedule_mode=schedule_mode,
             oracle_summary=oracle_summary,
         )
 
@@ -631,6 +805,9 @@ def merge_mechanism_results(run_dir: Path, mechanism: str) -> dict[str, Any]:
         dataset=run_config["dataset"],
         repeats=int(run_config["repeats"]),
         model=model,
+        family_kind=str(run_config.get("family_kind", FAMILY_KIND)),
+        executor_name=str(run_config.get("executor_name", EXECUTOR_NAME)),
+        schedule_mode=str(run_config.get("schedule_mode", SCHEDULE_MODE_STATIONARY)),
         oracle_summary=oracle_summary,
         episodes=episodes,
     )
@@ -689,6 +866,38 @@ def build_compare_rows(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
             ],
             "mean_chooser_llm_call_count": summary["mean_chooser_llm_call_count"],
             "mean_executor_llm_call_count": summary["mean_executor_llm_call_count"],
+            "mean_chooser_total_tokens": summary["mean_chooser_total_tokens"],
+            "mean_executor_total_tokens": summary["mean_executor_total_tokens"],
+            "mean_chooser_api_cost_usd_raw": summary[
+                "mean_chooser_api_cost_usd_raw"
+            ],
+            "mean_executor_api_cost_usd_raw": summary[
+                "mean_executor_api_cost_usd_raw"
+            ],
+            "mean_chooser_raw_reasoning_cost_component": summary[
+                "mean_chooser_raw_reasoning_cost_component"
+            ],
+            "mean_executor_raw_reasoning_cost_component": summary[
+                "mean_executor_raw_reasoning_cost_component"
+            ],
+            "mean_combined_with_chooser_llm_call_count": summary[
+                "mean_combined_with_chooser_llm_call_count"
+            ],
+            "mean_combined_with_chooser_total_tokens": summary[
+                "mean_combined_with_chooser_total_tokens"
+            ],
+            "mean_combined_with_chooser_api_cost_usd_raw": summary[
+                "mean_combined_with_chooser_api_cost_usd_raw"
+            ],
+            "mean_combined_with_chooser_raw_reasoning_cost_component": summary[
+                "mean_combined_with_chooser_raw_reasoning_cost_component"
+            ],
+            "mean_combined_with_chooser_raw_total_cost": summary[
+                "mean_combined_with_chooser_raw_total_cost"
+            ],
+            "mean_combined_with_chooser_total_cost": summary[
+                "mean_combined_with_chooser_total_cost"
+            ],
             "max_theta_follow_rate": summary["max_theta_follow_rate"],
             "fallback_rate": summary["fallback_rate"],
             "invalid_output_rate": summary["invalid_output_rate"],
@@ -719,6 +928,13 @@ def orchestrate_run(
     output_dir: Path,
     repeats: int,
     mechanisms: list[str],
+    family_kind: str,
+    executor_name: str,
+    schedule_mode: str,
+    switch_denominator: int,
+    schedule_buckets_path: Path | None,
+    trap_switch_cycle_source: str,
+    theta_eta: float,
 ) -> Path:
     model_name = ensure_model_env(required=True)
     validate_mechanisms(mechanisms)
@@ -728,6 +944,13 @@ def orchestrate_run(
         repeats=repeats,
         mechanisms=mechanisms,
         model_name=model_name,
+        family_kind=family_kind,
+        executor_name=executor_name,
+        schedule_mode=schedule_mode,
+        switch_denominator=switch_denominator,
+        schedule_buckets_path=schedule_buckets_path,
+        trap_switch_cycle_source=trap_switch_cycle_source,
+        theta_eta=theta_eta,
     )
     script_path = Path(__file__).resolve()
     launched: list[tuple[str, subprocess.Popen[Any], Any]] = []
@@ -786,6 +1009,37 @@ def build_cli() -> argparse.ArgumentParser:
     common_run.add_argument("--output-dir", type=Path, required=True)
     common_run.add_argument("--repeats", type=int, default=10)
     common_run.add_argument("--mechanisms", nargs="+", default=list(DEFAULT_MECHANISMS))
+    common_run.add_argument("--family-kind", type=str, default=DEFAULT_FAMILY_KIND)
+    common_run.add_argument(
+        "--executor-name",
+        type=str,
+        default=DEFAULT_EXECUTOR_NAME,
+        choices=["llm_bench", "simulated"],
+    )
+    common_run.add_argument(
+        "--schedule-mode",
+        type=str,
+        default=SCHEDULE_MODE_STATIONARY,
+        choices=[
+            SCHEDULE_MODE_STATIONARY,
+            SCHEDULE_MODE_TRAP_SWITCH,
+            SCHEDULE_MODE_TRAP_ONLY_RANDOM,
+        ],
+    )
+    common_run.add_argument("--switch-denominator", type=int, default=3)
+    common_run.add_argument("--schedule-buckets", type=Path)
+    common_run.add_argument(
+        "--trap-switch-cycle-source",
+        type=str,
+        default=TRAP_SWITCH_CYCLE_SOURCE_BUCKET,
+        choices=[TRAP_SWITCH_CYCLE_SOURCE_BUCKET, TRAP_SWITCH_CYCLE_SOURCE_DATASET],
+    )
+    common_run.add_argument(
+        "--theta-eta",
+        type=float,
+        default=0.2,
+        help="Eta for the DirectMultiStageExp3 theta source used by theta_guided_agent.",
+    )
 
     setup_parser = subparsers.add_parser("setup", parents=[common_run])
     setup_parser.set_defaults(command="setup")
@@ -826,6 +1080,13 @@ def main() -> None:
             repeats=args.repeats,
             mechanisms=args.mechanisms,
             model_name=model_name,
+            family_kind=args.family_kind,
+            executor_name=args.executor_name,
+            schedule_mode=args.schedule_mode,
+            switch_denominator=args.switch_denominator,
+            schedule_buckets_path=args.schedule_buckets,
+            trap_switch_cycle_source=args.trap_switch_cycle_source,
+            theta_eta=args.theta_eta,
         )
         print(str(run_dir))
         return
@@ -837,6 +1098,13 @@ def main() -> None:
             output_dir=args.output_dir,
             repeats=args.repeats,
             mechanisms=args.mechanisms,
+            family_kind=args.family_kind,
+            executor_name=args.executor_name,
+            schedule_mode=args.schedule_mode,
+            switch_denominator=args.switch_denominator,
+            schedule_buckets_path=args.schedule_buckets,
+            trap_switch_cycle_source=args.trap_switch_cycle_source,
+            theta_eta=args.theta_eta,
         )
         print(str(run_dir))
         return
