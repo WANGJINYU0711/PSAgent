@@ -298,8 +298,7 @@ def skill_requirement_dispersion(rows: list[dict[str, Any]]) -> dict[str, Any]:
             requirement = row[stage_name]["capability_requirements"]
             scores = []
             for agent_id in stage_agent_ids:
-                skill = agent_map[agent_id].attribute_skill
-                score = sum(requirement[capability_name] * skill[capability_name] for capability_name in CAPABILITY_NAMES)
+                score = 0.0
                 scores.append(score)
             per_task_stds.append(pstdev(scores))
             per_task_ranges.append(max(scores) - min(scores))
@@ -355,7 +354,7 @@ def build_manifest(
         "notes": [
             "This is a derived benchmark that adds stage-level capability_requirements.",
             "Original telecom_mms_fixed_tree_base_v2_100 files are left unchanged.",
-            "Agent-side attribute_skill stays on the family side; tasks only receive stage-side requirements.",
+            "Agent-side attribute profiles are disabled; tasks only receive stage-side requirements.",
         ],
         "coverage_summary": {
             "stage_capability_averages": stage_capability_averages(rows),

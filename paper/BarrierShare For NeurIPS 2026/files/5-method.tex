@@ -1,0 +1,153 @@
+\section{BarrierShare (Guocong)}
+\label{sec:barriershare}
+
+BarrierShare learns how to route probability mass through the tree, how to reuse terminal feedback when sharing is permitted, and how to block propagation when a structural barrier is encountered. The algorithm interpolates between two endpoints: recursive sharing in fully shareable regions and local bandit learning in risky regions.
+
+\subsection{Method Overview}
+\label{sec:barriershare_overview}
+
+BarrierShare maintains two coupled mechanisms. The first is \emph{recursive selection}: at each internal node, the learner selects a child either according to aggregated subtree mass or according to a local exploration-exploitation rule. The second is \emph{barrier-limited update}: after observing terminal feedback at the selected leaf, the learner performs local updates on the sampled risky path; if the selected leaf is shareable, it additionally propagates the induced leaf delta upward through the shareable prefix of the path.
+
+Safe regions reuse feedback through exact aggregation over shared leaves, whereas risky regions only admit local credit assignment from the sampled trajectory. These two mechanisms operate on different state variables but are coupled through the sampled path.
+
+\subsection{Recursive Selection}
+\label{sec:barriershare_selection}
+
+Starting from the root, BarrierShare recursively selects one child at each visited internal node until a leaf is reached.
+
+\paragraph{Safe nodes.}
+For any safe node $u$, child selection is induced by aggregated subtree weights:
+\begin{equation}
+    p_t(v\mid u) = \frac{W_t(v)}{W_t(u)},
+    \qquad v \in \mathsf{ch}(u).
+    \label{eq:safe_selection}
+\end{equation}
+Here $W_t(u)$ is the exact aggregate of shared leaf weights in the shareable subtree rooted at $u$. Because safe subtrees are closed under descendants, the same rule applies recursively to every child subtree below a safe node.
+
+\paragraph{Risky nodes.}
+If the current node is risky, BarrierShare uses an $\epsilon$-greedy exploration rule:
+\begin{equation}
+    p_t(v\mid u)
+    =
+    \begin{cases}
+    \dfrac{1}{|\mathsf{ch}(u)|}, & \text{with probability } \epsilon_i, \\[8pt]
+    \dfrac{\exp(\eta \theta_t(v\mid u))}{\sum_{v' \in \mathsf{ch}(u)} \exp(\eta \theta_t(v'\mid u))}, & \text{with probability } 1-\epsilon_i,
+    \end{cases}
+    \qquad v \in \mathsf{ch}(u),
+    \label{eq:risky_selection}
+\end{equation}
+where $\epsilon_i \in (0,1)$ controls exploration at node $u$. This rule means that with probability $\epsilon_i$ the learner samples uniformly at random, and with probability $1-\epsilon_i$ it samples according to the exponential-weight distribution.
+
+The probability of the full sampled path is
+\begin{equation}
+    P_t(\pi_t) \coloneqq \prod_{k=0}^{D_t-1} p_t(u_{k+1}\mid u_k).
+    \label{eq:path_prob}
+\end{equation}
+We use $P_t(\pi_t)$ only to describe the realized trajectory probability; the node-local update below uses the reach probability $\rho_t(u)$ together with the local choice probability $p_t(v\mid u)$.
+
+\begin{algorithm}[t]
+\caption{\textsc{BarrierShare}}
+\label{alg:barriershare}
+\KwIn{Tree $\mathcal{T}$, shared leaf set $\mathcal{L}_{\mathrm{shr}}$, barrier mask $g$, learning rate $\eta$, exploration rate $\epsilon$}
+\KwOut{Sampled leaf $\ell_t$ and updated states}
+
+Initialize $\phi_1(\ell)=0$ and $w_1(\ell)=\exp(-\eta \phi_1(\ell))$ for all $\ell\in\mathcal{L}_{\mathrm{shr}}$\;
+Initialize $W_1(u)=\sum_{\ell\in\mathcal{L}(u)\cap \mathcal{L}_{\mathrm{shr}}} w_1(\ell)$ for all safe nodes $u$\;
+Initialize $\theta_1(v\mid u)=0$ for all directed edges $(u,v)$\;
+
+Set $u \leftarrow r$\;
+\While{$u \notin \mathcal{L}$}{
+    \eIf{$u$ is safe}{
+        sample $v \in \mathsf{ch}(u)$ according to \eqref{eq:safe_selection}\;
+    }{
+        sample $v \in \mathsf{ch}(u)$ according to \eqref{eq:risky_selection}\;
+    }
+    record selected edge $(u,v)$ and set $u \leftarrow v$\;
+}
+Let the sampled leaf be $\ell_t \leftarrow u$ and observe terminal cost $c_t$\;
+
+\ForEach{risky node $u$ on $\pi_t$ with sampled child $v$}{
+    compute
+    \[
+        \widehat{c}_t(u,v)
+        \coloneqq
+        \frac{c_t \cdot \mathbf{1}\{(u,v)\in\pi_t\}}{\rho_t(u)\,p_t(v\mid u)}\;,
+    \]
+    and update
+    \[
+        \theta_{t+1}(v\mid u) = \theta_t(v\mid u) - \eta \widehat{c}_t(u,v)\;.
+    \]
+}
+
+\eIf{$\ell_t \in \mathcal{L}_{\mathrm{shr}}$}{
+    update $\phi_{t+1}(\ell_t)=\phi_t(\ell_t)+c_t$ and recompute $w_{t+1}(\ell_t)=\exp(-\eta\phi_{t+1}(\ell_t))$\;
+    compute the induced leaf delta $\Delta_t(\ell_t)=w_{t+1}(\ell_t)-w_t(\ell_t)$\;
+    additionally propagate $\Delta_t(\ell_t)$ upward along ancestors until the first node with $g(u)=\mathrm{unshare}$, and stop there\;
+}{
+    do not generate any reusable ancestor update\;
+}
+\end{algorithm}
+
+\subsection{Risky Local Update}
+\label{sec:barriershare_risky_update}
+
+The risky update is a node-local bandit update. Let $u$ be a risky node on the sampled path and let $v$ be the chosen child of $u$. Since the learner reaches $u$ with probability $\rho_t(u)$ and then chooses $v$ with probability $p_t(v\mid u)$, we use the importance-weighted estimator
+\begin{equation}
+    \widehat{c}_t(u,v)
+    \coloneqq
+    \frac{c_t \cdot \mathbf{1}\{(u,v)\in\pi_t\}}{\rho_t(u)\,p_t(v\mid u)}.
+    \label{eq:iw_estimator}
+\end{equation}
+The local score update is
+\begin{equation}
+    \theta_{t+1}(v\mid u)
+    =
+    \theta_t(v\mid u) - \eta \widehat{c}_t(u,v).
+    \label{eq:risky_local_update}
+\end{equation}
+
+This update only affects the visited risky edge. It does not modify subtree weights above the barrier, and it does not assume that the terminal cost is reusable outside the sampled local interface.
+
+\subsection{Shared Leaf Update and Delta Propagation}
+\label{sec:barriershare_shared_update}
+
+If the selected leaf $\ell_t$ is shareable, then the terminal feedback is also eligible for reusable aggregation. We update the leaf score by
+\begin{equation}
+    \phi_{t+1}(\ell_t) = \phi_t(\ell_t) + c_t,
+    \label{eq:leaf_score_update}
+\end{equation}
+which induces the updated leaf weight
+\begin{equation}
+    w_{t+1}(\ell_t) = \exp\!\bigl(-\eta \phi_{t+1}(\ell_t)\bigr).
+    \label{eq:leaf_weight_update}
+\end{equation}
+We then define the induced leaf delta as
+\begin{equation}
+    \Delta_t(\ell_t) \coloneqq w_{t+1}(\ell_t) - w_t(\ell_t).
+    \label{eq:delta_def}
+\end{equation}
+
+For every ancestor $u$ of $\ell_t$ such that the path from $u$ to $\ell_t$ contains only share-labeled nodes, we propagate $\Delta_t(\ell_t)$ upward and refresh the corresponding subtree weights. The propagation stops at the first barrier node, and no ancestor above that node receives the reusable update.
+
+This rule keeps multiplicative leaf updates and additive subtree aggregation consistent: leaf scores are updated through the exponential map, while subtree weights are maintained as exact sums of shared leaf weights. In particular, for every ancestor that receives the propagated delta, the updated subtree weight remains equal to the sum of the updated shared descendant leaf weights.
+
+If $\ell_t \notin \mathcal{L}_{\mathrm{shr}}$, then no reusable ancestor update is generated. The terminal cost still contributes to the risky local update on the sampled path, but it is not propagated into any subtree weight.
+
+\subsection{Endpoint Reductions}
+\label{sec:barriershare_reductions}
+
+\paragraph{All-share regime.}
+If every node is shareable and every leaf is shared, then every internal node is safe. In this case, BarrierShare reduces to a fully recursive sharing mechanism in which all routing probabilities are induced by subtree weights and every terminal feedback update propagates to the root.
+
+\paragraph{All-unshare regime.}
+If no reusable sharing is available, then every non-root node is risky. In this case, BarrierShare reduces to a purely local hierarchical bandit learner that updates only the sampled risky edges along the path.
+
+\paragraph{Intermediate regime.}
+In the general case, safe regions reuse shared feedback through exact subtree aggregation, while risky regions remain local and are updated only through bandit feedback. This is the regime of primary interest, because it interpolates between full sharing and no sharing in a structurally interpretable way.
+
+\subsection{Application to Hierarchical Agent Workflows}
+\label{sec:barriershare_agent_instantiation}
+
+The same formalism naturally instantiates hierarchical agent workflows. In that setting, each internal node corresponds to a stage-level routing decision and each leaf corresponds to a complete terminal macro-policy. The learner selects which leaf policy to execute, while the executor carries out the leaf-level trajectory and returns a single terminal cost after completion.
+
+This mapping separates routing from execution. BarrierShare learns how to route probability mass through the tree, but it does not require step-wise supervision inside each leaf. Therefore, the same algorithm can be used for synthetic tree simulations and for real hierarchical agent pipelines, provided that the terminal cost is observed only after the selected leaf terminates.

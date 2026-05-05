@@ -256,7 +256,6 @@ def run_task_job(job: dict[str, Any]) -> dict[str, Any]:
         "raw_outcome_penalty": float(result.raw_outcome_penalty),
         "raw_policy_penalty": float(result.raw_policy_penalty),
         "raw_reasoning_cost_component": float(result.raw_reasoning_cost_component),
-        "raw_path_cost_component": float(result.raw_path_cost_component),
         "raw_total_cost": float(result.raw_total_cost),
         "exact_match": exact,
         "subset_clean": subset_clean,

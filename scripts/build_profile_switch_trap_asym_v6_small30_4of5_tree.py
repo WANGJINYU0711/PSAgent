@@ -150,11 +150,11 @@ def build_spec() -> dict[str, Any]:
         conceptual_alias="s1_n1_full_share_target_basin_root",
         stage="stage1",
         g=0,
-        base_alias="stage1_n1",
+        base_alias="stage1_n2",
         parent_alias="ROOT",
         local_child_index=2,
-        profile_mode="fast",
-        role_note="full-share target/shared basin root, covers L06-L29",
+        profile_mode="deep",
+        role_note="full-share target/shared basin root, covers L06-L29 with mixed fast/deep descendants",
     )
 
     s2_trap = add(
@@ -203,11 +203,11 @@ def build_spec() -> dict[str, Any]:
     )
     shared_stage3_specs = [
         (shared_stage2[0], 1, "s3_n1_target_apn_A1", "stage3_n1", "deep", "shared target APN A1"),
-        (shared_stage2[0], 2, "s3_n2_target_roaming_A2", "stage3_n2", "deep", "shared target roaming A2"),
+        (shared_stage2[0], 2, "s3_n2_trapfast_wrapper_A2", "stage3_n4", "fast", "shared fast wrapper inside target basin A2"),
         (shared_stage2[1], 1, "s3_n3_general_network_B1", "stage3_n3", "deep", "shared general network B1"),
         (shared_stage2[2], 1, "s3_n4_target_roaming_C1", "stage3_n2", "deep", "shared target roaming C1"),
-        (shared_stage2[3], 1, "s3_n5_target_apn_D1", "stage3_n1", "deep", "shared target APN D1"),
-        (shared_stage2[4], 1, "s3_n6_general_network_E1", "stage3_n3", "deep", "shared general network E1"),
+        (shared_stage2[3], 1, "s3_n5_fast_network_D1", "stage3_n4", "fast", "shared fast network lane D1"),
+        (shared_stage2[4], 1, "s3_n6_fast_network_E1", "stage3_n4", "fast", "shared fast network lane E1"),
     ]
     shared_stage3 = [
         add(
@@ -224,67 +224,93 @@ def build_spec() -> dict[str, Any]:
     ]
 
     trap_stage4_specs = [
-        ("s4_n0_fast_trap_execute_A", 1),
-        ("s4_n1_fast_trap_execute_B", 2),
-        ("s4_n2_fast_trap_execute_C", 3),
+        ("s4_n0_fast_trap_execute_A", 1, "stage4_n4", "fast"),
+        ("s4_n1_deep_trap_repair_B", 2, "stage4_n1", "deep"),
+        ("s4_n2_fast_trap_execute_C", 3, "stage4_n4", "fast"),
     ]
     trap_stage4 = [
         add(
             conceptual_alias=conceptual_alias,
             stage="stage4",
             g=1,
-            base_alias="stage4_n4",
+            base_alias=base_alias,
             parent_alias=s3_trap,
             local_child_index=child_index,
-            profile_mode="fast",
-            role_note="private fast stage4 trap",
+            profile_mode=profile_mode,
+            role_note="private trap stage4 with mixed fast/deep cost mode",
         )
-        for conceptual_alias, child_index in trap_stage4_specs
+        for conceptual_alias, child_index, base_alias, profile_mode in trap_stage4_specs
     ]
 
     shared_stage4: list[str] = []
-    stage4_base_pairs = (("stage4_n1", "stage4_n2"), ("stage4_n1", "stage4_n3"))
+    stage4_base_pairs = (
+        (("stage4_n1", "deep"), ("stage4_n4", "fast")),
+        (("stage4_n2", "deep"), ("stage4_n4", "fast")),
+        (("stage4_n4", "fast"), ("stage4_n3", "deep")),
+        (("stage4_n1", "deep"), ("stage4_n4", "fast")),
+        (("stage4_n2", "deep"), ("stage4_n4", "fast")),
+        (("stage4_n4", "fast"), ("stage4_n3", "deep")),
+    )
     for stage3_idx, parent_alias in enumerate(shared_stage3, start=1):
-        for child_index, base_alias in enumerate(stage4_base_pairs[(stage3_idx - 1) % 2], start=1):
+        for child_index, (base_alias, profile_mode) in enumerate(stage4_base_pairs[stage3_idx - 1], start=1):
             shared_stage4.append(
                 add(
-                    conceptual_alias=f"s4_n{len(shared_stage4) + 3:02d}_shared_repair_{stage3_idx}_{child_index}",
+                    conceptual_alias=f"s4_n{len(shared_stage4) + 3:02d}_shared_mixed_{stage3_idx}_{child_index}",
                     stage="stage4",
                     g=0,
                     base_alias=base_alias,
                     parent_alias=parent_alias,
                     local_child_index=child_index,
-                    profile_mode="deep",
-                    role_note="shared deep target-safe stage4 repair/verify",
+                    profile_mode=profile_mode,
+                    role_note="shared target basin stage4 with mixed fast/deep cost mode",
                 )
             )
 
     leaf_serial = 0
-    for parent_alias in trap_stage4:
-        for child_index in (1, 2):
+    trap_leaf_pairs = (
+        (("stage5_n4", "fast"), ("stage5_n1", "deep")),
+        (("stage5_n4", "fast"), ("stage5_n2", "deep")),
+        (("stage5_n2", "deep"), ("stage5_n4", "fast")),
+    )
+    for parent_alias, leaf_pair in zip(trap_stage4, trap_leaf_pairs, strict=True):
+        for child_index, (base_alias, profile_mode) in enumerate(leaf_pair, start=1):
             add(
-                conceptual_alias=f"s5_n{leaf_serial:02d}_L{leaf_serial:02d}_fast_trap",
+                conceptual_alias=f"s5_n{leaf_serial:02d}_L{leaf_serial:02d}_mixed_trap_{profile_mode}",
                 stage="stage5",
                 g=1,
-                base_alias="stage5_n4",
+                base_alias=base_alias,
                 parent_alias=parent_alias,
                 local_child_index=child_index,
-                profile_mode="fast",
-                role_note="private fast trap terminal leaf",
+                profile_mode=profile_mode,
+                role_note="private trap terminal leaf with mixed fast/deep cost mode",
             )
             leaf_serial += 1
 
-    for parent_alias in shared_stage4:
-        for child_index, base_alias in enumerate(("stage5_n1", "stage5_n2"), start=1):
+    shared_leaf_pairs = (
+        (("stage5_n1", "deep"), ("stage5_n4", "fast")),
+        (("stage5_n2", "deep"), ("stage5_n1", "deep")),
+        (("stage5_n4", "fast"), ("stage5_n2", "deep")),
+        (("stage5_n1", "deep"), ("stage5_n4", "fast")),
+        (("stage5_n2", "deep"), ("stage5_n1", "deep")),
+        (("stage5_n4", "fast"), ("stage5_n2", "deep")),
+        (("stage5_n1", "deep"), ("stage5_n2", "deep")),
+        (("stage5_n4", "fast"), ("stage5_n1", "deep")),
+        (("stage5_n2", "deep"), ("stage5_n4", "fast")),
+        (("stage5_n1", "deep"), ("stage5_n2", "deep")),
+        (("stage5_n4", "fast"), ("stage5_n1", "deep")),
+        (("stage5_n2", "deep"), ("stage5_n1", "deep")),
+    )
+    for parent_alias, leaf_pair in zip(shared_stage4, shared_leaf_pairs, strict=True):
+        for child_index, (base_alias, profile_mode) in enumerate(leaf_pair, start=1):
             add(
-                conceptual_alias=f"s5_n{leaf_serial:02d}_L{leaf_serial:02d}_deep_target",
+                conceptual_alias=f"s5_n{leaf_serial:02d}_L{leaf_serial:02d}_mixed_target_{profile_mode}",
                 stage="stage5",
                 g=0,
                 base_alias=base_alias,
                 parent_alias=parent_alias,
                 local_child_index=child_index,
-                profile_mode="deep",
-                role_note="shared deep target terminal leaf",
+                profile_mode=profile_mode,
+                role_note="shared target terminal leaf with mixed fast/deep cost mode",
             )
             leaf_serial += 1
 
@@ -296,12 +322,12 @@ def build_spec() -> dict[str, Any]:
         "not_directly_compatible_with_current_shared_basin_llm_runner": False,
         "preserve_g": False,
         "g_layout_policy": "small30_exact_internal_and_leaf_4of5_full_stage1_share_basin_v1",
-        "base_cost_policy": "unchanged_from_profile_switch_preset",
+        "base_cost_policy": "unchanged_from_profile_switch_preset_mixed_fast_deep_v2",
         "purpose": (
             "Compact 30-leaf 4/5-share profile-switch tree for 100-episode "
             "pre-switch exploration: preserve the v3 efficient-anchor constraints "
-            "and the v5 narrow-trap/full-stage1-share-basin structure while "
-            "raising leaf coverage capacity."
+            "and the v5 narrow-trap/full-stage1-share-basin structure while mixing "
+            "fast/deep modes inside both major subtrees."
         ),
         "conceptual_design": {
             "leaf_depth": 5,
@@ -314,12 +340,17 @@ def build_spec() -> dict[str, Any]:
             "stage1_full_share_root": "s1_n1_full_share_target_basin_root",
             "stage1_full_share_leaf_count": 24,
             "trap_root_leaf_count": 6,
+            "mode_layout_policy": (
+                "stage1 has one fast trap root and one deep full-share root; "
+                "both subtrees include minority opposite-mode stage4/stage5 nodes"
+            ),
         },
         "notes": [
             "The JSON schema matches existing v3/v4/v5 prefix-dedup topology specs.",
             "Exactly 4/5 of leaves are shareable and exactly 4/5 of internal nodes are shareable.",
             "The stage1_n1 subtree is forced all-share from stage1 through all 24 descendant leaves.",
-            "Trap paths remain narrow: one stage1 fast trap entrance with six private fast terminal leaves.",
+            "Trap paths remain narrow: one stage1 fast trap entrance with six private terminal leaves.",
+            "Fast/deep mode is intentionally mixed in both trap and shared basins, especially at stage4/stage5.",
             "No barrier base aliases n5 are included; hard-transfer safety should still be evaluated separately.",
         ],
     }
@@ -367,13 +398,15 @@ def validate(spec: dict[str, Any]) -> dict[str, Any]:
 
     path_records = []
     for path in paths:
+        profile_modes = [str(node_by_alias[item].get("profile_mode")) for item in path]
         path_records.append(
             {
                 "aliases": path,
                 "conceptual_aliases": [node_by_alias[item].get("conceptual_alias") for item in path],
                 "base_aliases": [node_by_alias[item].get("base_alias") for item in path],
                 "g": [int(node_by_alias[item]["g"]) for item in path],
-                "profile_modes": [node_by_alias[item].get("profile_mode") for item in path],
+                "profile_modes": profile_modes,
+                "mode_sequence": "".join("f" if mode == "fast" else "d" for mode in profile_modes),
             }
         )
 
@@ -381,15 +414,38 @@ def validate(spec: dict[str, Any]) -> dict[str, Any]:
         record
         for record in path_records
         if record["base_aliases"][0] == "stage1_n4"
-        or "stage5_n4" in record["base_aliases"]
+    ]
+    shared_paths = [
+        record
+        for record in path_records
+        if record["base_aliases"][0] != "stage1_n4"
     ]
     target_safe_paths = [
         record
         for record in path_records
-        if record["base_aliases"][0] in {"stage1_n1", "stage1_n3"}
+        if record["base_aliases"][0] in {"stage1_n1", "stage1_n2", "stage1_n3"}
         and record["base_aliases"][3] in {"stage4_n1", "stage4_n2", "stage4_n3"}
         and record["base_aliases"][4] in {"stage5_n1", "stage5_n2"}
     ]
+    mode_sequence_counts = dict(Counter(str(record["mode_sequence"]) for record in path_records))
+    trap_mode_sequence_counts = dict(Counter(str(record["mode_sequence"]) for record in trap_paths))
+    shared_mode_sequence_counts = dict(Counter(str(record["mode_sequence"]) for record in shared_paths))
+
+    stage1_nodes = spec["nodes"]["stage1"]
+    trap_root_alias = next(
+        str(node["alias"]) for node in stage1_nodes if str(node["base_alias"]) == "stage1_n4"
+    )
+    share_root_alias = next(
+        str(node["alias"]) for node in stage1_nodes if str(node["base_alias"]) != "stage1_n4"
+    )
+    trap_descendants = descendants_inclusive(trap_root_alias, edges)
+    share_descendants = descendants_inclusive(share_root_alias, edges)
+    trap_descendant_mode_counts = dict(
+        Counter(str(node_by_alias[item].get("profile_mode")) for item in trap_descendants)
+    )
+    share_descendant_mode_counts = dict(
+        Counter(str(node_by_alias[item].get("profile_mode")) for item in share_descendants)
+    )
 
     validation = {
         "tree_name": spec["tree_name"],
@@ -432,6 +488,12 @@ def validate(spec: dict[str, Any]) -> dict[str, Any]:
         "trap_path_fraction": len(trap_paths) / max(1, len(paths)),
         "target_safe_path_count": len(target_safe_paths),
         "target_safe_path_fraction": len(target_safe_paths) / max(1, len(paths)),
+        "mode_sequence_counts": mode_sequence_counts,
+        "mode_sequence_unique_count": len(mode_sequence_counts),
+        "trap_mode_sequence_counts": trap_mode_sequence_counts,
+        "shared_mode_sequence_counts": shared_mode_sequence_counts,
+        "trap_descendant_mode_counts": trap_descendant_mode_counts,
+        "share_descendant_mode_counts": share_descendant_mode_counts,
         "paths": path_records,
         "metadata": spec.get("metadata", {}),
     }
@@ -446,7 +508,18 @@ def validate(spec: dict[str, Any]) -> dict[str, Any]:
         "stage1_full_share_root_covers_24_leaves": bool(full_share_roots["stage1"])
         and full_share_roots["stage1"][0]["descendant_leaf_count"] == 24,
         "trap_path_count_is_6": len(trap_paths) == 6,
-        "target_safe_path_count_is_24": len(target_safe_paths) == 24,
+        "share_path_count_is_24": len(shared_paths) == 24,
+        "trap_subtree_contains_deep": trap_descendant_mode_counts.get("deep", 0) > 0,
+        "share_subtree_contains_fast": share_descendant_mode_counts.get("fast", 0) > 0,
+        "stage4_has_fast_and_deep": set(validation["profile_mode_counts_by_stage"]["stage4"]) == {
+            "fast",
+            "deep",
+        },
+        "stage5_has_fast_and_deep": set(validation["profile_mode_counts_by_stage"]["stage5"]) == {
+            "fast",
+            "deep",
+        },
+        "mode_sequence_unique_count_at_least_12": len(mode_sequence_counts) >= 12,
     }
     validation["expected_checks"] = expected_checks
     validation["validation_errors"] = [

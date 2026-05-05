@@ -1,0 +1,20 @@
+\begin{abstract}
+% Hierarchical decision systems are a general learning setting in which a terminal outcome is determined by sequential decisions made across multiple stages or agents.
+% However, prior work has largely focused on the end-to-end bandit regime, leaving hierarchical learning with partially propagated terminal feedback underexplored. 
+% To address this gap, we propose BarrierShare, a distributed online learning framework for hierarchical decision systems with partially propagated terminal feedback.
+% Our key insight is that partial propagation is a structural property of the hierarchy: terminal information can be aggregated within shared regions, but must switch to local bandit-style learning once a propagation barrier is reached. 
+% Concretely, BarrierShare combines recursive aggregation over barrier-free shared regions, local bandit updates at risky nodes, and barrier-limited delta propagation that stops at the first structural barrier.
+% Experiments on simulation and fixed-stage agent workflows evaluate whether these mechanisms improve regret, preserve the predicted long-safe-suffix and depth-scaling behavior, and remain practical under LLM-call, token, and latency costs.
+
+Driven by large language models (LLMs), agentic systems have become increasingly powerful in solving real-world tasks, which can be naturally modeled as multi-stage workflows. 
+These tasks often require distinct capabilities at different stages, 
+and different LLM agents exhibit heterogeneous abilities. 
+To complete a multi-stage task efficiently, 
+it is necessary to select the most favorable agent for each stage, making effective agent selection a critical problem.
+To address this challenge, we develop an efficient online learning approach that adaptively learns the optimal agent selection for each stage in a distributed manner. 
+We first formulate this problem as a multi-stage multi-armed bandit (MAB) problem. Instead of applying existing multi-stage MAB algorithms, 
+we observe that overall performance can be significantly improved 
+by allowing agents to share only a limited amount of feedback information. 
+Leveraging this insight, we propose an EXP3-style algorithm for agent selection. Furthermore, to accommodate scenarios where not all agents are willing to share feedback, we extend the proposed algorithm to a setting where only a subset of agents opt into feedback sharing, and we show that the algorithm can still benefit from partial feedback.
+Both synthetic data-driven simulations and real-world LLM agent-based experiments demonstrate that the proposed agent selection mechanism outperforms existing approaches.
+\end{abstract}

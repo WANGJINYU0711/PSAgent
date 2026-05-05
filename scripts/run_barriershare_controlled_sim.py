@@ -693,7 +693,6 @@ class ControlledTreeEnv:
             oracle_action="synthetic",
             terminal_cost=observed,
             raw_terminal_penalty=observed,
-            raw_path_cost_component=0.0,
             raw_reasoning_cost_component=0.0,
             raw_total_cost=observed,
             normalized_terminal_penalty=observed,

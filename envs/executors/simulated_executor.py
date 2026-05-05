@@ -11,38 +11,6 @@ from .base_executor import BaseExecutor
 from tree_family.specs import AgentSpec, TaskDescriptor
 
 
-STAGE_ATTRIBUTE_FOCUS = {
-    "stage1": [
-        "user_grounding",
-        "account_lookup",
-        "line_resolution",
-        "verification",
-    ],
-    "stage2": [
-        "account_lookup",
-        "line_resolution",
-        "roaming_diagnosis",
-    ],
-    "stage3": [
-        "network_diagnosis",
-        "permission_diagnosis",
-        "apn_diagnosis",
-        "roaming_diagnosis",
-    ],
-    "stage4": [
-        "network_diagnosis",
-        "permission_diagnosis",
-        "apn_diagnosis",
-        "repair_execution",
-    ],
-    "stage5": [
-        "repair_execution",
-        "verification",
-        "terminal_decision",
-    ],
-}
-
-
 class SimulatedExecutor(BaseExecutor):
     def run_path(
         self,
@@ -92,7 +60,7 @@ class SimulatedExecutor(BaseExecutor):
         stage_outputs["stage5"]["output"] = predicted_stage5
 
         leaf_type = "unshared" if any(agent_map[agent_id].g == 1 for agent_id in path) else "shared"
-        path_agent_cost = sum(agent_map[agent_id].base_cost for agent_id in path)
+        path_agent_cost = 0.0
 
         return {
             "final_action": predicted_stage5["final_action"],
@@ -105,13 +73,6 @@ class SimulatedExecutor(BaseExecutor):
         }
 
     def _effective_score(self, task: TaskDescriptor, stage_name: str, agent: AgentSpec) -> float:
-        stage_requirement = self._stage_requirement(task, stage_name)
-        total_attr_weight = max(1e-9, sum(stage_requirement.values()))
-        match = sum(
-            stage_requirement.get(attr_id, 0.0) * agent.attribute_skill.get(attr_id, 0.0)
-            for attr_id in stage_requirement
-        ) / total_attr_weight
-
         competence_bonus = 0.15 if agent.competence_level == "high" else 0.0
         scope_bonus = self._scope_bonus(task, stage_name, agent)
         deliberation_bonus = self._deliberation_bonus(task, stage_name, agent)
@@ -123,32 +84,13 @@ class SimulatedExecutor(BaseExecutor):
             sigma=0.03 if agent.stability_level == "stable" else 0.10,
         )
 
-        score = match + competence_bonus + scope_bonus + deliberation_bonus - difficulty_penalty + noise
+        score = 0.55 + competence_bonus + scope_bonus + deliberation_bonus - difficulty_penalty + noise
         return max(0.0, min(1.0, score))
 
     def _scope_bonus(self, task: TaskDescriptor, stage_name: str, agent: AgentSpec) -> float:
-        focus = set(STAGE_ATTRIBUTE_FOCUS[stage_name])
-        stage_requirement = self._stage_requirement(task, stage_name)
-        top_task_attrs = {
-            attr_id
-            for attr_id, _ in sorted(
-                stage_requirement.items(),
-                key=lambda item: item[1],
-                reverse=True,
-            )[:3]
-        }
-        top_agent_attrs = {
-            attr_id
-            for attr_id, _ in sorted(
-                agent.attribute_skill.items(),
-                key=lambda item: item[1],
-                reverse=True,
-            )[:3]
-        }
-        overlap = len((top_task_attrs | focus) & top_agent_attrs)
         if agent.scope_level == "broad":
-            return 0.02 * min(overlap, 2)
-        return 0.05 * overlap - 0.04 * max(0, 2 - overlap)
+            return 0.03
+        return 0.0
 
     def _stage_requirement(self, task: TaskDescriptor, stage_name: str) -> dict[str, float]:
         if task.stage_capability_requirements and stage_name in task.stage_capability_requirements:

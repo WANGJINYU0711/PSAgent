@@ -1,0 +1,339 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1694" viewBox="0 0 1240 1694">
+<style>
+  .bg { fill: #fbfbf8; }
+  .title { font: 700 22px Arial, sans-serif; fill: #1f2933; }
+  .subtitle { font: 13px Arial, sans-serif; fill: #52616b; }
+  .stage { font: 700 12px Arial, sans-serif; fill: #52616b; text-anchor: middle; }
+  .edge { fill: none; stroke: #a7b0ba; stroke-width: 1.4; }
+  .node { stroke: #24313f; stroke-width: 1.1; rx: 7; ry: 7; }
+  .g0.fast { fill: #d7f0ec; }
+  .g0.deep { fill: #dff3e6; }
+  .g1.fast { fill: #ffe0dc; }
+  .g1.deep { fill: #eadcff; }
+  .root { fill: #e8eef7; }
+  .node-title { font: 700 10.3px Arial, sans-serif; fill: #1f2933; }
+  .node-meta { font: 10px Arial, sans-serif; fill: #3d4a57; }
+  .leaf { font: 700 9.5px Arial, sans-serif; fill: #111827; text-anchor: middle; }
+  .seq { font: 9.5px Arial, sans-serif; fill: #52616b; text-anchor: middle; }
+  .legend { font: 12px Arial, sans-serif; fill: #374151; }
+</style>
+<rect class="bg" width="1240" height="1694" />
+<text class="title" x="34" y="34">trap_asym_v6_small30_2of5 mixed fast/deep tree</text>
+<text class="subtitle" x="34" y="56">30 leaves; share leaves=12/30; share internal=12/30; share-closed=true; unique FD sequences=18</text>
+<rect x="34" y="68" width="14" height="14" rx="3" fill="#dff3e6" stroke="#24313f" />
+<text class="legend" x="54" y="80">g=0 deep</text>
+<rect x="132" y="68" width="14" height="14" rx="3" fill="#d7f0ec" stroke="#24313f" />
+<text class="legend" x="152" y="80">g=0 fast</text>
+<rect x="230" y="68" width="14" height="14" rx="3" fill="#ffe0dc" stroke="#24313f" />
+<text class="legend" x="250" y="80">g=1 fast</text>
+<rect x="328" y="68" width="14" height="14" rx="3" fill="#eadcff" stroke="#24313f" />
+<text class="legend" x="348" y="80">g=1 deep</text>
+<text class="legend" x="450" y="80">Stage5 nodes show FD sequence above the node label</text>
+<text class="stage" x="180" y="94">stage1</text>
+<text class="stage" x="360" y="94">stage2</text>
+<text class="stage" x="560" y="94">stage3</text>
+<text class="stage" x="790" y="94">stage4</text>
+<text class="stage" x="1040" y="94">stage5</text>
+<rect class="node root" x="45.0" y="656.6" width="52" height="34.0" />
+<text class="node-title" x="58.0" y="677.6">ROOT</text>
+<path class="edge" d="M 97.0 673.6 C 115.0 673.6, 162.0 242.0, 180.0 242.0" />
+<path class="edge" d="M 97.0 673.6 C 115.0 673.6, 162.0 1105.2, 180.0 1105.2" />
+<path class="edge" d="M 338.0 242.0 C 356.0 242.0, 342.0 242.0, 360.0 242.0" />
+<path class="edge" d="M 338.0 1105.2 C 356.0 1105.2, 342.0 606.0, 360.0 606.0" />
+<path class="edge" d="M 338.0 1105.2 C 356.0 1105.2, 342.0 918.0, 360.0 918.0" />
+<path class="edge" d="M 338.0 1105.2 C 356.0 1105.2, 342.0 1126.0, 360.0 1126.0" />
+<path class="edge" d="M 338.0 1105.2 C 356.0 1105.2, 342.0 1334.0, 360.0 1334.0" />
+<path class="edge" d="M 338.0 1105.2 C 356.0 1105.2, 342.0 1542.0, 360.0 1542.0" />
+<path class="edge" d="M 518.0 242.0 C 536.0 242.0, 542.0 242.0, 560.0 242.0" />
+<path class="edge" d="M 518.0 606.0 C 536.0 606.0, 542.0 502.0, 560.0 502.0" />
+<path class="edge" d="M 518.0 606.0 C 536.0 606.0, 542.0 710.0, 560.0 710.0" />
+<path class="edge" d="M 518.0 918.0 C 536.0 918.0, 542.0 918.0, 560.0 918.0" />
+<path class="edge" d="M 518.0 1126.0 C 536.0 1126.0, 542.0 1126.0, 560.0 1126.0" />
+<path class="edge" d="M 518.0 1334.0 C 536.0 1334.0, 542.0 1334.0, 560.0 1334.0" />
+<path class="edge" d="M 518.0 1542.0 C 536.0 1542.0, 542.0 1542.0, 560.0 1542.0" />
+<path class="edge" d="M 718.0 242.0 C 736.0 242.0, 772.0 138.0, 790.0 138.0" />
+<path class="edge" d="M 718.0 242.0 C 736.0 242.0, 772.0 242.0, 790.0 242.0" />
+<path class="edge" d="M 718.0 242.0 C 736.0 242.0, 772.0 346.0, 790.0 346.0" />
+<path class="edge" d="M 718.0 502.0 C 736.0 502.0, 772.0 450.0, 790.0 450.0" />
+<path class="edge" d="M 718.0 502.0 C 736.0 502.0, 772.0 554.0, 790.0 554.0" />
+<path class="edge" d="M 718.0 710.0 C 736.0 710.0, 772.0 658.0, 790.0 658.0" />
+<path class="edge" d="M 718.0 710.0 C 736.0 710.0, 772.0 762.0, 790.0 762.0" />
+<path class="edge" d="M 718.0 918.0 C 736.0 918.0, 772.0 866.0, 790.0 866.0" />
+<path class="edge" d="M 718.0 918.0 C 736.0 918.0, 772.0 970.0, 790.0 970.0" />
+<path class="edge" d="M 718.0 1126.0 C 736.0 1126.0, 772.0 1074.0, 790.0 1074.0" />
+<path class="edge" d="M 718.0 1126.0 C 736.0 1126.0, 772.0 1178.0, 790.0 1178.0" />
+<path class="edge" d="M 718.0 1334.0 C 736.0 1334.0, 772.0 1282.0, 790.0 1282.0" />
+<path class="edge" d="M 718.0 1334.0 C 736.0 1334.0, 772.0 1386.0, 790.0 1386.0" />
+<path class="edge" d="M 718.0 1542.0 C 736.0 1542.0, 772.0 1490.0, 790.0 1490.0" />
+<path class="edge" d="M 718.0 1542.0 C 736.0 1542.0, 772.0 1594.0, 790.0 1594.0" />
+<path class="edge" d="M 948.0 138.0 C 966.0 138.0, 1022.0 112.0, 1040.0 112.0" />
+<path class="edge" d="M 948.0 138.0 C 966.0 138.0, 1022.0 164.0, 1040.0 164.0" />
+<path class="edge" d="M 948.0 242.0 C 966.0 242.0, 1022.0 216.0, 1040.0 216.0" />
+<path class="edge" d="M 948.0 242.0 C 966.0 242.0, 1022.0 268.0, 1040.0 268.0" />
+<path class="edge" d="M 948.0 346.0 C 966.0 346.0, 1022.0 320.0, 1040.0 320.0" />
+<path class="edge" d="M 948.0 346.0 C 966.0 346.0, 1022.0 372.0, 1040.0 372.0" />
+<path class="edge" d="M 948.0 450.0 C 966.0 450.0, 1022.0 424.0, 1040.0 424.0" />
+<path class="edge" d="M 948.0 450.0 C 966.0 450.0, 1022.0 476.0, 1040.0 476.0" />
+<path class="edge" d="M 948.0 554.0 C 966.0 554.0, 1022.0 528.0, 1040.0 528.0" />
+<path class="edge" d="M 948.0 554.0 C 966.0 554.0, 1022.0 580.0, 1040.0 580.0" />
+<path class="edge" d="M 948.0 658.0 C 966.0 658.0, 1022.0 632.0, 1040.0 632.0" />
+<path class="edge" d="M 948.0 658.0 C 966.0 658.0, 1022.0 684.0, 1040.0 684.0" />
+<path class="edge" d="M 948.0 762.0 C 966.0 762.0, 1022.0 736.0, 1040.0 736.0" />
+<path class="edge" d="M 948.0 762.0 C 966.0 762.0, 1022.0 788.0, 1040.0 788.0" />
+<path class="edge" d="M 948.0 866.0 C 966.0 866.0, 1022.0 840.0, 1040.0 840.0" />
+<path class="edge" d="M 948.0 866.0 C 966.0 866.0, 1022.0 892.0, 1040.0 892.0" />
+<path class="edge" d="M 948.0 970.0 C 966.0 970.0, 1022.0 944.0, 1040.0 944.0" />
+<path class="edge" d="M 948.0 970.0 C 966.0 970.0, 1022.0 996.0, 1040.0 996.0" />
+<path class="edge" d="M 948.0 1074.0 C 966.0 1074.0, 1022.0 1048.0, 1040.0 1048.0" />
+<path class="edge" d="M 948.0 1074.0 C 966.0 1074.0, 1022.0 1100.0, 1040.0 1100.0" />
+<path class="edge" d="M 948.0 1178.0 C 966.0 1178.0, 1022.0 1152.0, 1040.0 1152.0" />
+<path class="edge" d="M 948.0 1178.0 C 966.0 1178.0, 1022.0 1204.0, 1040.0 1204.0" />
+<path class="edge" d="M 948.0 1282.0 C 966.0 1282.0, 1022.0 1256.0, 1040.0 1256.0" />
+<path class="edge" d="M 948.0 1282.0 C 966.0 1282.0, 1022.0 1308.0, 1040.0 1308.0" />
+<path class="edge" d="M 948.0 1386.0 C 966.0 1386.0, 1022.0 1360.0, 1040.0 1360.0" />
+<path class="edge" d="M 948.0 1386.0 C 966.0 1386.0, 1022.0 1412.0, 1040.0 1412.0" />
+<path class="edge" d="M 948.0 1490.0 C 966.0 1490.0, 1022.0 1464.0, 1040.0 1464.0" />
+<path class="edge" d="M 948.0 1490.0 C 966.0 1490.0, 1022.0 1516.0, 1040.0 1516.0" />
+<path class="edge" d="M 948.0 1594.0 C 966.0 1594.0, 1022.0 1568.0, 1040.0 1568.0" />
+<path class="edge" d="M 948.0 1594.0 C 966.0 1594.0, 1022.0 1620.0, 1040.0 1620.0" />
+<rect class="node g1 fast" x="180.0" y="225.0" width="158.0" height="34.0" />
+<text class="node-title" x="187.0" y="238.0">s1_n0_fast_trap_root</text>
+<text class="node-meta" x="187.0" y="252.0">g=1 | fast | stage1_n4</text>
+<rect class="node g1 deep" x="180.0" y="1088.2" width="158.0" height="34.0" />
+<text class="node-title" x="187.0" y="1101.2">s1_n1_full_share_target...</text>
+<text class="node-meta" x="187.0" y="1115.2">g=1 | deep | stage1_n2</text>
+<rect class="node g1 fast" x="360.0" y="225.0" width="158.0" height="34.0" />
+<text class="node-title" x="367.0" y="238.0">s2_n0_fast_trap_router</text>
+<text class="node-meta" x="367.0" y="252.0">g=1 | fast | stage2_n3</text>
+<rect class="node g1 deep" x="360.0" y="589.0" width="158.0" height="34.0" />
+<text class="node-title" x="367.0" y="602.0">s2_n1_target_router_A</text>
+<text class="node-meta" x="367.0" y="616.0">g=1 | deep | stage2_n1</text>
+<rect class="node g0 fast" x="360.0" y="901.0" width="158.0" height="34.0" />
+<text class="node-title" x="367.0" y="914.0">s2_n2_general_core_B</text>
+<text class="node-meta" x="367.0" y="928.0">g=0 | fast | stage2_n2</text>
+<rect class="node g0 deep" x="360.0" y="1109.0" width="158.0" height="34.0" />
+<text class="node-title" x="367.0" y="1122.0">s2_n3_general_roaming_C</text>
+<text class="node-meta" x="367.0" y="1136.0">g=0 | deep | stage2_n4</text>
+<rect class="node g0 deep" x="360.0" y="1317.0" width="158.0" height="34.0" />
+<text class="node-title" x="367.0" y="1330.0">s2_n4_target_router_D</text>
+<text class="node-meta" x="367.0" y="1344.0">g=0 | deep | stage2_n1</text>
+<rect class="node g1 fast" x="360.0" y="1525.0" width="158.0" height="34.0" />
+<text class="node-title" x="367.0" y="1538.0">s2_n5_general_core_E</text>
+<text class="node-meta" x="367.0" y="1552.0">g=1 | fast | stage2_n2</text>
+<rect class="node g1 fast" x="560.0" y="225.0" width="158.0" height="34.0" />
+<text class="node-title" x="567.0" y="238.0">s3_n0_fast_trap_network</text>
+<text class="node-meta" x="567.0" y="252.0">g=1 | fast | stage3_n4</text>
+<rect class="node g1 deep" x="560.0" y="485.0" width="158.0" height="34.0" />
+<text class="node-title" x="567.0" y="498.0">s3_n1_target_apn_A1</text>
+<text class="node-meta" x="567.0" y="512.0">g=1 | deep | stage3_n1</text>
+<rect class="node g1 fast" x="560.0" y="693.0" width="158.0" height="34.0" />
+<text class="node-title" x="567.0" y="706.0">s3_n2_trapfast_wrapper_A2</text>
+<text class="node-meta" x="567.0" y="720.0">g=1 | fast | stage3_n4</text>
+<rect class="node g0 deep" x="560.0" y="901.0" width="158.0" height="34.0" />
+<text class="node-title" x="567.0" y="914.0">s3_n3_general_network_B1</text>
+<text class="node-meta" x="567.0" y="928.0">g=0 | deep | stage3_n3</text>
+<rect class="node g0 deep" x="560.0" y="1109.0" width="158.0" height="34.0" />
+<text class="node-title" x="567.0" y="1122.0">s3_n4_target_roaming_C1</text>
+<text class="node-meta" x="567.0" y="1136.0">g=0 | deep | stage3_n2</text>
+<rect class="node g0 fast" x="560.0" y="1317.0" width="158.0" height="34.0" />
+<text class="node-title" x="567.0" y="1330.0">s3_n5_fast_network_D1</text>
+<text class="node-meta" x="567.0" y="1344.0">g=0 | fast | stage3_n4</text>
+<rect class="node g1 fast" x="560.0" y="1525.0" width="158.0" height="34.0" />
+<text class="node-title" x="567.0" y="1538.0">s3_n6_fast_network_E1</text>
+<text class="node-meta" x="567.0" y="1552.0">g=1 | fast | stage3_n4</text>
+<rect class="node g1 fast" x="790.0" y="121.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="134.0">s4_n0_fast_trap_execute_A</text>
+<text class="node-meta" x="797.0" y="148.0">g=1 | fast | stage4_n4</text>
+<rect class="node g1 deep" x="790.0" y="225.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="238.0">s4_n1_deep_trap_repair_B</text>
+<text class="node-meta" x="797.0" y="252.0">g=1 | deep | stage4_n1</text>
+<rect class="node g1 fast" x="790.0" y="329.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="342.0">s4_n2_fast_trap_execute_C</text>
+<text class="node-meta" x="797.0" y="356.0">g=1 | fast | stage4_n4</text>
+<rect class="node g1 deep" x="790.0" y="433.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="446.0">s4_n03_shared_mixed_1_1</text>
+<text class="node-meta" x="797.0" y="460.0">g=1 | deep | stage4_n1</text>
+<rect class="node g1 fast" x="790.0" y="537.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="550.0">s4_n04_shared_mixed_1_2</text>
+<text class="node-meta" x="797.0" y="564.0">g=1 | fast | stage4_n4</text>
+<rect class="node g1 deep" x="790.0" y="641.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="654.0">s4_n05_shared_mixed_2_1</text>
+<text class="node-meta" x="797.0" y="668.0">g=1 | deep | stage4_n2</text>
+<rect class="node g1 fast" x="790.0" y="745.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="758.0">s4_n06_shared_mixed_2_2</text>
+<text class="node-meta" x="797.0" y="772.0">g=1 | fast | stage4_n4</text>
+<rect class="node g0 fast" x="790.0" y="849.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="862.0">s4_n07_shared_mixed_3_1</text>
+<text class="node-meta" x="797.0" y="876.0">g=0 | fast | stage4_n4</text>
+<rect class="node g0 deep" x="790.0" y="953.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="966.0">s4_n08_shared_mixed_3_2</text>
+<text class="node-meta" x="797.0" y="980.0">g=0 | deep | stage4_n3</text>
+<rect class="node g0 deep" x="790.0" y="1057.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="1070.0">s4_n09_shared_mixed_4_1</text>
+<text class="node-meta" x="797.0" y="1084.0">g=0 | deep | stage4_n1</text>
+<rect class="node g0 fast" x="790.0" y="1161.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="1174.0">s4_n10_shared_mixed_4_2</text>
+<text class="node-meta" x="797.0" y="1188.0">g=0 | fast | stage4_n4</text>
+<rect class="node g0 deep" x="790.0" y="1265.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="1278.0">s4_n11_shared_mixed_5_1</text>
+<text class="node-meta" x="797.0" y="1292.0">g=0 | deep | stage4_n2</text>
+<rect class="node g0 fast" x="790.0" y="1369.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="1382.0">s4_n12_shared_mixed_5_2</text>
+<text class="node-meta" x="797.0" y="1396.0">g=0 | fast | stage4_n4</text>
+<rect class="node g1 fast" x="790.0" y="1473.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="1486.0">s4_n13_shared_mixed_6_1</text>
+<text class="node-meta" x="797.0" y="1500.0">g=1 | fast | stage4_n4</text>
+<rect class="node g1 deep" x="790.0" y="1577.0" width="158.0" height="34.0" />
+<text class="node-title" x="797.0" y="1590.0">s4_n14_shared_mixed_6_2</text>
+<text class="node-meta" x="797.0" y="1604.0">g=1 | deep | stage4_n3</text>
+<rect class="node g1 fast" x="1040.0" y="95.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="108.0">s5_n00_L00_mixed_trap_fast</text>
+<text class="node-meta" x="1047.0" y="122.0">g=1 | fast | stage5_n4</text>
+<text class="seq" x="1119.0" y="90.0">FFFFF</text>
+<text class="leaf" x="1216.0" y="116.0">L00</text>
+<rect class="node g1 deep" x="1040.0" y="147.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="160.0">s5_n01_L01_mixed_trap_deep</text>
+<text class="node-meta" x="1047.0" y="174.0">g=1 | deep | stage5_n1</text>
+<text class="seq" x="1119.0" y="142.0">FFFFD</text>
+<text class="leaf" x="1216.0" y="168.0">L01</text>
+<rect class="node g1 fast" x="1040.0" y="199.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="212.0">s5_n02_L02_mixed_trap_fast</text>
+<text class="node-meta" x="1047.0" y="226.0">g=1 | fast | stage5_n4</text>
+<text class="seq" x="1119.0" y="194.0">FFFDF</text>
+<text class="leaf" x="1216.0" y="220.0">L02</text>
+<rect class="node g1 deep" x="1040.0" y="251.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="264.0">s5_n03_L03_mixed_trap_deep</text>
+<text class="node-meta" x="1047.0" y="278.0">g=1 | deep | stage5_n2</text>
+<text class="seq" x="1119.0" y="246.0">FFFDD</text>
+<text class="leaf" x="1216.0" y="272.0">L03</text>
+<rect class="node g1 deep" x="1040.0" y="303.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="316.0">s5_n04_L04_mixed_trap_deep</text>
+<text class="node-meta" x="1047.0" y="330.0">g=1 | deep | stage5_n2</text>
+<text class="seq" x="1119.0" y="298.0">FFFFD</text>
+<text class="leaf" x="1216.0" y="324.0">L04</text>
+<rect class="node g1 fast" x="1040.0" y="355.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="368.0">s5_n05_L05_mixed_trap_fast</text>
+<text class="node-meta" x="1047.0" y="382.0">g=1 | fast | stage5_n4</text>
+<text class="seq" x="1119.0" y="350.0">FFFFF</text>
+<text class="leaf" x="1216.0" y="376.0">L05</text>
+<rect class="node g1 deep" x="1040.0" y="407.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="420.0">s5_n06_L06_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="434.0">g=1 | deep | stage5_n1</text>
+<text class="seq" x="1119.0" y="402.0">DDDDD</text>
+<text class="leaf" x="1216.0" y="428.0">L06</text>
+<rect class="node g1 fast" x="1040.0" y="459.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="472.0">s5_n07_L07_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="486.0">g=1 | fast | stage5_n4</text>
+<text class="seq" x="1119.0" y="454.0">DDDDF</text>
+<text class="leaf" x="1216.0" y="480.0">L07</text>
+<rect class="node g1 deep" x="1040.0" y="511.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="524.0">s5_n08_L08_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="538.0">g=1 | deep | stage5_n2</text>
+<text class="seq" x="1119.0" y="506.0">DDDFD</text>
+<text class="leaf" x="1216.0" y="532.0">L08</text>
+<rect class="node g1 deep" x="1040.0" y="563.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="576.0">s5_n09_L09_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="590.0">g=1 | deep | stage5_n1</text>
+<text class="seq" x="1119.0" y="558.0">DDDFD</text>
+<text class="leaf" x="1216.0" y="584.0">L09</text>
+<rect class="node g1 fast" x="1040.0" y="615.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="628.0">s5_n10_L10_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="642.0">g=1 | fast | stage5_n4</text>
+<text class="seq" x="1119.0" y="610.0">DDFDF</text>
+<text class="leaf" x="1216.0" y="636.0">L10</text>
+<rect class="node g1 deep" x="1040.0" y="667.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="680.0">s5_n11_L11_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="694.0">g=1 | deep | stage5_n2</text>
+<text class="seq" x="1119.0" y="662.0">DDFDD</text>
+<text class="leaf" x="1216.0" y="688.0">L11</text>
+<rect class="node g1 deep" x="1040.0" y="719.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="732.0">s5_n12_L12_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="746.0">g=1 | deep | stage5_n1</text>
+<text class="seq" x="1119.0" y="714.0">DDFFD</text>
+<text class="leaf" x="1216.0" y="740.0">L12</text>
+<rect class="node g1 fast" x="1040.0" y="771.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="784.0">s5_n13_L13_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="798.0">g=1 | fast | stage5_n4</text>
+<text class="seq" x="1119.0" y="766.0">DDFFF</text>
+<text class="leaf" x="1216.0" y="792.0">L13</text>
+<rect class="node g0 deep" x="1040.0" y="823.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="836.0">s5_n14_L14_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="850.0">g=0 | deep | stage5_n2</text>
+<text class="seq" x="1119.0" y="818.0">DFDFD</text>
+<text class="leaf" x="1216.0" y="844.0">L14</text>
+<rect class="node g0 deep" x="1040.0" y="875.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="888.0">s5_n15_L15_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="902.0">g=0 | deep | stage5_n1</text>
+<text class="seq" x="1119.0" y="870.0">DFDFD</text>
+<text class="leaf" x="1216.0" y="896.0">L15</text>
+<rect class="node g0 fast" x="1040.0" y="927.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="940.0">s5_n16_L16_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="954.0">g=0 | fast | stage5_n4</text>
+<text class="seq" x="1119.0" y="922.0">DFDDF</text>
+<text class="leaf" x="1216.0" y="948.0">L16</text>
+<rect class="node g0 deep" x="1040.0" y="979.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="992.0">s5_n17_L17_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1006.0">g=0 | deep | stage5_n2</text>
+<text class="seq" x="1119.0" y="974.0">DFDDD</text>
+<text class="leaf" x="1216.0" y="1000.0">L17</text>
+<rect class="node g0 deep" x="1040.0" y="1031.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1044.0">s5_n18_L18_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1058.0">g=0 | deep | stage5_n1</text>
+<text class="seq" x="1119.0" y="1026.0">DDDDD</text>
+<text class="leaf" x="1216.0" y="1052.0">L18</text>
+<rect class="node g0 deep" x="1040.0" y="1083.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1096.0">s5_n19_L19_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1110.0">g=0 | deep | stage5_n2</text>
+<text class="seq" x="1119.0" y="1078.0">DDDDD</text>
+<text class="leaf" x="1216.0" y="1104.0">L19</text>
+<rect class="node g0 fast" x="1040.0" y="1135.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1148.0">s5_n20_L20_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1162.0">g=0 | fast | stage5_n4</text>
+<text class="seq" x="1119.0" y="1130.0">DDDFF</text>
+<text class="leaf" x="1216.0" y="1156.0">L20</text>
+<rect class="node g0 deep" x="1040.0" y="1187.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1200.0">s5_n21_L21_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1214.0">g=0 | deep | stage5_n1</text>
+<text class="seq" x="1119.0" y="1182.0">DDDFD</text>
+<text class="leaf" x="1216.0" y="1208.0">L21</text>
+<rect class="node g0 deep" x="1040.0" y="1239.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1252.0">s5_n22_L22_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1266.0">g=0 | deep | stage5_n2</text>
+<text class="seq" x="1119.0" y="1234.0">DDFDD</text>
+<text class="leaf" x="1216.0" y="1260.0">L22</text>
+<rect class="node g0 fast" x="1040.0" y="1291.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1304.0">s5_n23_L23_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1318.0">g=0 | fast | stage5_n4</text>
+<text class="seq" x="1119.0" y="1286.0">DDFDF</text>
+<text class="leaf" x="1216.0" y="1312.0">L23</text>
+<rect class="node g0 deep" x="1040.0" y="1343.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1356.0">s5_n24_L24_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1370.0">g=0 | deep | stage5_n1</text>
+<text class="seq" x="1119.0" y="1338.0">DDFFD</text>
+<text class="leaf" x="1216.0" y="1364.0">L24</text>
+<rect class="node g0 deep" x="1040.0" y="1395.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1408.0">s5_n25_L25_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1422.0">g=0 | deep | stage5_n2</text>
+<text class="seq" x="1119.0" y="1390.0">DDFFD</text>
+<text class="leaf" x="1216.0" y="1416.0">L25</text>
+<rect class="node g1 fast" x="1040.0" y="1447.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1460.0">s5_n26_L26_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1474.0">g=1 | fast | stage5_n4</text>
+<text class="seq" x="1119.0" y="1442.0">DFFFF</text>
+<text class="leaf" x="1216.0" y="1468.0">L26</text>
+<rect class="node g1 deep" x="1040.0" y="1499.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1512.0">s5_n27_L27_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1526.0">g=1 | deep | stage5_n1</text>
+<text class="seq" x="1119.0" y="1494.0">DFFFD</text>
+<text class="leaf" x="1216.0" y="1520.0">L27</text>
+<rect class="node g1 deep" x="1040.0" y="1551.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1564.0">s5_n28_L28_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1578.0">g=1 | deep | stage5_n2</text>
+<text class="seq" x="1119.0" y="1546.0">DFFDD</text>
+<text class="leaf" x="1216.0" y="1572.0">L28</text>
+<rect class="node g1 deep" x="1040.0" y="1603.0" width="158.0" height="34.0" />
+<text class="node-title" x="1047.0" y="1616.0">s5_n29_L29_mixed_target...</text>
+<text class="node-meta" x="1047.0" y="1630.0">g=1 | deep | stage5_n1</text>
+<text class="seq" x="1119.0" y="1598.0">DFFDD</text>
+<text class="leaf" x="1216.0" y="1624.0">L29</text>
+</svg>

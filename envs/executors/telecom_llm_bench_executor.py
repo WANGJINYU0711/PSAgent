@@ -86,34 +86,10 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         self.llm_args = llm_args or {"temperature": 0.0}
         self.llm_bridge_script = Path(__file__).with_name("_telecom_llm_bench_bridge.py")
         self.tau2_root = self.root / "tau2-bench"
-        self.attribute_weakening_level = self._attribute_weakening_level_from_env()
         self.experiment_setting = AGENT_PROFILE_ONLY_EXPERIMENT_SETTING
 
-    def _attribute_weakening_level_from_env(self) -> int:
-        raw = str(os.environ.get("PSAGENT_ATTRIBUTE_WEAKENING_LEVEL", "0")).strip()
-        try:
-            level = int(raw)
-        except ValueError:
-            return 0
-        return min(max(level, 0), 4)
-
-    def _attribute_guidance_enabled(self) -> bool:
-        # Clean profile-only runs keep stage/task capability hints out of the LLM prompt.
-        return False
-
-    def _attribute_weak_skip_enabled(self) -> bool:
-        return self._attribute_guidance_enabled() and self.attribute_weakening_level < 2
-
-    def _attribute_verification_priority_enabled(self) -> bool:
-        return self._attribute_guidance_enabled() and self.attribute_weakening_level < 3
-
     def _attribute_prompt_context_sentence(self) -> str:
-        if not self._attribute_guidance_enabled():
-            return "You are given only the selected agent's deliberation mode and execution profile.\n"
-        return (
-            "You are given a soft capability-fit summary and the selected agent deliberation mode.\n"
-            "Capability-fit cues are weak hints only. They must not override stage evidence, hard rules, or the execution contract.\n"
-        )
+        return "You are given only the selected agent's deliberation mode and execution profile.\n"
 
     def _strict_error_propagation_enabled(self) -> bool:
         return self.experiment_setting in {
@@ -221,25 +197,8 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         stage_name: str,
         agent: AgentSpec,
     ) -> dict[str, Any]:
-        if not self._attribute_guidance_enabled():
-            return {}
-        return {
-            "agent_capability_profile": self._build_agent_capability_profile(agent),
-            "current_stage_capability_requirements": self._build_stage_requirement_summary(
-                task, stage_name
-            ),
-            "capability_match_summary": self._build_capability_match_summary(
-                task, stage_name, agent
-            ),
-            "attribute_guidance_mode": (
-                "weak_hint_with_verification_priority"
-                if self._attribute_verification_priority_enabled()
-                else "weak_hint_only"
-            ),
-            "attribute_guidance_note": (
-                "Capability-fit summaries are non-binding hints. Do not treat higher-fit/lower-fit buckets as mandatory routing rules."
-            ),
-        }
+        del task, stage_name, agent
+        return {}
 
     def _blocker_spec_safe(self, blocker_id: str) -> dict[str, Any]:
         try:
@@ -1279,18 +1238,6 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
             return "deep" if requirement == "deep" else "fast"
         return "deep" if task.stage_difficulty.get(stage_name, 0.0) >= 0.42 else "fast"
 
-    def _build_agent_capability_profile(self, agent: AgentSpec) -> dict[str, Any]:
-        ranked = sorted(
-            agent.attribute_skill.items(),
-            key=lambda item: (item[1], item[0]),
-            reverse=True,
-        )
-        low_ranked = sorted(agent.attribute_skill.items(), key=lambda item: (item[1], item[0]))
-        return {
-            "higher_fit_axes": [[name, round(float(score), 3)] for name, score in ranked[:5]],
-            "lower_fit_axes": [[name, round(float(score), 3)] for name, score in low_ranked[:5]],
-        }
-
     def _build_agent_deliberation_profile(self, agent: AgentSpec) -> dict[str, Any]:
         mode = getattr(agent, "deliberation_mode", "deep")
         return {
@@ -1423,51 +1370,6 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
         ]
         return "\n".join(lines)
 
-    def _build_stage_requirement_summary(self, task: TaskDescriptor, stage_name: str) -> list[list[Any]]:
-        requirement = self._stage_requirement_map(task, stage_name)
-        ranked = sorted(requirement.items(), key=lambda item: (item[1], item[0]), reverse=True)
-        return [[name, round(float(score), 3)] for name, score in ranked[:4] if score > 0.0]
-
-    def _build_capability_match_summary(
-        self,
-        task: TaskDescriptor,
-        stage_name: str,
-        agent: AgentSpec,
-    ) -> dict[str, Any]:
-        requirement = self._stage_requirement_map(task, stage_name)
-        weighted_rows: list[dict[str, Any]] = []
-        for capability_name, weight in sorted(
-            requirement.items(),
-            key=lambda item: (item[1], item[0]),
-            reverse=True,
-        ):
-            if float(weight) <= 0.0:
-                continue
-            skill_score = float(agent.attribute_skill.get(capability_name, 0.0))
-            if skill_score >= 0.75:
-                priority_bucket = "higher_fit"
-            elif skill_score <= 0.4:
-                priority_bucket = "lower_fit"
-            else:
-                priority_bucket = "middle_fit"
-            weighted_rows.append(
-                {
-                    "capability": capability_name,
-                    "requirement_weight": round(float(weight), 3),
-                    "agent_skill": round(skill_score, 3),
-                    "priority_bucket": priority_bucket,
-                }
-            )
-        return {
-            "required_capability_table": weighted_rows[:5],
-            "higher_fit_capabilities": [
-                row["capability"] for row in weighted_rows if row["priority_bucket"] == "higher_fit"
-            ][:3],
-            "lower_fit_capabilities": [
-                row["capability"] for row in weighted_rows if row["priority_bucket"] == "lower_fit"
-            ][:3],
-        }
-
     def _build_stage_deliberation_summary(
         self,
         task: TaskDescriptor,
@@ -1516,20 +1418,12 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "Do not do secondary verification unless the current fact is decisive for the output.",
                 "Keep the search compact and avoid broad speculative branching.",
             ]
-            if self._attribute_weak_skip_enabled():
-                policy.append(
-                    "If a capability axis appears to be a relative lower-fit area for this route, do only the minimum confirmation needed there before returning to higher-yield evidence."
-                )
         else:
             policy = [
                 "Cross-check the highest-risk facts before finalizing the structured output.",
                 "Spend extra rounds on the highest-risk evidence first, not on broad low-yield exploration.",
                 "Do not finalize stage3-stage5 outputs before the key risk-bearing evidence is verified.",
             ]
-            if self._attribute_verification_priority_enabled():
-                policy.append(
-                    "If multiple evidence branches remain equally plausible, capability-fit priorities may break ties weakly, but only after risk and stage-goal needs are considered."
-                )
 
         if stage_name == "stage3":
             if mode == "fast":
@@ -1586,11 +1480,6 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
     ) -> str:
         del stage_name
         del mode
-        if self._attribute_weak_skip_enabled():
-            return (
-                "Capability-fit cues may weakly suggest where this route is relatively higher-fit or lower-fit, "
-                "but they are not binding and do not justify skipping decisive evidence."
-            )
         return "No stage-level fast/deep requirement is visible. Follow only the selected agent deliberation profile, stage goal, evidence floor, and round budget."
 
     def _stage3_blocker_decision_rules(self, *, mode: str) -> list[str]:
@@ -2437,18 +2326,6 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 stage_name,
                 mode=mode,
             ),
-            "attribute_guidance_mode": (
-                "disabled"
-                if not self._attribute_guidance_enabled()
-                else "weak_hint_with_verification_priority"
-                if self._attribute_verification_priority_enabled()
-                else "weak_hint_only"
-            ),
-            "attribute_guidance_note": (
-                "Capability-fit summaries are non-binding hints only. They may shape tie-breaks when evidence is otherwise equal, but they must not dictate search scope, stopping, or terminal action."
-                if self._attribute_guidance_enabled()
-                else "Capability-fit guidance disabled."
-            ),
         }
 
     def _stage_execution_hard_constraints(
@@ -2499,11 +2376,7 @@ class TelecomLLMBenchExecutor(TelecomBenchBackedExecutor):
                 "6. If the contract says the agent is deep, spend extra rounds on the highest-risk evidence and do not finalize a high-risk output before decisive evidence is verified.",
                 "7. Stay within the round_budget_hint implied by the contract.",
                 f"8. {stage_specific_rules[stage_name]}",
-                (
-                    "9. Capability-fit summaries, when present, are weak hints only. Do not treat them as mandatory routing rules or as justification to skip decisive evidence."
-                    if self._attribute_guidance_enabled()
-                    else "9. No attribute routing rules are active in this run."
-                ),
+                "9. No attribute routing rules are active in this run.",
             ]
         )
 

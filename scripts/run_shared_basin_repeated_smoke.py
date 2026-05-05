@@ -1177,23 +1177,7 @@ def flatten_episode(
             if log.get("raw_total_cost_token") is not None
             else None
         ),
-        "raw_path_cost_component": float(result.raw_path_cost_component),
         "raw_reasoning_cost_component": float(result.raw_reasoning_cost_component),
-        "raw_mode_mismatch_cost_component": float(
-            log.get("raw_mode_mismatch_cost_component", 0.0) or 0.0
-        ),
-        "mode_mismatch_cost_enabled": bool(
-            log.get("mode_mismatch_cost_enabled", False)
-        ),
-        "mode_mismatch_report_only_enabled": bool(
-            log.get("mode_mismatch_report_only_enabled", False)
-        ),
-        "mode_mismatch_fast_on_deep_cost": float(
-            log.get("mode_mismatch_fast_on_deep_cost", 0.0) or 0.0
-        ),
-        "mode_mismatch_deep_on_fast_cost": float(
-            log.get("mode_mismatch_deep_on_fast_cost", 0.0) or 0.0
-        ),
         "raw_reasoning_cost_component_api": (
             float(log.get("raw_reasoning_cost_component_api"))
             if log.get("raw_reasoning_cost_component_api") is not None
@@ -1212,7 +1196,6 @@ def flatten_episode(
         "policy_eval_source": log.get("policy_eval_source"),
         "policy_eval_scope": log.get("policy_eval_scope"),
         "terminal_cost_upper_bound": log.get("terminal_cost_upper_bound"),
-        "path_cost_upper_bound": log.get("path_cost_upper_bound"),
         "reasoning_cost_upper_bound": log.get("reasoning_cost_upper_bound"),
         "total_cost_upper_bound": log.get("total_cost_upper_bound"),
         "cost_scale_version": str(result.cost_scale_version),
@@ -1382,9 +1365,6 @@ def build_summary(
         ),
         "reasoning_cost_mean": mean([ep["reasoning_cost"] for ep in episodes]),
         "raw_reasoning_cost_component_mean": mean([ep["raw_reasoning_cost_component"] for ep in episodes]),
-        "raw_mode_mismatch_cost_component_mean": mean(
-            [ep.get("raw_mode_mismatch_cost_component", 0.0) for ep in episodes]
-        ),
         "root_trap_subtree_prob_mean": mean_present(
             [ep.get("root_trap_subtree_prob") for ep in episodes]
         ),
@@ -1400,7 +1380,6 @@ def build_summary(
         "raw_reasoning_cost_component_token_mean": mean_present(
             [ep["raw_reasoning_cost_component_token"] for ep in episodes]
         ),
-        "raw_path_cost_component_mean": mean([ep["raw_path_cost_component"] for ep in episodes]),
         "algorithm_cumulative_total_cost": sum(ep["total_cost"] for ep in episodes),
         "raw_algorithm_cumulative_total_cost": sum(ep["raw_total_cost"] for ep in episodes),
         "post_switch_episode_count": len(post_switch_episodes),
@@ -1431,11 +1410,7 @@ def build_summary(
             ep.get("legacy_raw_terminal_penalty", ep["raw_terminal_penalty"])
             for ep in episodes
         ),
-        "raw_path_cost_component_cumulative": sum(ep["raw_path_cost_component"] for ep in episodes),
         "raw_reasoning_cost_component_cumulative": sum(ep["raw_reasoning_cost_component"] for ep in episodes),
-        "raw_mode_mismatch_cost_component_cumulative": sum(
-            ep.get("raw_mode_mismatch_cost_component", 0.0) for ep in episodes
-        ),
         "mean_llm_call_count": mean([ep["llm_call_count"] for ep in episodes]),
         "mean_prompt_tokens": mean([ep["prompt_tokens_total"] for ep in episodes]),
         "mean_completion_tokens": mean(
@@ -1530,7 +1505,6 @@ def build_specialist_summary(episodes: list[dict[str, Any]]) -> dict[str, Any]:
             [ep["raw_policy_penalty"] for ep in specialist]
         ),
         "specialist_raw_terminal_penalty_mean": mean([ep["raw_terminal_penalty"] for ep in specialist]),
-        "specialist_raw_path_cost_component_mean": mean([ep["raw_path_cost_component"] for ep in specialist]),
         "specialist_raw_reasoning_cost_component_mean": mean([ep["raw_reasoning_cost_component"] for ep in specialist]),
         "specialist_raw_reasoning_cost_component_api_mean": mean_present(
             [ep["raw_reasoning_cost_component_api"] for ep in specialist]
@@ -1658,12 +1632,7 @@ def build_compare_rows(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "raw_terminal_penalty_exec_clean_v4_mean",
                 0.0,
             ),
-            "raw_path_cost_component_mean": summary["raw_path_cost_component_mean"],
             "raw_reasoning_cost_component_mean": summary["raw_reasoning_cost_component_mean"],
-            "raw_mode_mismatch_cost_component_mean": summary.get(
-                "raw_mode_mismatch_cost_component_mean",
-                0.0,
-            ),
             "raw_reasoning_cost_component_api_mean": summary[
                 "raw_reasoning_cost_component_api_mean"
             ],
@@ -2466,7 +2435,6 @@ def add_wandb_group_aggregates(rows: list[dict[str, Any]]) -> None:
             "raw_total_cost": 0.0,
             "raw_terminal_penalty": 0.0,
             "raw_reasoning_cost_component": 0.0,
-            "raw_path_cost_component": 0.0,
             "exact_match": 0.0,
         }
     )
@@ -2482,9 +2450,6 @@ def add_wandb_group_aggregates(rows: list[dict[str, Any]]) -> None:
             )
             state["raw_reasoning_cost_component"] += float(
                 row.get("raw_reasoning_cost_component", 0.0) or 0.0
-            )
-            state["raw_path_cost_component"] += float(
-                row.get("raw_path_cost_component", 0.0) or 0.0
             )
             state["exact_match"] += float(row.get("exact_match", 0.0) or 0.0)
         for group, state in group_state.items():
@@ -2502,9 +2467,6 @@ def add_wandb_group_aggregates(rows: list[dict[str, Any]]) -> None:
             )
             row[f"{prefix}/mean_raw_reasoning_cost_component"] = (
                 state["raw_reasoning_cost_component"] / count
-            )
-            row[f"{prefix}/mean_raw_path_cost_component"] = (
-                state["raw_path_cost_component"] / count
             )
             row[f"{prefix}/exact_match_rate"] = state["exact_match"] / count
 
@@ -2597,10 +2559,6 @@ def build_wandb_episode_rows(
             "total_cost": total_cost,
             "raw_terminal_penalty": float(ep["raw_terminal_penalty"]),
             "raw_reasoning_cost_component": float(ep["raw_reasoning_cost_component"]),
-            "raw_path_cost_component": float(ep["raw_path_cost_component"]),
-            "raw_mode_mismatch_cost_component": float(
-                ep.get("raw_mode_mismatch_cost_component", 0.0) or 0.0
-            ),
             "exact_match": float(ep["exact_match"]),
             "selected_shared_path": float(ep["selected_shared_path"]),
             "selected_unshared_path": float(ep["selected_unshared_path"]),
@@ -2650,7 +2608,6 @@ def build_wandb_episode_table(rows: list[dict[str, Any]], wandb_module: Any) -> 
         "raw_total_cost",
         "raw_terminal_penalty",
         "raw_reasoning_cost_component",
-        "raw_mode_mismatch_cost_component",
         "exact_match",
         "oracle_action",
         "final_action",

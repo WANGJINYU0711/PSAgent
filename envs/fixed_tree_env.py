@@ -29,7 +29,6 @@ from executors.telecom_llm_bench_executor import TelecomLLMBenchExecutor
 from telecom_mms_evaluator import (
     DEFAULT_COST_SPEC as TELECOM_DEFAULT_COST_SPEC,
     TELECOM_MMS_COST_SCALE_VERSION,
-    TELECOM_MMS_PATH_UPPER_BOUND_V2,
     TELECOM_MMS_TERMINAL_UPPER_BOUND_V2,
     evaluate_terminal_prediction as evaluate_telecom_terminal_prediction,
 )
@@ -52,8 +51,6 @@ LLM_BENCH_REASONING_CALIBRATED_MATCH_DISCOUNT = 0.70
 LLM_BENCH_REASONING_CALIBRATED_MISMATCH_PENALTY_DEEP_REQUIRED = 1.55
 LLM_BENCH_REASONING_CALIBRATED_MISMATCH_PENALTY_FAST_REQUIRED = 1.25
 TELECOM_EXEC_CLEAN_V4_TERMINAL_UPPER_BOUND = 32.0
-TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2 = 1.5
-TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2 = 0.5
 TELECOM_MMS_REASONING_INPUT_TOKEN_BUDGET_V2 = 20_000.0
 TELECOM_MMS_REASONING_OUTPUT_TOKEN_BUDGET_V2 = 7_500.0
 TELECOM_MMS_REASONING_API_COST_BUDGET_USD_V2 = 0.05
@@ -72,7 +69,6 @@ else:
     )
 TELECOM_MMS_TOTAL_UPPER_BOUND_V2_DEFAULT = (
     TELECOM_MMS_TERMINAL_UPPER_BOUND_V2
-    + TELECOM_MMS_PATH_UPPER_BOUND_V2
     + TELECOM_MMS_REASONING_UPPER_BOUND_DEFAULT_V2
 )
 
@@ -231,7 +227,6 @@ class EpisodeResult:
     oracle_action: Optional[str]
     terminal_cost: float
     raw_terminal_penalty: float
-    raw_path_cost_component: float
     raw_reasoning_cost_component: float
     raw_total_cost: float
     normalized_terminal_penalty: float
@@ -378,40 +373,6 @@ class FixedTreeEnvironment:
         else:
             raise ValueError(f"Unsupported executor_name: {self.executor_name}")
 
-        flat_profile_switch_path_cost = (
-            family_kind
-            in {
-                "shared_basin_strong_prefix_dedup_profile_switch",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
-            }
-            and str(os.environ.get("PSAGENT_PROFILE_SWITCH_FLAT_PATH_COST", "")).strip()
-            in {"1", "true", "True", "yes", "on"}
-        )
-        flat_stage_costs: dict[str, float] = {}
-        if flat_profile_switch_path_cost:
-            for stage_name in family_spec.stages:
-                stage_costs = [
-                    float(family_agent_map[agent_id].base_cost)
-                    for agent_id in family_spec.stage_agents[stage_name]
-                ]
-                flat_stage_costs[stage_name] = (
-                    round(sum(stage_costs) / len(stage_costs), 6)
-                    if stage_costs
-                    else 0.0
-                )
-
         runtime_catalog: list[AgentSpec] = []
         for stage_name in family_spec.stages:
             for agent_id in family_spec.stage_agents[stage_name]:
@@ -422,11 +383,7 @@ class FixedTreeEnvironment:
                         stage_name=stage_name,
                         g=family_agent.g,
                         kind="family",
-                        cost=(
-                            flat_stage_costs[stage_name]
-                            if flat_profile_switch_path_cost
-                            else family_agent.base_cost
-                        ),
+                        cost=0.0,
                     )
                 )
         return runtime_catalog
@@ -501,7 +458,7 @@ class FixedTreeEnvironment:
 
         leaf_type = self.compute_leaf_type(path)
         evaluator_result = self.evaluate_terminal_outcome(stage_outputs, path)
-        path_agent_cost = sum(self.agent_catalog[agent_id].cost for agent_id in path)
+        path_agent_cost = 0.0
         reasoning_metrics = {
             "raw_reasoning_cost_component": 0.0,
             "raw_reasoning_cost_component_api": None,
@@ -613,7 +570,6 @@ class FixedTreeEnvironment:
             "terminal_majority_pair": cost_metrics["terminal_adjustment"].get(
                 "majority_pair"
             ),
-            "raw_path_cost_component": cost_metrics["raw_path_cost_component"],
             "raw_reasoning_cost_component_api": cost_metrics[
                 "raw_reasoning_cost_component_api"
             ],
@@ -625,7 +581,6 @@ class FixedTreeEnvironment:
             "raw_total_cost_token": cost_metrics["raw_total_cost_token"],
             "raw_reasoning_cost_component": cost_metrics["raw_reasoning_cost_component"],
             "terminal_cost_upper_bound": cost_metrics["terminal_cost_upper_bound"],
-            "path_cost_upper_bound": cost_metrics["path_cost_upper_bound"],
             "reasoning_cost_upper_bound": cost_metrics["reasoning_cost_upper_bound"],
             "normalized_terminal_penalty": cost_metrics["normalized_terminal_penalty"],
             "normalized_total_cost": cost_metrics["normalized_total_cost"],
@@ -635,21 +590,6 @@ class FixedTreeEnvironment:
             "reasoning_cost_mode_default": cost_metrics["reasoning_cost_mode_default"],
             "reasoning_weight_calibration_enabled": bool(
                 reasoning_metrics.get("reasoning_weight_calibration_enabled", False)
-            ),
-            "raw_mode_mismatch_cost_component": float(
-                reasoning_metrics.get("raw_mode_mismatch_cost_component", 0.0) or 0.0
-            ),
-            "mode_mismatch_cost_enabled": bool(
-                reasoning_metrics.get("mode_mismatch_cost_enabled", False)
-            ),
-            "mode_mismatch_report_only_enabled": bool(
-                reasoning_metrics.get("mode_mismatch_report_only_enabled", False)
-            ),
-            "mode_mismatch_fast_on_deep_cost": float(
-                reasoning_metrics.get("mode_mismatch_fast_on_deep_cost", 0.0) or 0.0
-            ),
-            "mode_mismatch_deep_on_fast_cost": float(
-                reasoning_metrics.get("mode_mismatch_deep_on_fast_cost", 0.0) or 0.0
             ),
             "prompt_tokens_total": reasoning_metrics["prompt_tokens_total"],
             "completion_tokens_total": reasoning_metrics["completion_tokens_total"],
@@ -707,7 +647,6 @@ class FixedTreeEnvironment:
             oracle_action=oracle_action,
             terminal_cost=cost_metrics["raw_terminal_penalty"],
             raw_terminal_penalty=cost_metrics["raw_terminal_penalty"],
-            raw_path_cost_component=cost_metrics["raw_path_cost_component"],
             raw_reasoning_cost_component=cost_metrics["raw_reasoning_cost_component"],
             raw_total_cost=cost_metrics["raw_total_cost"],
             normalized_terminal_penalty=cost_metrics["normalized_terminal_penalty"],
@@ -762,10 +701,7 @@ class FixedTreeEnvironment:
             path,
             execution=execution,
         )
-        if self._profile_switch_flat_path_cost_enabled():
-            path_agent_cost = sum(self.agent_catalog[agent_id].cost for agent_id in path)
-        else:
-            path_agent_cost = float(execution["path_agent_cost"])
+        path_agent_cost = 0.0
         reasoning_metrics = self._compute_family_reasoning_cost(
             path,
             stage_trace=execution.get("stage_trace", []),
@@ -848,7 +784,6 @@ class FixedTreeEnvironment:
             "terminal_majority_pair": cost_metrics["terminal_adjustment"].get(
                 "majority_pair"
             ),
-            "raw_path_cost_component": cost_metrics["raw_path_cost_component"],
             "raw_reasoning_cost_component_api": cost_metrics[
                 "raw_reasoning_cost_component_api"
             ],
@@ -860,7 +795,6 @@ class FixedTreeEnvironment:
             "raw_total_cost_token": cost_metrics["raw_total_cost_token"],
             "raw_reasoning_cost_component": cost_metrics["raw_reasoning_cost_component"],
             "terminal_cost_upper_bound": cost_metrics["terminal_cost_upper_bound"],
-            "path_cost_upper_bound": cost_metrics["path_cost_upper_bound"],
             "reasoning_cost_upper_bound": cost_metrics["reasoning_cost_upper_bound"],
             "normalized_terminal_penalty": cost_metrics["normalized_terminal_penalty"],
             "normalized_total_cost": cost_metrics["normalized_total_cost"],
@@ -871,21 +805,6 @@ class FixedTreeEnvironment:
             "reasoning_cost_mode_default": cost_metrics["reasoning_cost_mode_default"],
             "reasoning_weight_calibration_enabled": bool(
                 reasoning_metrics.get("reasoning_weight_calibration_enabled", False)
-            ),
-            "raw_mode_mismatch_cost_component": float(
-                reasoning_metrics.get("raw_mode_mismatch_cost_component", 0.0) or 0.0
-            ),
-            "mode_mismatch_cost_enabled": bool(
-                reasoning_metrics.get("mode_mismatch_cost_enabled", False)
-            ),
-            "mode_mismatch_report_only_enabled": bool(
-                reasoning_metrics.get("mode_mismatch_report_only_enabled", False)
-            ),
-            "mode_mismatch_fast_on_deep_cost": float(
-                reasoning_metrics.get("mode_mismatch_fast_on_deep_cost", 0.0) or 0.0
-            ),
-            "mode_mismatch_deep_on_fast_cost": float(
-                reasoning_metrics.get("mode_mismatch_deep_on_fast_cost", 0.0) or 0.0
             ),
             "prompt_tokens_total": reasoning_metrics["prompt_tokens_total"],
             "completion_tokens_total": reasoning_metrics["completion_tokens_total"],
@@ -947,7 +866,6 @@ class FixedTreeEnvironment:
             oracle_action=oracle_action,
             terminal_cost=cost_metrics["raw_terminal_penalty"],
             raw_terminal_penalty=cost_metrics["raw_terminal_penalty"],
-            raw_path_cost_component=cost_metrics["raw_path_cost_component"],
             raw_reasoning_cost_component=cost_metrics["raw_reasoning_cost_component"],
             raw_total_cost=cost_metrics["raw_total_cost"],
             normalized_terminal_penalty=cost_metrics["normalized_terminal_penalty"],
@@ -1080,17 +998,6 @@ class FixedTreeEnvironment:
         if family == "telecom_mms_recovery":
             return TelecomMMSTaskAdapter()
         return AirlineTaskAdapter()
-
-    def _path_agent_cost_weight(self) -> float:
-        override = os.environ.get("PSAGENT_PATH_AGENT_COST_WEIGHT")
-        if override is not None and override.strip():
-            value = float(override)
-            if value < 0:
-                raise ValueError("PSAGENT_PATH_AGENT_COST_WEIGHT must be non-negative.")
-            return value
-        if self.current_instance and self.current_instance.get("family") == "telecom_mms_recovery":
-            return TELECOM_DEFAULT_COST_SPEC.path_agent_cost_weight
-        return DEFAULT_COST_SPEC.path_agent_cost_weight
 
     def _first_private_barrier_stage_label(self, path: list[str]) -> str | None:
         depth = compute_first_private_barrier_depth(path, self.agent_catalog)
@@ -1439,7 +1346,6 @@ class FixedTreeEnvironment:
                 "required_majority_mode": required_majority,
                 "majority_pair": majority_pair,
             }
-        raw_path_cost_component = self._path_agent_cost_weight() * float(path_agent_cost)
         raw_reasoning_cost_component = float(
             reasoning_metrics.get("raw_reasoning_cost_component", 0.0) or 0.0
         )
@@ -1451,21 +1357,18 @@ class FixedTreeEnvironment:
         )
         raw_total_cost_api = (
             raw_terminal_penalty
-            + raw_path_cost_component
             + float(raw_reasoning_cost_component_api)
             if raw_reasoning_cost_component_api is not None
             else None
         )
         raw_total_cost_token = (
             raw_terminal_penalty
-            + raw_path_cost_component
             + float(raw_reasoning_cost_component_token)
             if raw_reasoning_cost_component_token is not None
             else None
         )
-        raw_total_cost = raw_terminal_penalty + raw_path_cost_component + raw_reasoning_cost_component
+        raw_total_cost = raw_terminal_penalty + raw_reasoning_cost_component
         terminal_cost_upper_bound = None
-        path_cost_upper_bound = None
         reasoning_cost_upper_bound = None
 
         if self.current_instance and self.current_instance.get("family") == "telecom_mms_recovery":
@@ -1480,7 +1383,6 @@ class FixedTreeEnvironment:
                     terminal_cost_upper_bound,
                     TELECOM_EXEC_CLEAN_V4_TERMINAL_UPPER_BOUND,
                 )
-            path_cost_upper_bound = TELECOM_MMS_PATH_UPPER_BOUND_V2
             if reasoning_metrics.get("reasoning_cost_mode_default") == "api":
                 reasoning_cost_upper_bound = TELECOM_MMS_REASONING_UPPER_BOUND_API_V2
             else:
@@ -1491,7 +1393,6 @@ class FixedTreeEnvironment:
             )
             total_cost_upper_bound = (
                 terminal_cost_upper_bound
-                + path_cost_upper_bound
                 + reasoning_cost_upper_bound
             )
             normalized_total_cost = min(raw_total_cost / total_cost_upper_bound, 1.0)
@@ -1500,8 +1401,6 @@ class FixedTreeEnvironment:
             )
             if terminal_adjustment.get("enabled"):
                 cost_scale_version = f"{cost_scale_version}_exec_clean_terminal_v4"
-            if reasoning_metrics.get("mode_mismatch_cost_enabled"):
-                cost_scale_version = f"{cost_scale_version}_mode_mismatch_cost_v2"
         else:
             normalized_terminal_penalty = raw_terminal_penalty
             normalized_total_cost = raw_total_cost
@@ -1517,7 +1416,6 @@ class FixedTreeEnvironment:
                 "raw_terminal_penalty_exec_clean_v4"
             ),
             "terminal_adjustment": terminal_adjustment,
-            "raw_path_cost_component": raw_path_cost_component,
             "raw_reasoning_cost_component": raw_reasoning_cost_component,
             "raw_reasoning_cost_component_api": raw_reasoning_cost_component_api,
             "raw_reasoning_cost_component_token": raw_reasoning_cost_component_token,
@@ -1527,7 +1425,6 @@ class FixedTreeEnvironment:
             "normalized_terminal_penalty": normalized_terminal_penalty,
             "normalized_total_cost": normalized_total_cost,
             "terminal_cost_upper_bound": terminal_cost_upper_bound,
-            "path_cost_upper_bound": path_cost_upper_bound,
             "reasoning_cost_upper_bound": reasoning_cost_upper_bound,
             "total_cost_upper_bound": total_cost_upper_bound,
             "cost_scale_version": cost_scale_version,
@@ -1566,13 +1463,6 @@ class FixedTreeEnvironment:
             reasoning_trace: list[JsonDict] = []
             raw_reasoning_cost_component_api = 0.0
             raw_reasoning_cost_component_token = 0.0
-            mode_mismatch_cost_enabled = _env_flag(
-                "PSAGENT_TELECOM_MODE_MISMATCH_COST_V2"
-            )
-            mode_mismatch_report_only_enabled = _env_flag(
-                "PSAGENT_TELECOM_MODE_MISMATCH_REPORT_ONLY_V2"
-            )
-            raw_mode_mismatch_cost_component = 0.0
 
             for stage_name, agent_id in zip(self._family_stages, path):
                 snapshot = self._stage_resource_snapshot(stage_trace_map.get(stage_name, {}))
@@ -1603,18 +1493,6 @@ class FixedTreeEnvironment:
                 )
                 normalized_requirement = self._normalize_deliberation_mode(requirement)
                 normalized_mode = self._normalize_deliberation_mode(realized_mode)
-                mode_mismatch_stage_cost = 0.0
-                if mode_mismatch_cost_enabled or mode_mismatch_report_only_enabled:
-                    if normalized_requirement == "deep" and normalized_mode == "fast":
-                        mode_mismatch_stage_cost = _env_float(
-                            "PSAGENT_TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST",
-                            TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2,
-                        )
-                    elif normalized_requirement == "fast" and normalized_mode == "deep":
-                        mode_mismatch_stage_cost = _env_float(
-                            "PSAGENT_TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST",
-                            TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2,
-                        )
                 weighted_stage_api = round(
                     base_stage_api * multiplier * reasoning_cost_multiplier,
                     6,
@@ -1623,15 +1501,8 @@ class FixedTreeEnvironment:
                     base_stage_token * multiplier * reasoning_cost_multiplier,
                     6,
                 )
-                if mode_mismatch_cost_enabled and mode_mismatch_stage_cost:
-                    weighted_stage_api = round(weighted_stage_api + mode_mismatch_stage_cost, 6)
-                    weighted_stage_token = round(
-                        weighted_stage_token + mode_mismatch_stage_cost,
-                        6,
-                    )
                 raw_reasoning_cost_component_api += weighted_stage_api
                 raw_reasoning_cost_component_token += weighted_stage_token
-                raw_mode_mismatch_cost_component += mode_mismatch_stage_cost
                 reasoning_trace.append(
                     {
                         "stage_name": stage_name,
@@ -1640,11 +1511,6 @@ class FixedTreeEnvironment:
                         "deliberation_mode": normalized_mode,
                         "reasoning_match_multiplier": multiplier,
                         "reasoning_cost_multiplier": reasoning_cost_multiplier,
-                        "mode_mismatch_cost_enabled": mode_mismatch_cost_enabled,
-                        "mode_mismatch_report_only_enabled": (
-                            mode_mismatch_report_only_enabled
-                        ),
-                        "mode_mismatch_stage_cost": mode_mismatch_stage_cost,
                         "base_reasoning_cost_api": round(base_stage_api, 6),
                         "base_reasoning_cost_token": round(base_stage_token, 6),
                         "weighted_reasoning_cost_api": weighted_stage_api,
@@ -1674,31 +1540,9 @@ class FixedTreeEnvironment:
                 "raw_reasoning_cost_component_token": round(
                     raw_reasoning_cost_component_token, 6
                 ),
-                "raw_mode_mismatch_cost_component": round(
-                    raw_mode_mismatch_cost_component,
-                    6,
-                ),
-                "mode_mismatch_cost_enabled": mode_mismatch_cost_enabled,
-                "mode_mismatch_report_only_enabled": mode_mismatch_report_only_enabled,
                 "reasoning_cost_multiplier": _env_float(
                     "PSAGENT_TELECOM_REASONING_COST_MULTIPLIER",
                     1.0,
-                ),
-                "mode_mismatch_fast_on_deep_cost": (
-                    _env_float(
-                        "PSAGENT_TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST",
-                        TELECOM_MODE_MISMATCH_FAST_ON_DEEP_COST_V2,
-                    )
-                    if mode_mismatch_cost_enabled or mode_mismatch_report_only_enabled
-                    else 0.0
-                ),
-                "mode_mismatch_deep_on_fast_cost": (
-                    _env_float(
-                        "PSAGENT_TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST",
-                        TELECOM_MODE_MISMATCH_DEEP_ON_FAST_COST_V2,
-                    )
-                    if mode_mismatch_cost_enabled or mode_mismatch_report_only_enabled
-                    else 0.0
                 ),
             }
             return {
@@ -1870,6 +1714,9 @@ class FixedTreeEnvironment:
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_2of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_share",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_unshare",
             }
             or self.current_instance is None
             or self.family_agent_map is None
@@ -1903,6 +1750,9 @@ class FixedTreeEnvironment:
             "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare",
             "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5",
             "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_2of5",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_share",
+            "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_unshare",
         }:
             trap_like_path = trap_like_path or route_labels[0] == "trap_stage1_intake"
             target_stage5_labels = {"target_stage5_verify", "target_stage5_decision"}
@@ -1940,6 +1790,9 @@ class FixedTreeEnvironment:
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5",
                 "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_2of5",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_share",
+                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_unshare",
             }:
                 decoy_path = (
                     not trap_like_path
@@ -2002,29 +1855,6 @@ class FixedTreeEnvironment:
             "exact_target_good": exact_target_good,
             "decoy_path": decoy_path,
         }
-
-    def _profile_switch_flat_path_cost_enabled(self) -> bool:
-        return (
-            self.family_kind
-            in {
-                "shared_basin_strong_prefix_dedup_profile_switch",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v1",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v2_neutral_4of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_share",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_2of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_all_unshare",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_4of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_2of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_share",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5",
-                "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5",
-            }
-            and str(os.environ.get("PSAGENT_PROFILE_SWITCH_FLAT_PATH_COST", "")).strip()
-            in {"1", "true", "True", "yes", "on"}
-        )
 
     def _family_path_metadata(
         self,

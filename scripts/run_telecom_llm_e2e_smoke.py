@@ -105,7 +105,6 @@ def flatten_episode(
         "total_cost": float(result.total_cost),
         "normalized_total_cost": float(result.total_cost),
         "raw_total_cost": float(result.raw_total_cost),
-        "raw_path_cost_component": float(result.raw_path_cost_component),
         "episode_regret": float(result.total_cost - oracle_episode_cost),
         "raw_episode_regret": float(result.raw_total_cost - raw_oracle_episode_cost),
         "cost_scale_version": "telecom_mms_cost_norm_v1",

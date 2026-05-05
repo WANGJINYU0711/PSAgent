@@ -157,7 +157,6 @@ def flatten_episode(
         "total_cost": float(result.total_cost),
         "normalized_total_cost": float(result.total_cost),
         "raw_total_cost": float(result.raw_total_cost),
-        "raw_path_cost_component": float(result.raw_path_cost_component),
         "raw_reasoning_cost_component": float(result.raw_reasoning_cost_component),
         "reasoning_cost": float(result.reasoning_cost),
         "episode_regret": float(result.total_cost - oracle_episode_cost),

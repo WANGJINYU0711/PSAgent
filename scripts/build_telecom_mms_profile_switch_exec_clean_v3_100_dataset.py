@@ -304,9 +304,6 @@ def annotate_model_config(row: dict[str, Any], args: argparse.Namespace) -> dict
     copied["reasoning_weight_calibration_v3_enabled"] = boolish(
         os.environ.get("PSAGENT_TELECOM_REASONING_WEIGHT_CALIBRATION_V3", "")
     )
-    copied["mode_mismatch_report_only_v2_enabled"] = boolish(
-        os.environ.get("PSAGENT_TELECOM_MODE_MISMATCH_REPORT_ONLY_V2", "")
-    )
     return copied
 
 
@@ -340,7 +337,6 @@ def main() -> None:
         os.environ.setdefault("PSAGENT_TELECOM_STAGE45_CONTRACT_PROMPT_V1_1B", "1")
         os.environ.setdefault("PSAGENT_TELECOM_EXEC_CLEAN_TERMINAL_V4", "1")
         os.environ.setdefault("PSAGENT_TELECOM_REASONING_WEIGHT_CALIBRATION_V3", "1")
-        os.environ.setdefault("PSAGENT_TELECOM_MODE_MISMATCH_REPORT_ONLY_V2", "1")
 
     v2_tasks = load_json(args.v2_tasks)
     seed_tasks = [task for task in v2_tasks if task_profile(task) != "unchanged_source_profile"]

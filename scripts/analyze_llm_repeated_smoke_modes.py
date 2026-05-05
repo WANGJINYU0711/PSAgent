@@ -136,10 +136,6 @@ def summarize(rows: list[dict[str, Any]], group_keys: list[str]) -> list[dict[st
                     clean_float(row, "legacy_raw_terminal_penalty") for row in group
                 ),
                 "reasoning": mean(clean_float(row, "raw_reasoning_cost_component") for row in group),
-                "mode_mismatch_cost": mean(
-                    clean_float(row, "raw_mode_mismatch_cost_component") for row in group
-                ),
-                "path": mean(clean_float(row, "raw_path_cost_component") for row in group),
                 "total": mean(clean_float(row, "raw_total_cost") for row in group),
                 "exact": mean(float(row["exact_match"]) for row in group),
                 "exact_mode_match": mean(float(row["exact_mode_match"]) for row in group),
@@ -197,9 +193,6 @@ def build_stage_pair_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "episode_n": len(episode_keys),
                 "terminal": mean(clean_float(row, "raw_terminal_penalty") for row in group),
                 "reasoning": mean(clean_float(row, "raw_reasoning_cost_component") for row in group),
-                "mode_mismatch_cost": mean(
-                    clean_float(row, "raw_mode_mismatch_cost_component") for row in group
-                ),
                 "total": mean(clean_float(row, "raw_total_cost") for row in group),
                 "exact": mean(float(row["exact_match"]) for row in group),
                 "exact_mode_match": mean(float(row["exact_mode_match"]) for row in group),
@@ -278,20 +271,9 @@ def main() -> None:
                 "raw_outcome_penalty": clean_float(episode, "raw_outcome_penalty"),
                 "raw_policy_penalty": clean_float(episode, "raw_policy_penalty"),
                 "raw_reasoning_cost_component": clean_float(episode, "raw_reasoning_cost_component"),
-                "raw_mode_mismatch_cost_component": clean_float(
-                    episode,
-                    "raw_mode_mismatch_cost_component",
-                ),
-                "mode_mismatch_cost_enabled": bool(
-                    episode.get("mode_mismatch_cost_enabled", False)
-                ),
-                "mode_mismatch_report_only_enabled": bool(
-                    episode.get("mode_mismatch_report_only_enabled", False)
-                ),
                 "reasoning_weight_calibration_enabled": bool(
                     episode.get("reasoning_weight_calibration_enabled", False)
                 ),
-                "raw_path_cost_component": clean_float(episode, "raw_path_cost_component"),
                 "raw_total_cost": clean_float(episode, "raw_total_cost"),
                 "llm_call_count": int(episode.get("llm_call_count", 0) or 0),
                 "prompt_tokens_total": clean_float(episode, "prompt_tokens_total"),
@@ -396,8 +378,6 @@ def main() -> None:
                 ("terminal", "terminal"),
                 ("legacy_terminal", "legacy term"),
                 ("reasoning", "reasoning"),
-                ("mode_mismatch_cost", "mode cost"),
-                ("path", "path"),
                 ("total", "total"),
                 ("exact", "exact"),
                 ("exact_mode_match", "mode exact"),
@@ -423,8 +403,6 @@ def main() -> None:
                 ("total", "raw total"),
                 ("terminal", "terminal"),
                 ("reasoning", "reasoning"),
-                ("mode_mismatch_cost", "mode cost"),
-                ("path", "path"),
                 ("exact", "exact"),
                 ("exact_mode_match", "mode exact"),
                 ("strict_clean", "strict"),
@@ -441,7 +419,6 @@ def main() -> None:
                 ("n", "n"),
                 ("terminal", "terminal"),
                 ("reasoning", "reasoning"),
-                ("mode_mismatch_cost", "mode cost"),
                 ("total", "total"),
                 ("clear_success_proxy", "clear"),
                 ("auxiliary_success_proxy", "aux"),
@@ -461,7 +438,6 @@ def main() -> None:
                 ("n", "n"),
                 ("terminal", "terminal"),
                 ("reasoning", "reasoning"),
-                ("mode_mismatch_cost", "mode cost"),
                 ("total", "total"),
                 ("clear_success_proxy", "clear"),
                 ("auxiliary_success_proxy", "aux"),
@@ -480,7 +456,6 @@ def main() -> None:
                 ("n", "n"),
                 ("terminal", "terminal"),
                 ("reasoning", "reasoning"),
-                ("mode_mismatch_cost", "mode cost"),
                 ("total", "total"),
                 ("strict_clean", "strict"),
             ],
@@ -499,7 +474,6 @@ def main() -> None:
                 ("episode_n", "episode n"),
                 ("terminal", "terminal"),
                 ("reasoning", "reasoning"),
-                ("mode_mismatch_cost", "mode cost"),
                 ("total", "total"),
                 ("clear_success_proxy", "clear"),
                 ("auxiliary_success_proxy", "aux"),
@@ -522,7 +496,6 @@ def main() -> None:
                 ("final_action", "final"),
                 ("raw_terminal_penalty", "terminal"),
                 ("raw_reasoning_cost_component", "reasoning"),
-                ("raw_mode_mismatch_cost_component", "mode cost"),
                 ("raw_total_cost", "total"),
                 ("clear_success_proxy", "clear"),
                 ("auxiliary_success_proxy", "aux"),

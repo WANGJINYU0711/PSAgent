@@ -242,10 +242,7 @@ def build_path_record(
     stage_scores: dict[str, float] = {}
     family_agents = [agent_map[agent_id] for agent_id in path]
     for stage_name, agent in zip(STAGES, family_agents):
-        stage_scores[stage_name] = stage_match(
-            stage_requirements[stage_name],
-            agent.attribute_skill,
-        )
+        stage_scores[stage_name] = stage_match(stage_requirements[stage_name], {})
 
     base_aliases = [path_base_alias(agent_id) for agent_id in path]
     route_labels = [str(getattr(agent, "route_label", "")) for agent in family_agents]
@@ -378,7 +375,7 @@ def build_stage_agent_summary(
         scored_agents: list[dict[str, Any]] = []
         for agent_id in family_spec.stage_agents[stage_name]:
             agent = agent_map[agent_id]
-            score = stage_match(stage_requirements[stage_name], agent.attribute_skill)
+            score = stage_match(stage_requirements[stage_name], {})
             scored_agents.append(
                 {
                     "agent_id": agent_id,
@@ -387,7 +384,7 @@ def build_stage_agent_summary(
                     "route_label": str(getattr(agent, "route_label", "")),
                     "node_semantic": str(getattr(agent, "node_semantic", "")),
                     "base_cost": round(float(agent.base_cost), 6),
-                    "top_skills": top_capabilities(agent.attribute_skill),
+                    "top_skills": [],
                 }
             )
         scored_agents.sort(key=lambda row: (-float(row["match"]), row["agent_id"]))

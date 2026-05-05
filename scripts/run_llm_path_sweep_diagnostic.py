@@ -34,7 +34,7 @@ from fixed_tree_env import (  # noqa: E402
 )
 from oracle_eval import enumerate_family_paths  # noqa: E402
 from tree_family.generator import TreeFamilyGenerator  # noqa: E402
-from tree_family.specs import CAPABILITY_NAMES, FamilySpec  # noqa: E402
+from tree_family.specs import FamilySpec  # noqa: E402
 
 
 STAGES = ["stage1", "stage2", "stage3", "stage4", "stage5"]
@@ -49,15 +49,6 @@ DEFAULT_BUCKET_FILE = (
 FAST_TOKEN_BUDGET_PER_STAGE = 1200
 FAST_TOKEN_PENALTY_BLOCK_SIZE = 200
 FAST_TOKEN_OVER_BUDGET_PENALTY_PER_BLOCK = 0.25
-
-
-def attribute_weakening_level() -> int:
-    raw = str(os.environ.get("PSAGENT_ATTRIBUTE_WEAKENING_LEVEL", "0")).strip()
-    try:
-        level = int(raw)
-    except ValueError:
-        return 0
-    return min(max(level, 0), 4)
 
 
 def parse_args() -> argparse.Namespace:
@@ -189,10 +180,6 @@ def build_stage_requirements(
         stage_name: ("deep" if float(descriptor.stage_difficulty.get(stage_name, 0.0)) >= 0.42 else "fast")
         for stage_name in STAGES
     }
-    capability_requirements = descriptor.stage_capability_requirements or {
-        stage_name: dict(descriptor.attribute_weights)
-        for stage_name in STAGES
-    }
     return {
         "deliberation": {
             stage_name: (
@@ -201,16 +188,7 @@ def build_stage_requirements(
                 else "fast"
             )
             for stage_name in STAGES
-        },
-        "capability": {
-            stage_name: {
-                capability_name: float(
-                    capability_requirements.get(stage_name, {}).get(capability_name, 0.0)
-                )
-                for capability_name in CAPABILITY_NAMES
-            }
-            for stage_name in STAGES
-        },
+        }
     }
 
 
@@ -218,7 +196,6 @@ def stage_match(
     *,
     requirement_bundle: dict[str, Any],
     agent: Any,
-    weakening_level: int,
     stage_name: str,
 ) -> float:
     reasoning_requirement = str(
@@ -227,22 +204,7 @@ def stage_match(
     reasoning_mode = str(getattr(agent, "deliberation_mode", "deep")).strip().lower()
     reasoning_score = 1.0 if reasoning_requirement == reasoning_mode else 0.0
 
-    capability_requirement = dict(requirement_bundle["capability"].get(stage_name, {}))
-    denom = sum(float(capability_requirement.get(capability_name, 0.0)) for capability_name in CAPABILITY_NAMES)
-    if denom <= 0.0:
-        capability_score = 0.0
-    else:
-        capability_score = sum(
-            float(capability_requirement.get(capability_name, 0.0))
-            * float(getattr(agent, "attribute_skill", {}).get(capability_name, 0.0))
-            for capability_name in CAPABILITY_NAMES
-        ) / denom
-
-    if weakening_level <= 0:
-        return reasoning_score
-    if weakening_level >= 4:
-        return (0.25 * capability_score) + (0.75 * reasoning_score)
-    return capability_score
+    return reasoning_score
 
 
 def path_base_alias(agent_id: str) -> str:
@@ -311,14 +273,12 @@ def build_offline_path_record(
     path: tuple[str, ...],
     stage_requirements: dict[str, Any],
     agent_map: dict[str, Any],
-    weakening_level: int,
 ) -> dict[str, Any]:
     family_agents = [agent_map[agent_id] for agent_id in path]
     stage_scores = {
         stage_name: stage_match(
             requirement_bundle=stage_requirements,
             agent=agent,
-            weakening_level=weakening_level,
             stage_name=stage_name,
         )
         for stage_name, agent in zip(STAGES, family_agents)
@@ -534,7 +494,6 @@ def flatten_record_for_csv(record: dict[str, Any]) -> dict[str, Any]:
         ),
         "terminal_clear_success_proxy": record.get("terminal_clear_success_proxy"),
         "terminal_auxiliary_success_proxy": record.get("terminal_auxiliary_success_proxy"),
-        "raw_path_cost_component": record["raw_path_cost_component"],
         "raw_reasoning_cost_component": record["raw_reasoning_cost_component"],
         "raw_total_cost": record["raw_total_cost"],
         "raw_total_cost_with_token_penalty": record["raw_total_cost_with_token_penalty"],
@@ -945,7 +904,6 @@ def run_selected_path_job(job: dict[str, Any]) -> dict[str, Any]:
         "terminal_auxiliary_success_proxy": bool(
             episode_log.get("auxiliary_success_proxy", True)
         ),
-        "raw_path_cost_component": float(result.raw_path_cost_component),
         "raw_reasoning_cost_component": float(result.raw_reasoning_cost_component),
         "raw_total_cost": raw_total_cost_base,
         "raw_total_cost_with_token_penalty": raw_total_cost_with_token_penalty,
@@ -1049,8 +1007,6 @@ def main() -> None:
     rows = load_rows(args.data.resolve())
     indexed_rows = index_rows_by_task_id(rows)
     bucket_membership = load_bucket_membership(args.bucket_file.resolve())
-    weakening_level = attribute_weakening_level()
-
     task_ids = list(args.task_ids or [])
     if not task_ids:
         task_ids = select_demo_task_ids(bucket_membership)
@@ -1089,7 +1045,6 @@ def main() -> None:
                     path=path,
                     stage_requirements=stage_requirements,
                     agent_map=agent_map,
-                    weakening_level=weakening_level,
                 )
                 for path in all_paths
             ]
@@ -1232,7 +1187,6 @@ def main() -> None:
             "family_kind": args.family_kind,
             "seed": args.seed,
             "model": args.model or os.environ.get("PSAGENT_LLM_BENCH_MODEL"),
-            "attribute_weakening_level": weakening_level,
             "parallelism": args.parallelism,
             "bucket_file": str(args.bucket_file.resolve()),
             "path_mode": args.path_mode,

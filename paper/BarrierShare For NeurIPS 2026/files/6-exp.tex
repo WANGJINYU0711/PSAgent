@@ -1,0 +1,280 @@
+\section{Experiments}
+\label{sec:experiments}
+
+Our experiments evaluate whether barrier-limited feedback sharing improves learning in fixed-stage agent workflows when only terminal execution feedback is observed. The central question is not whether a single workflow can be hand-tuned to perform well, but whether a learner that respects structural sharing barriers can identify cheaper post-switch workflow policies more reliably than endpoint sharing regimes, flat or local bandit baselines, and LLM-only routing baselines.
+
+We focus on a telecom MMS diagnosis and repair workflow. Each episode selects a complete five-stage root-to-leaf workflow policy, executes it with the same LLM executor, and observes a scalar terminal cost. The tree learner receives only this terminal outcome for update. It does not receive stage-wise supervision, oracle labels during learning, or direct feedback for unchosen leaves.
+
+The final experimental suite uses three profile-switch tree families:
+\textbf{v4}, a compact binary mixed tree for mechanism isolation;
+\textbf{v6}, a 30-leaf tree that keeps the trap-switch structure while increasing post-switch exploration pressure; and
+\textbf{v3}, a 250-leaf efficient-anchor tree that tests the same mechanism at a larger workflow-policy scale. Across all three trees, we compare the same set of eleven methods.
+
+\subsection{Questions}
+\label{sec:exp_questions}
+
+The experiments are organized around four questions.
+
+\textbf{(Q1) Does partial sharing help?}
+We compare the main 4/5-share BarrierShare configuration against all-share and all-unshare endpoints, a lower-sharing 2/5 variant, and standard bandit baselines.
+
+\textbf{(Q2) Is the effect robust across tree scale?}
+We test the same method set on the compact v4 tree, the intermediate v6 tree, and the larger v3 250-leaf tree.
+
+\textbf{(Q3) Does structured learning beat unstructured or LLM-only routing?}
+We compare BarrierShare not only with EXP-style algorithms, but also with naive mixing, random routing, theta-guided LLM routing, and agent-only LLM routing.
+
+\textbf{(Q4) Are improvements due to valid shared-basin reuse rather than unsafe transfer?}
+We report terminal-quality and execution diagnostics separately from aggregate cost so that conservative transfer behavior cannot be mistaken for successful local repair.
+
+\subsection{Workflow Environment}
+\label{sec:exp_workflow_env}
+
+The environment is a fixed five-stage telecom MMS workflow. A root-to-leaf path specifies one complete workflow policy:
+(1) user grounding,
+(2) customer-line resolution,
+(3) observed feature extraction,
+(4) blocker adjudication and repair planning, and
+(5) terminal execution decision.
+
+The executor is shared across methods. In the current experimental configuration, the LLM execution layer uses the Stage~4/5 contract prompt family, prompt version \texttt{v11b}, the clean-v3 execution setup, and \texttt{gpt-4.1-mini} as the workflow model. The executor returns a terminal outcome and resource diagnostics for each selected leaf. The learner then updates from the resulting scalar cost.
+
+We use a profile-switch schedule. Early episodes contain trap or pre-switch pressure, while later episodes favor deep target/shared-basin workflows. This schedule is intended to expose the main failure mode of unsafe or overly conservative methods: a method can look good early by exploiting fast/trap behavior, but it must eventually discover cheaper post-switch shared-basin policies.
+
+\subsection{Tree Families}
+\label{sec:exp_tree_families}
+
+Table~\ref{tab:tree_families} summarizes the three tree families used in the final experiments. All trees have five workflow stages. They differ in the number of leaves, the amount of shared structure, and the difficulty of post-switch exploration.
+
+\begin{table}[t]
+    \centering
+    \small
+    \caption{Tree families used in the final experimental suite. All families use the same five-stage telecom MMS executor, but differ in topology and sharing pattern.}
+    \label{tab:tree_families}
+    \begin{tabular}{llp{7.1cm}}
+        \toprule
+        Family & Size & Purpose \\
+        \midrule
+        v4 binary mixed & 8 leaves & Compact mechanism test with fast trap leaves and a shared deep target basin. Used to isolate whether the sharing rule behaves differently from EXP-style and endpoint regimes. \\
+        v6 small30 & 30 leaves & Intermediate profile-switch tree with 4/5 sharing, six trap leaves, and twenty-four deep target leaves. Used to test whether the mechanism remains useful when post-switch exploration is less trivial. \\
+        v3 efficient-anchor & 250 leaves & Larger efficient-anchor profile-switch tree with 4/5 sharing. Used as the main scale test for the final comparison. \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+For each family we instantiate the same share variants whenever the topology supports them:
+all-share, 2/5-share, 4/5-share, and all-unshare. The topology, executor, prompt contract, and terminal-cost definition are held fixed within a family; only the gate map used by the BarrierShare-style learner changes.
+
+\subsection{Methods}
+\label{sec:exp_methods}
+
+Each tree is evaluated with eleven methods. We group them by what information they use.
+
+\paragraph{BarrierShare share variants.}
+The main method is \texttt{ps\_4/5share}, which uses the intended 4/5 gate map for the tree. We also run \texttt{ps\_allshare}, \texttt{ps\_2/5share}, and \texttt{ps\_allunshare}. These are not merely extra baselines; they are structural controls. \texttt{ps\_allshare} tests the optimistic endpoint in which feedback can propagate everywhere, \texttt{ps\_allunshare} tests the conservative endpoint in which reusable propagation is disabled, and \texttt{ps\_2/5share} tests whether the method degrades gracefully under reduced sharing.
+
+\paragraph{Bandit baselines.}
+\texttt{exp} denotes the direct multistage EXP baseline. \texttt{eps} denotes the epsilon-EXP baseline with explicit random exploration. \texttt{exp\_local} denotes the local multistage EXP baseline that keeps updates more local than the direct shared variant.
+
+\paragraph{Heuristic and unstructured baselines.}
+\texttt{naivemix} mixes candidate workflow policies without the BarrierShare propagation rule. \texttt{random} samples legal paths without learning and serves as a sanity check.
+
+\paragraph{LLM routing baselines.}
+\texttt{theta guided} exposes algorithmic stage-local scores to an LLM selector, which then chooses the next stage action. \texttt{agent\_only} asks the LLM to choose stage actions without algorithmic theta guidance. These baselines test whether the learned tree policy adds value beyond prompting an agent to route through the workflow.
+
+\begin{table}[t]
+    \centering
+    \small
+    \caption{Methods compared on each tree family.}
+    \label{tab:methods}
+    \begin{tabular}{lll}
+        \toprule
+        Paper name & Implementation name & Role \\
+        \midrule
+        \texttt{ps\_allshare} & PS on all-share gate map & Optimistic sharing endpoint \\
+        \texttt{ps\_2/5share} & PS on 2/5 gate map & Reduced-sharing control \\
+        \texttt{ps\_4/5share} & PS on 4/5 gate map & Main BarrierShare setting \\
+        \texttt{ps\_allunshare} & PS on all-unshare gate map & No-sharing endpoint \\
+        \texttt{eps} & \texttt{epsilon\_exp3} & Exploration baseline \\
+        \texttt{exp} & \texttt{direct\_multistage\_exp3} & Direct multistage EXP baseline \\
+        \texttt{exp\_local} & \texttt{direct\_multistage\_exp3\_local} & Local multistage EXP baseline \\
+        \texttt{naivemix} & \texttt{naive\_mixed} or \texttt{naive\_mixed\_avg} & Heuristic mixture baseline \\
+        \texttt{theta guided} & \texttt{theta\_guided\_agent} & LLM selector with theta guidance \\
+        \texttt{random} & \texttt{random\_path} & Random-path sanity check \\
+        \texttt{agent\_only} & \texttt{agent\_only} & LLM-only routing baseline \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Evaluation Protocol}
+\label{sec:exp_protocol}
+
+Within each tree family, all methods use the same task schedule, executor, model, prompt family, cost function, and random-seed convention. The current final runs use three 100-episode repetitions per method-tree condition. Unless otherwise stated, learning hyperparameters are fixed at $\eta=0.3$ and $\epsilon=0.01$ for the relevant EXP-style and BarrierShare-style learners, with the shared-update scale fixed by the corresponding PS share-variant configuration.
+
+The primary metric is average total cost over episodes. We also report post-switch cost, terminal penalty, exact-match or clean-success rate when available, and resource diagnostics such as LLM call count, token usage, API cost, and wall-clock time. Because profile-switch experiments can be distorted by early trap episodes, we report aggregate metrics and post-switch metrics separately.
+
+For mechanism checks, we log the selected path, stage choices, gate pattern, update type, shared-update activity, and whether execution reached local repair, subset repair, or transfer. These diagnostics are used to interpret the results but are not used to change the policy during evaluation.
+
+\subsection{Main Results}
+\label{sec:exp_main_results}
+
+Table~\ref{tab:main_results} is the main result table. It will report the same eleven methods on v4, v6, and v3. Lower cost is better; higher success is better.
+
+\begin{table*}[t]
+    \centering
+    \small
+    \caption{Main workflow results. Results and analysis are intentionally left blank until the final runs are complete.}
+    \label{tab:main_results}
+    \begin{tabular}{llcccccc}
+        \toprule
+        Tree & Method & Total cost $\downarrow$ & Post-switch cost $\downarrow$ & Terminal penalty $\downarrow$ & Success $\uparrow$ & Calls $\downarrow$ & Tokens $\downarrow$ \\
+        \midrule
+        v4 & \texttt{ps\_allshare} & -- & -- & -- & -- & -- & -- \\
+        v4 & \texttt{ps\_2/5share} & -- & -- & -- & -- & -- & -- \\
+        v4 & \texttt{ps\_4/5share} & -- & -- & -- & -- & -- & -- \\
+        v4 & \texttt{ps\_allunshare} & -- & -- & -- & -- & -- & -- \\
+        v4 & \texttt{eps} & -- & -- & -- & -- & -- & -- \\
+        v4 & \texttt{exp} & -- & -- & -- & -- & -- & -- \\
+        v4 & \texttt{exp\_local} & -- & -- & -- & -- & -- & -- \\
+        v4 & \texttt{naivemix} & -- & -- & -- & -- & -- & -- \\
+        v4 & \texttt{theta guided} & -- & -- & -- & -- & -- & -- \\
+        v4 & \texttt{random} & -- & -- & -- & -- & -- & -- \\
+        v4 & \texttt{agent\_only} & -- & -- & -- & -- & -- & -- \\
+        \midrule
+        v6 & \texttt{ps\_allshare} & -- & -- & -- & -- & -- & -- \\
+        v6 & \texttt{ps\_2/5share} & -- & -- & -- & -- & -- & -- \\
+        v6 & \texttt{ps\_4/5share} & -- & -- & -- & -- & -- & -- \\
+        v6 & \texttt{ps\_allunshare} & -- & -- & -- & -- & -- & -- \\
+        v6 & \texttt{eps} & -- & -- & -- & -- & -- & -- \\
+        v6 & \texttt{exp} & -- & -- & -- & -- & -- & -- \\
+        v6 & \texttt{exp\_local} & -- & -- & -- & -- & -- & -- \\
+        v6 & \texttt{naivemix} & -- & -- & -- & -- & -- & -- \\
+        v6 & \texttt{theta guided} & -- & -- & -- & -- & -- & -- \\
+        v6 & \texttt{random} & -- & -- & -- & -- & -- & -- \\
+        v6 & \texttt{agent\_only} & -- & -- & -- & -- & -- & -- \\
+        \midrule
+        v3 & \texttt{ps\_allshare} & -- & -- & -- & -- & -- & -- \\
+        v3 & \texttt{ps\_2/5share} & -- & -- & -- & -- & -- & -- \\
+        v3 & \texttt{ps\_4/5share} & -- & -- & -- & -- & -- & -- \\
+        v3 & \texttt{ps\_allunshare} & -- & -- & -- & -- & -- & -- \\
+        v3 & \texttt{eps} & -- & -- & -- & -- & -- & -- \\
+        v3 & \texttt{exp} & -- & -- & -- & -- & -- & -- \\
+        v3 & \texttt{exp\_local} & -- & -- & -- & -- & -- & -- \\
+        v3 & \texttt{naivemix} & -- & -- & -- & -- & -- & -- \\
+        v3 & \texttt{theta guided} & -- & -- & -- & -- & -- & -- \\
+        v3 & \texttt{random} & -- & -- & -- & -- & -- & -- \\
+        v3 & \texttt{agent\_only} & -- & -- & -- & -- & -- & -- \\
+        \bottomrule
+    \end{tabular}
+\end{table*}
+
+\textcolor{gray}{[TODO: Fill Table~\ref{tab:main_results} after the final v4, v6, and v3 runs are complete.]}
+
+\textcolor{gray}{[TODO: Add the main result interpretation here. The analysis should first compare \texttt{ps\_4/5share} against \texttt{exp}, \texttt{eps}, and \texttt{exp\_local}; then compare the PS share variants; then discuss the LLM routing baselines.]}
+
+\subsection{Share-Variant Analysis}
+\label{sec:exp_share_variant_analysis}
+
+The share-variant comparison is the most direct test of the paper's mechanism. Holding the tree topology and executor fixed, we vary only the gate map used by the PS learner.
+
+\begin{table}[t]
+    \centering
+    \small
+    \caption{Share-variant comparison.}
+    \label{tab:share_variant_results}
+    \begin{tabular}{llcccc}
+        \toprule
+        Tree & PS variant & Total cost $\downarrow$ & Post-switch cost $\downarrow$ & Terminal penalty $\downarrow$ & Shared-update diagnostics \\
+        \midrule
+        v4 & all-share & -- & -- & -- & -- \\
+        v4 & 2/5-share & -- & -- & -- & -- \\
+        v4 & 4/5-share & -- & -- & -- & -- \\
+        v4 & all-unshare & -- & -- & -- & -- \\
+        v6 & all-share & -- & -- & -- & -- \\
+        v6 & 2/5-share & -- & -- & -- & -- \\
+        v6 & 4/5-share & -- & -- & -- & -- \\
+        v6 & all-unshare & -- & -- & -- & -- \\
+        v3 & all-share & -- & -- & -- & -- \\
+        v3 & 2/5-share & -- & -- & -- & -- \\
+        v3 & 4/5-share & -- & -- & -- & -- \\
+        v3 & all-unshare & -- & -- & -- & -- \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\textcolor{gray}{[TODO: Add analysis of whether the 4/5-share configuration improves over all-unshare without inheriting the failure modes of all-share. Also report whether 2/5-share behaves as a lower-sharing intermediate point.]}
+
+\subsection{Execution-Quality Analysis}
+\label{sec:exp_execution_quality}
+
+Aggregate cost alone is not sufficient in this domain. A method can reduce cost by transferring conservatively or by over-selecting fast paths that avoid difficult local repair. We therefore analyze terminal behavior by execution category:
+\texttt{repair\_all},
+\texttt{repair\_subset},
+and \texttt{transfer}. When available, we also separate local non-transfer tasks from hard hybrid or nonlocal transfer-control tasks.
+
+\begin{table}[t]
+    \centering
+    \small
+    \caption{Execution-quality breakdown.}
+    \label{tab:execution_quality}
+    \begin{tabular}{llcccc}
+        \toprule
+        Tree & Method & Local success $\uparrow$ & Transfer rate & Subset quality $\uparrow$ & Hard-transfer safety \\
+        \midrule
+        v4 & \texttt{ps\_4/5share} & -- & -- & -- & -- \\
+        v4 & Best non-PS baseline & -- & -- & -- & -- \\
+        v6 & \texttt{ps\_4/5share} & -- & -- & -- & -- \\
+        v6 & Best non-PS baseline & -- & -- & -- & -- \\
+        v3 & \texttt{ps\_4/5share} & -- & -- & -- & -- \\
+        v3 & Best non-PS baseline & -- & -- & -- & -- \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\textcolor{gray}{[TODO: Fill the execution-quality table. The key point to check is whether low total cost corresponds to better local repair quality rather than conservative transfer.]}
+
+\subsection{Learning Dynamics}
+\label{sec:exp_learning_dynamics}
+
+For each tree, we plot cumulative cost and moving-average episode cost over the 100-episode horizon. We also mark the switch point so that pre-switch exploration and post-switch target adaptation can be read separately.
+
+\textcolor{gray}{[TODO: Add learning-curve figures for v4, v6, and v3. Use the same method colors across all plots. Include at least \texttt{ps\_4/5share}, \texttt{ps\_allshare}, \texttt{ps\_allunshare}, \texttt{exp}, \texttt{eps}, \texttt{exp\_local}, and the two LLM routing baselines.]}
+
+\subsection{Resource Use}
+\label{sec:exp_resource_use}
+
+The executor logs LLM call count, prompt tokens, completion tokens, total tokens, estimated API cost, generation time, and wall-clock episode time. We report these as secondary diagnostics. The resource table is not used to override the terminal-cost metric, but it helps distinguish learning improvements from prompt-length or retry artifacts.
+
+\begin{table}[t]
+    \centering
+    \small
+    \caption{Resource diagnostics.}
+    \label{tab:resource_results}
+    \begin{tabular}{llcccc}
+        \toprule
+        Tree & Method & Calls $\downarrow$ & Tokens $\downarrow$ & API cost $\downarrow$ & Wall time $\downarrow$ \\
+        \midrule
+        v4 & \texttt{ps\_4/5share} & -- & -- & -- & -- \\
+        v4 & Best baseline & -- & -- & -- & -- \\
+        v6 & \texttt{ps\_4/5share} & -- & -- & -- & -- \\
+        v6 & Best baseline & -- & -- & -- & -- \\
+        v3 & \texttt{ps\_4/5share} & -- & -- & -- & -- \\
+        v3 & Best baseline & -- & -- & -- & -- \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\textcolor{gray}{[TODO: Fill resource diagnostics after final aggregation. If token or API cost differences are small, state that the main effect is terminal quality/cost rather than resource use. If they are large, discuss them separately.]}
+
+\subsection{Planned Interpretation}
+\label{sec:exp_planned_interpretation}
+
+The final analysis will distinguish three possible outcomes.
+
+First, if \texttt{ps\_4/5share} consistently improves over both all-share and all-unshare, the result supports the paper's main claim that partial structural sharing is useful beyond endpoint regimes.
+
+Second, if PS variants help on v4 but not on v6 or v3, the result suggests that the mechanism works in small controlled trees but remains sensitive to exploration scale or execution noise.
+
+Third, if EXP-style or LLM-only routing baselines match or outperform the PS variants across trees, the result weakens the empirical claim and the analysis should focus on whether the failure comes from update instability, insufficient shared-basin signal, or executor terminal noise.
+
+\textcolor{gray}{[TODO: Replace this planned interpretation with the actual result-dependent interpretation once the final tables and learning curves are available.]}

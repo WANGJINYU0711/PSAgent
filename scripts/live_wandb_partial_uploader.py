@@ -165,7 +165,6 @@ def add_group_aggregates(rows: list[dict[str, Any]]) -> None:
             "raw_total_cost": 0.0,
             "raw_terminal_penalty": 0.0,
             "raw_reasoning_cost_component": 0.0,
-            "raw_path_cost_component": 0.0,
             "exact_match": 0.0,
         }
     )
@@ -181,9 +180,6 @@ def add_group_aggregates(rows: list[dict[str, Any]]) -> None:
             )
             state["raw_reasoning_cost_component"] += float(
                 row.get("raw_reasoning_cost_component", 0.0) or 0.0
-            )
-            state["raw_path_cost_component"] += float(
-                row.get("raw_path_cost_component", 0.0) or 0.0
             )
             state["exact_match"] += float(row.get("exact_match", 0.0) or 0.0)
         for group, state in group_state.items():
@@ -201,9 +197,6 @@ def add_group_aggregates(rows: list[dict[str, Any]]) -> None:
             )
             row[f"{prefix}/mean_raw_reasoning_cost_component"] = (
                 state["raw_reasoning_cost_component"] / count
-            )
-            row[f"{prefix}/mean_raw_path_cost_component"] = (
-                state["raw_path_cost_component"] / count
             )
             row[f"{prefix}/exact_match_rate"] = state["exact_match"] / count
 
@@ -232,7 +225,6 @@ def build_episode_table(rows: list[dict[str, Any]], wandb_module: Any) -> Any:
         "chooser_raw_reasoning_cost_component",
         "executor_raw_reasoning_cost_component",
         "combined_with_chooser_raw_total_cost",
-        "raw_mode_mismatch_cost_component",
         "root_trap_subtree_prob",
         "stage4_trap_child_prob",
         "all_fast_trap_route_prob",
@@ -268,7 +260,6 @@ def build_rows(
     cumulative_total_cost = 0.0
     cumulative_terminal = 0.0
     cumulative_reasoning = 0.0
-    cumulative_path = 0.0
     cumulative_exact = 0.0
     post_switch_count = 0
     post_switch_cumulative_raw_total = 0.0
@@ -292,8 +283,6 @@ def build_rows(
         total_cost = float(ep.get("total_cost", 0.0))
         terminal = float(ep.get("raw_terminal_penalty", 0.0))
         reasoning = float(ep.get("raw_reasoning_cost_component", 0.0))
-        path_cost = float(ep.get("raw_path_cost_component", 0.0))
-        mode_mismatch = float(ep.get("raw_mode_mismatch_cost_component", 0.0) or 0.0)
         selected_path = ep.get("selected_path") or []
         leaf_agent = ""
         selected_path_compact = ""
@@ -317,7 +306,6 @@ def build_rows(
         cumulative_total_cost += total_cost
         cumulative_terminal += terminal
         cumulative_reasoning += reasoning
-        cumulative_path += path_cost
         cumulative_exact += exact
 
         is_post_switch = ep.get("schedule_phase") == "target_post_switch"
@@ -413,8 +401,6 @@ def build_rows(
             "total_cost": total_cost,
             "raw_terminal_penalty": terminal,
             "raw_reasoning_cost_component": reasoning,
-            "raw_path_cost_component": path_cost,
-            "raw_mode_mismatch_cost_component": mode_mismatch,
             "chooser_llm_call_count": ep.get("chooser_llm_call_count"),
             "executor_llm_call_count": ep.get("executor_llm_call_count"),
             "chooser_prompt_tokens_total": ep.get("chooser_prompt_tokens_total"),
@@ -488,7 +474,6 @@ def build_rows(
             / episode_1based,
             "cumulative_reasoning_cost_per_episode": cumulative_reasoning
             / episode_1based,
-            "cumulative_path_cost_per_episode": cumulative_path / episode_1based,
             "cumulative_exact_match_rate": cumulative_exact / episode_1based,
             "post_switch_episode_count": post_switch_count,
             "post_switch_cumulative_raw_total": post_switch_cumulative_raw_total,

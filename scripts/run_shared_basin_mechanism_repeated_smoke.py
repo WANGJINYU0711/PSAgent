@@ -17,6 +17,7 @@ import os
 import pickle
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -82,6 +83,15 @@ MECHANISM_CHOICES = ["theta_guided_agent", "agent_only", "algorithm_direct"]
 EXECUTOR_NAME = DEFAULT_EXECUTOR_NAME
 FAMILY_KIND = DEFAULT_FAMILY_KIND
 SCHEDULE_BUCKET_MODES = {SCHEDULE_MODE_TRAP_SWITCH, SCHEDULE_MODE_TRAP_ONLY_RANDOM}
+MECHANISM_SELECTION_RETRYABLE_MARKERS = (
+    "Connection error",
+    "OpenAIException",
+    "APIConnectionError",
+    "InternalServerError",
+    "RateLimitError",
+    "Timeout",
+    "stage-choice bridge failed",
+)
 
 
 def validate_mechanisms(mechanisms: list[str]) -> None:
@@ -226,6 +236,62 @@ def build_progress_payload(
         "model": model,
         "updated_at": datetime.now().isoformat(),
     }
+
+
+def choose_path_with_mechanism_retry(
+    *,
+    policy: Any,
+    instance: dict[str, Any],
+    env: Any,
+    mechanism: str,
+    episode_seed: str | int | None = None,
+) -> tuple[list[str], dict[str, Any], bool]:
+    attempts = max(
+        1,
+        int(
+            os.environ.get(
+                "PSAGENT_MECHANISM_SELECTION_RETRY_ATTEMPTS",
+                "6",
+            )
+            or "6"
+        ),
+    )
+    sleep_seconds = max(
+        0.0,
+        float(
+            os.environ.get(
+                "PSAGENT_MECHANISM_SELECTION_RETRY_SLEEP_SECONDS",
+                "20",
+            )
+            or "20"
+        ),
+    )
+    last_error: RuntimeError | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return choose_path_with_mechanism(
+                policy,
+                instance,
+                env,
+                mechanism,
+                episode_seed=episode_seed,
+            )
+        except RuntimeError as exc:
+            error_text = str(exc)
+            retryable = any(marker in error_text for marker in MECHANISM_SELECTION_RETRYABLE_MARKERS)
+            if not retryable or attempt >= attempts:
+                raise
+            last_error = exc
+            print(
+                f"[retry] mechanism={mechanism} attempt={attempt}/{attempts} "
+                f"selection_error={error_text}",
+                flush=True,
+            )
+            if sleep_seconds > 0.0:
+                time.sleep(sleep_seconds)
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"unreachable mechanism selection retry state for {mechanism}")
 
 
 def _extract_invalid_flags(stage_choice_trace: list[dict[str, Any]]) -> list[bool]:
@@ -734,11 +800,11 @@ def run_mechanism_worker(
             f"repeat={row['repeat_index'] + 1} pos={row['position_in_cycle']} dataset_index={row['dataset_index']}",
             flush=True,
         )
-        path, selection_meta, should_update = choose_path_with_mechanism(
-            policy,
-            row["instance"],
-            env,
-            mechanism,
+        path, selection_meta, should_update = choose_path_with_mechanism_retry(
+            policy=policy,
+            instance=row["instance"],
+            env=env,
+            mechanism=mechanism,
             episode_seed=episode_index,
         )
         env.reset(row["instance"])
@@ -848,7 +914,6 @@ def build_compare_rows(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "raw_outcome_penalty_mean": summary["raw_outcome_penalty_mean"],
             "raw_policy_penalty_mean": summary["raw_policy_penalty_mean"],
             "raw_terminal_penalty_mean": summary["raw_terminal_penalty_mean"],
-            "raw_path_cost_component_mean": summary["raw_path_cost_component_mean"],
             "raw_reasoning_cost_component_mean": summary["raw_reasoning_cost_component_mean"],
             "raw_reasoning_cost_component_api_mean": summary[
                 "raw_reasoning_cost_component_api_mean"

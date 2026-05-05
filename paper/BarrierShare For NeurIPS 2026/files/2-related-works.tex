@@ -1,0 +1,81 @@
+\section{Related Work (Jinyu)}
+
+BarrierShare is related to three lines of work, distinguished primarily by their information structure.
+First, multi-stage bandits study terminal-only feedback in distributed hierarchies, but use the realized outcome only through local bandit updates.
+Second, feedback-graph, semi-bandit, combinatorial bandit, and partial-monitoring models enrich the current-round observation, whereas BarrierShare keeps terminal-only observations and controls the propagation of the induced update.
+Third, workflow-constrained agents motivate fixed-stage policies and terminal evaluation, but typically optimize execution within a trajectory rather than repeated online selection among workflow policies.
+Table~\ref{tab:feedback_regimes} summarizes these regimes.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Feedback regimes relevant to BarrierShare. Unlike stronger-feedback models, BarrierShare does not enrich the current-round observation; it restricts the scope over which the terminal-cost-induced update trace may be reused.}
+\label{tab:feedback_regimes}
+\begin{tabular}{lllll}
+\toprule
+Regime & Observation & Reused object & Reuse scope & Example \\
+\midrule
+End-to-end bandit & sampled terminal cost & none & none & \citet{hou2024distributed} \\
+Complete / one-hop & child/action-level feedback & current-round estimates & local node & Hou complete feedback \\
+Full-share endpoint & sampled terminal cost & weight delta & all ancestors & conceptual endpoint \\
+BarrierShare & sampled terminal cost & weight delta & safe subtrees & ours \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Multi-Stage Bandits and Distributed Online Learning}
+
+Classical adversarial bandits study a single learner that selects one action and observes only the loss of the selected action, with algorithms such as EXP3 providing no-regret guarantees in the one-stage setting~\citep{auer2002nonstochastic}.
+Multi-stage systems introduce a qualitatively different difficulty: the terminal outcome is determined by a sequence of decisions across stages, and upstream decisions affect not only immediate performance but also whether downstream learners receive enough traffic to learn.
+This creates the education--exploration--exploitation trilemma formalized by \citet{hou2024distributed}.
+
+The closest theoretical baseline for BarrierShare is Hou's multi-stage bandit model.
+In that formulation, a system is represented as a tree: each internal node selects a child, each leaf produces a terminal cost, and the selected path observes only the realized end-to-end outcome.
+The $\epsilon$-EXP3 algorithm addresses the education problem by mixing uniform exploration with local exponential-weights updates, yielding regret of order \(O(T^{L/(L+1)})\) for an \(L\)-stage system.
+This is the conservative endpoint for our work: terminal feedback is available, but it is used only through local bandit-style updates along the sampled trajectory.
+
+Hou also studies a stronger complete one-hop feedback setting, where each node can observe richer feedback about all of its actions and normalized-EG-type updates become possible.
+This setting is fundamentally different from BarrierShare: it enriches current-round observations, whereas our model keeps terminal-only scalar feedback and restricts whether the induced persistent update trace can be shared upward.
+
+The two-stage model of \citet{singla2018learning} is related in that a central forecaster interacts with learning experts and can coordinate their learning by blocking whether the selected expert observes feedback.
+However, this feedback blocking controls the learning state of selected experts in a two-level expert-advice problem, whereas BarrierShare studies arbitrary-depth hierarchies in which terminal costs remain locally usable but the induced persistent update delta may propagate only through structurally admissible ancestors.
+
+Our setting is also distinct from adversarial MDP and tree-search formulations.
+Although a hierarchy can be viewed as a tree of states, these methods typically assume transition-level state observations, simulator access, value estimates, or centralized coordination.
+Unlike adversarial MDP formulations, our learner does not observe intermediate states or rewards along the trajectory, and the regret comparator is a stationary root-to-leaf workflow policy rather than an adaptive Markov policy.
+Unlike tree-search methods, our tree is a fixed high-level workflow-policy family rather than a low-level action expansion tree, and learning occurs across repeated terminal-cost observations rather than through within-trajectory search.
+
+\subsection{Feedback Regimes in Hierarchical Learning}
+
+A broad online learning literature studies how regret changes when the learner receives feedback beyond the loss of the selected action.
+Full-information learning reveals all action losses; semi-bandit and combinatorial bandit models reveal component-level feedback; partial-monitoring and feedback-graph models specify which side observations become available after each action~\citep{cesa2006prediction, mannor2011bandits, audibert2014regret, alon2015online}.
+These settings improve learning by enriching the information available in the current round.
+
+BarrierShare differs in the object being reused.
+We do not reveal losses of unselected leaves or child-level costs; the only observed scalar remains the terminal cost of the sampled path.
+In a shareable region, this cost induces an exponential-weight delta at the sampled leaf, and this delta updates admissible ancestor aggregates that determine future hierarchical sampling probabilities.
+Thus, the question is not which additional losses are observed in the current round, but how far the induced update trace may propagate.
+
+Path and combinatorial bandits also consider actions with internal structure, such as paths, subsets, or other combinatorial objects~\citep{cesa2012combinatorial, audibert2014regret}.
+However, semi-bandit variants typically reveal component losses, and bandit variants treat the entire path as a flat arm without providing a mechanism for recursively reusing terminal feedback across safe prefixes.
+BarrierShare lies between these extremes: it never observes component-level losses, but it also avoids flattening the hierarchy whenever the induced update is admissible for a safe subtree.
+
+As a useful conceptual endpoint, unrestricted full-share recursive aggregation would allow a selected shareable leaf to update all ancestor aggregates through its weight delta.
+BarrierShare retains this mechanism only inside structurally admissible regions; once a barrier is reached, upstream decisions revert to local bandit learning.
+Our motivation is also consistent with observations from collaborative and federated learning that shared updates may expose information about data, participants, or model behavior~\citep{melis2019unintended, zhu2019deep, tramer2016stealing, sheller2020federated}.
+We do not claim a privacy guarantee: barriers are externally specified sharing constraints, and our goal is to characterize their online-learning consequences.
+
+\subsection{Workflow-Constrained Language Agents}
+
+Recent language-agent systems increasingly structure execution through tools, search, verifiers, memory, or workflow modules.
+Tool-using and reasoning-acting agents interleave reasoning, actions, and observations when interacting with external environments~\citep{yao2022react, schick2023toolformer}.
+Web-agent and computer-use benchmarks expose long-horizon tasks with tool calls, state tracking, policy constraints, and terminal success criteria~\citep{zhou2023webarena, yao2024tau}.
+These works motivate the view that many agent executions are organized around constrained decision points rather than a single flat action.
+
+Importantly, the tree in our formulation is not a low-level action tree over clicks, tokens, or simulator states; it is a fixed high-level policy family whose leaves are complete workflow policies or macro-strategies.
+A workflow policy may choose among prompts, tools, specialist modules, API calls, or standard operating procedures at different stages.
+Thus, our abstraction is closer to repeated selection among candidate workflow policies than to online search over low-level environment actions.
+
+Recent agent work improves trajectory execution through workflow guidance, process reward models and verifiers, value-guided search, memory retrieval, distillation, or computer-use data engines~\citep{liu2018workflow, chae2025webshepherd, mendes2025selftaught, kang2025agentdistillation, zhang2025gmemory, wang2025opencua}.
+These methods change how an agent executes, evaluates, retrieves, or learns within a trajectory.
+Unlike prior agent works that improve the executor, verifier, reward model, search procedure, or memory within a trajectory, BarrierShare studies the learning layer above execution: how to repeatedly select among fixed-stage workflow policies when only terminal costs are observed and only part of the induced update trace can be propagated upward.

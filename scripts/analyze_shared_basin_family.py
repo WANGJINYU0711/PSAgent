@@ -25,7 +25,7 @@ from fixed_tree_env import (  # noqa: E402
 from risky_ps import RiskyPSPolicy  # noqa: E402
 from oracle_eval import enumerate_family_paths  # noqa: E402
 from tree_family.generator import TreeFamilyGenerator  # noqa: E402
-from tree_family.specs import CAPABILITY_NAMES, FamilySpec  # noqa: E402
+from tree_family.specs import FamilySpec  # noqa: E402
 
 
 DATASET_PATH = (
@@ -41,21 +41,12 @@ def load_rows() -> list[dict[str, Any]]:
     return json.loads(DATASET_PATH.read_text())
 
 
-def stage_match(requirement: dict[str, float], skill: dict[str, float]) -> float:
-    denom = max(1e-9, sum(requirement.values()))
-    numer = sum(
-        requirement[capability_name] * skill[capability_name]
-        for capability_name in CAPABILITY_NAMES
-    )
-    return numer / denom
-
-
 def path_match(row: dict[str, Any], path: tuple[str, ...], agent_map: dict[str, Any]) -> float:
-    scores = []
-    for stage_name, agent_id in zip(STAGES, path):
-        requirement = row[stage_name]["capability_requirements"]
-        skill = agent_map[agent_id].attribute_skill
-        scores.append(stage_match(requirement, skill))
+    del row
+    scores = [
+        1.0 if str(getattr(agent_map[agent_id], "deliberation_mode", "")).lower() == "deep" else 0.0
+        for agent_id in path
+    ]
     return mean(scores)
 
 

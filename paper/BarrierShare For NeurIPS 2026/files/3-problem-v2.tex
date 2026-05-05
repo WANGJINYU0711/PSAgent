@@ -1,0 +1,110 @@
+
+\section{Problem Formulation (Guocong){\color{red}(V2)}}
+
+% We study hierarchical online learning on a rooted decision tree under three feedback regimes: the conservative end-to-end bandit regime, an idealized full-share endpoint, and the barrier-limited sharing regime that is the focus of this paper. This section defines the game, the feedback semantics, and the regret objective, without introducing the BarrierShare algorithm itself.
+
+In this section, we first formalize the agent selection problem for multi-stage agent workflows. Then, we cast this problem into a multi-stage MAB problem.
+
+\subsection{Agent Selection for Multi-Stage Workflow: A Tree-Structured Decision Process}
+
+\paragraph{Notation.}
+Let $\mathcal{T}$ be a rooted tree with root $r$, leaf set $\mathcal{L}$, and child set $C_i$ for each non-leaf node $i$. For any node $i$, let $L(i) \subseteq \mathcal{L}$ denote the set of leaf descendants of $i$. At round $t$, the learner selects a root-to-leaf path $\ell_t \in \mathcal{L}$ by making sequential decisions along the tree. We write $p_t(j \mid i)$ for the probability of selecting child $j \in C_i$ at node $i$, and $\Pi_t(i)$ for the probability of reaching node $i$ under the round-$t$ decision rule. In particular, $\Pi_t(\ell)$ denotes the probability of selecting a leaf $\ell \in \mathcal{L}$. Each leaf $\ell$ incurs a terminal cost $c_t(\ell) \in [0,1]$. For any node $i$, let $Y_\eta[i,T]$ denote the cumulative expected loss of the learner over $T$ rounds starting from $i$, and let $Y_\ast[i,T]$ denote the cumulative loss of the optimal stationary policy starting from $i$.
+
+\textbf{Requirement 1: Privacy-preserved feedback sharing.}
+
+\textbf{Requirement 2: Distributed and independent decision making.}
+
+\subsection{Multi-Stage MAB Formulation}
+
+We model a multi-stage decision system as a rooted tree $\mathcal{T}$ of depth $L$. Each internal node represents a decision point, and each leaf represents a complete root-to-leaf decision path. At each round $t = 1,\ldots,T$, the learner starts at the root and sequentially selects one child at each internal node until reaching a leaf $\ell_t \in \mathcal{L}$. Equivalently, the round-$t$ decision can be written as a path
+\[
+\ell_t = (a_{1,t}, \ldots, a_{L,t}),
+\]
+where $a_{k,t}$ is the stage-$k$ choice along the selected path.
+
+The decision rule is specified by local conditional probabilities $p_t(j \mid i)$ at internal nodes. The induced probability of reaching a node is defined recursively by
+\[
+\Pi_t(r) = 1,
+\qquad
+\Pi_t(j) = \Pi_t(i)\, p_t(j \mid i)
+\quad \text{for } j \in C_i.
+\]
+Hence, for a leaf $\ell$, $\Pi_t(\ell)$ is the probability of selecting the entire root-to-leaf path ending at $\ell$.
+
+After selecting $\ell_t$, the learner incurs and observes the terminal cost $c_t(\ell_t)$. We compare the learner against the best stationary policy that fixes, at every internal node, a single child choice throughout all rounds. Such a policy induces a fixed leaf in every subtree. Define recursively
+\[
+Y_\ast[i,T] =
+\begin{cases}
+\sum_{t=1}^T c_t(i), & i \in \mathcal{L},\\[4pt]
+\min_{j \in C_i} Y_\ast[j,T], & i \notin \mathcal{L}.
+\end{cases}
+\]
+The cumulative expected loss of the learner from node $i$ is
+\[
+Y_\eta[i,T] := \sum_{t=1}^T \mathbb{E}[y_\eta[i,t]],
+\]
+where $y_\eta[i,t]$ is the random loss incurred at round $t$ if the learner starts from $i$ and follows its round-$t$ decision rule thereafter. Our root regret objective is
+\[
+\mathrm{Reg}_T := Y_\eta[r,T] - Y_\ast[r,T].
+\]
+
+This formulation provides the formal backbone of multi-stage end-to-end learning before any additional feedback structure is introduced.
+
+\subsection{End-to-End Bandit Regime}
+
+We first consider the conservative regime in which the learner only observes the scalar terminal cost of the selected path. Formally, after choosing $\ell_t$, the learner observes only
+\[
+c_t(\ell_t),
+\]
+and receives no direct information about the terminal costs of unselected leaves or the intermediate stage-wise contributions along the hierarchy.
+
+Under this regime, terminal feedback is usable only through bandit-style estimators based on the sampling probability of the selected path or selected local decisions. This model is safe in the sense that it requires no assumption beyond observability of the realized end-to-end outcome. At the same time, it is conservative: even when part of the terminal signal could serve as reusable supervision for an upstream shared structure, the model treats the entire signal as path-local. Representative baselines in this regime include EXP3-type and $\epsilon$-EXP3-type methods, but this subsection defines only the feedback model rather than any particular algorithm.
+
+\subsection{Full-Share Delta Regime}
+
+We next define an idealized full-share endpoint in which terminal feedback from a selected leaf can be converted into a sharable delta and propagated upward through the hierarchy.
+
+Let $\mathcal{L}^{\mathrm{shr}} \subseteq \mathcal{L}$ denote the set of leaves whose terminal feedback is fully shareable with their ancestors. When a selected leaf $\ell_t \in \mathcal{L}^{\mathrm{shr}}$ is observed, its terminal feedback induces a sharable delta, denoted by $\Delta_t(\ell_t)$, which can be transmitted upward to all ancestors that fully observe the corresponding shared subtree.
+
+The only invariant we require from this regime is the aggregate-visibility property: for any node $i$ that fully observes a shared subtree, its aggregate shared weight equals the sum of the visible descendant shared leaf weights. That is, if $W_t[i]$ denotes the aggregate weight at node $i$, then
+\[
+W_t[i] = \sum_{\ell \in L(i) \cap \mathcal{L}^{\mathrm{shr}}} w_t(\ell),
+\]
+where $w_t(\ell)$ is the shared leaf weight associated with $\ell$. This full-share regime serves as an idealized endpoint that reveals the value of reusable hierarchical feedback, but it does not yet capture structural restrictions on how far such feedback may propagate.
+
+\subsection{Barrier-Limited Sharing Regime}
+
+We now define the barrier-limited regime studied in this paper. Each non-leaf node $i$ is equipped with a gate
+\[
+g(i) \in \{\mathrm{share}, \mathrm{unshare}\},
+\]
+which determines whether shared feedback may propagate upward through that node. As before, let $\mathcal{L}^{\mathrm{shr}} \subseteq \mathcal{L}$ denote the set of leaves whose terminal feedback is eligible to initiate shared upload.
+
+At round $t$, if the selected leaf $\ell_t$ belongs to $\mathcal{L}^{\mathrm{shr}}$, then its terminal feedback may initiate an upward shared upload. However, this propagation continues only until the first ancestor whose gate is $\mathrm{unshare}$. Such a node acts as a structural barrier, beyond which the shared delta cannot propagate.
+
+A non-leaf node $i$ is called \emph{safe} if the entire relevant subtree beneath $i$ is fully shareable and fully visible at $i$, namely if
+\[
+L(i) \subseteq \mathcal{L}^{\mathrm{shr}}
+\quad \text{and} \quad
+g(u)=\mathrm{share}, \ \forall \text{ non-leaf } u \in \mathrm{subtree}(i).
+\]
+Otherwise, $i$ is called \emph{risky}. Intuitively, a safe node sits above a barrier-free fully shared region, whereas a risky node lies on or above a region where upward propagation may be blocked.
+
+To quantify the amount of non-shareable structure, define the risky depth recursively by
+\[
+R(i)=
+\begin{cases}
+0, & \text{if } i \text{ is safe},\\
+1, & \text{if } i \text{ is risky and } C_i \subseteq \mathcal{L},\\
+1+\max_{j \in C_i} R(j), & \text{if } i \text{ is risky and } C_i \not\subseteq \mathcal{L}.
+\end{cases}
+\]
+The risky depth of the whole tree is then
+\[
+R := R(r).
+\]
+This quantity captures the maximum number of risky decision points encountered on any root-to-leaf path before entering a barrier-free fully shared suffix.
+
+\paragraph{Core question.}
+\emph{How can a learner achieve low regret when terminal feedback can be propagated upward only until structural barriers are encountered?}
+\emph{How can a learner achieve low regret when terminal feedback can be propagated upward only until structural barriers are encountered?}

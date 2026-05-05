@@ -374,7 +374,6 @@ def flatten_episode(
         "raw_total_cost": float(result.raw_total_cost),
         "raw_total_cost_api": raw_total_cost_api,
         "raw_total_cost_token": raw_total_cost_token,
-        "raw_path_cost_component": float(result.raw_path_cost_component),
         "raw_reasoning_cost_component": float(result.raw_reasoning_cost_component),
         "raw_reasoning_cost_component_api": raw_reasoning_cost_component_api,
         "raw_reasoning_cost_component_token": raw_reasoning_cost_component_token,
@@ -383,7 +382,6 @@ def flatten_episode(
         "policy_eval_source": log.get("policy_eval_source"),
         "policy_eval_scope": log.get("policy_eval_scope"),
         "terminal_cost_upper_bound": log.get("terminal_cost_upper_bound"),
-        "path_cost_upper_bound": log.get("path_cost_upper_bound"),
         "reasoning_cost_upper_bound": log.get("reasoning_cost_upper_bound"),
         "total_cost_upper_bound": log.get("total_cost_upper_bound"),
         "cost_scale_version": str(result.cost_scale_version),
@@ -526,7 +524,6 @@ def build_summary(
         "raw_reasoning_cost_component_token_mean": mean_present(
             [ep["raw_reasoning_cost_component_token"] for ep in episodes]
         ),
-        "raw_path_cost_component_mean": mean([ep["raw_path_cost_component"] for ep in episodes]),
         "algorithm_cumulative_total_cost": sum(ep["total_cost"] for ep in episodes),
         "raw_algorithm_cumulative_total_cost": sum(ep["raw_total_cost"] for ep in episodes),
         "oracle_stationary_total_cost": oracle_summary["cumulative_total_cost"],
@@ -534,7 +531,6 @@ def build_summary(
         "raw_outcome_penalty_cumulative": sum(ep["raw_outcome_penalty"] for ep in episodes),
         "raw_policy_penalty_cumulative": sum(ep["raw_policy_penalty"] for ep in episodes),
         "raw_terminal_penalty_cumulative": sum(ep["raw_terminal_penalty"] for ep in episodes),
-        "raw_path_cost_component_cumulative": sum(ep["raw_path_cost_component"] for ep in episodes),
         "raw_reasoning_cost_component_cumulative": sum(ep["raw_reasoning_cost_component"] for ep in episodes),
         "mean_llm_call_count": mean([ep["llm_call_count"] for ep in episodes]),
         "mean_prompt_tokens": mean([ep["prompt_tokens_total"] for ep in episodes]),

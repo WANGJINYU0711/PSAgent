@@ -41,11 +41,8 @@ TELECOM_MMS_POLICY_UPPER_BOUND_V2 = (
 TELECOM_MMS_TERMINAL_UPPER_BOUND_V2 = (
     TELECOM_MMS_OUTCOME_UPPER_BOUND_V2 + TELECOM_MMS_POLICY_UPPER_BOUND_V2
 )
-TELECOM_MMS_PATH_UPPER_BOUND_V2 = 0.14
-
 # Legacy aliases kept for compatibility with older helper imports.
 TELECOM_MMS_MAX_RAW_TERMINAL_COST_V1 = TELECOM_MMS_OUTCOME_UPPER_BOUND_V2
-TELECOM_MMS_MAX_WEIGHTED_PATH_COST_V1 = TELECOM_MMS_PATH_UPPER_BOUND_V2
 
 
 def _normalize_id_set(values: Any) -> set[str]:
@@ -160,7 +157,6 @@ def evaluate_terminal_prediction(
         "outcome_cost_upper_bound": TELECOM_MMS_OUTCOME_UPPER_BOUND_V2,
         "policy_cost_upper_bound": TELECOM_MMS_POLICY_UPPER_BOUND_V2,
         "terminal_cost_upper_bound": TELECOM_MMS_TERMINAL_UPPER_BOUND_V2,
-        "path_cost_upper_bound": TELECOM_MMS_PATH_UPPER_BOUND_V2,
         "predicted_final_action": predicted_final_action,
         "oracle_final_action": oracle_final_action,
         "final_action_mismatch": final_action_mismatch,

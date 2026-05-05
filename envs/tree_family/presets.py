@@ -94,6 +94,24 @@ SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V6_SMALL30_4OF5_SPEC_PATH = (
     / "tree_specs"
     / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5.json"
 )
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V6_SMALL30_2OF5_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v6_small30_2of5.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V6_SMALL30_ALL_SHARE_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v6_small30_all_share.json"
+)
+SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V6_SMALL30_ALL_UNSHARE_SPEC_PATH = (
+    ROOT
+    / "analysis"
+    / "tree_specs"
+    / "shared_basin_strong_4of5_prefix_dedup_profile_switch_trap_asym_v6_small30_all_unshare.json"
+)
 
 
 def build_neutral_family_spec() -> dict:
@@ -1077,6 +1095,41 @@ def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4
         "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v3_efficient_anchor_4of5"
     )
     return config
+
+
+def _build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_share_variant_family_spec(
+    *,
+    family_name: str,
+    spec_path: Path,
+) -> dict:
+    config = deepcopy(build_shared_basin_strong_prefix_dedup_profile_switch_family_spec())
+    config["family_name"] = family_name
+    config["prefix_dedup_topology_spec_path"] = str(spec_path)
+    config["source_family_name"] = (
+        "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5"
+    )
+    return config
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_2of5_family_spec() -> dict:
+    return _build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_share_variant_family_spec(
+        family_name="shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_2of5",
+        spec_path=SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V6_SMALL30_2OF5_SPEC_PATH,
+    )
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_share_family_spec() -> dict:
+    return _build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_share_variant_family_spec(
+        family_name="shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_share",
+        spec_path=SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V6_SMALL30_ALL_SHARE_SPEC_PATH,
+    )
+
+
+def build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_unshare_family_spec() -> dict:
+    return _build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_share_variant_family_spec(
+        family_name="shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_unshare",
+        spec_path=SHARED_BASIN_PREFIX_DEDUP_PROFILE_SWITCH_TRAP_ASYM_V6_SMALL30_ALL_UNSHARE_SPEC_PATH,
+    )
 
 
 def _build_shared_basin_strong_gonly_variant(

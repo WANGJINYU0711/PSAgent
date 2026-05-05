@@ -29,42 +29,13 @@ from .presets import (
     build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_all_unshare_family_spec,
     build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v4_binary_mixed_stage45_family_spec,
     build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_2of5_family_spec,
     build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_share_family_spec,
+    build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_unshare_family_spec,
     build_strong_family_spec,
 )
-from .specs import AgentSpec, CAPABILITY_NAMES, FamilySpec
-
-
-STAGE_FOCUS = {
-    "stage1": [
-        "user_grounding",
-        "account_lookup",
-        "line_resolution",
-        "verification",
-    ],
-    "stage2": [
-        "account_lookup",
-        "line_resolution",
-        "roaming_diagnosis",
-    ],
-    "stage3": [
-        "network_diagnosis",
-        "permission_diagnosis",
-        "apn_diagnosis",
-        "roaming_diagnosis",
-    ],
-    "stage4": [
-        "network_diagnosis",
-        "permission_diagnosis",
-        "apn_diagnosis",
-        "repair_execution",
-    ],
-    "stage5": [
-        "repair_execution",
-        "verification",
-        "terminal_decision",
-    ],
-}
+from .specs import AgentSpec, FamilySpec
 
 
 class TreeFamilyGenerator:
@@ -122,15 +93,6 @@ class TreeFamilyGenerator:
                 spec = agent_map[agent_id]
                 if spec.g not in {0, 1}:
                     errors.append(f"Agent {agent_id} has invalid g={spec.g}.")
-                if not spec.attribute_skill:
-                    errors.append(f"Agent {agent_id} has empty attribute_skill.")
-                for key, value in spec.attribute_skill.items():
-                    if not isinstance(key, str):
-                        errors.append(f"Agent {agent_id} has non-string capability key {key!r}.")
-                    elif key not in CAPABILITY_NAMES:
-                        errors.append(f"Agent {agent_id} has unknown capability key {key!r}.")
-                    if not isinstance(value, (int, float)):
-                        errors.append(f"Agent {agent_id} has non-numeric skill value {value!r}.")
         allowed_children = family_spec.allowed_children or {}
         for prefix, child_ids in allowed_children.items():
             expected_depth = len(prefix)
@@ -226,6 +188,12 @@ class TreeFamilyGenerator:
             return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v5_small20_4of5_family_spec()
         if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5":
             return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_4of5_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_2of5":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_2of5_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_share":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_share_family_spec()
+        if kind == "shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_unshare":
+            return build_shared_basin_strong_prefix_dedup_profile_switch_trap_asym_v6_small30_all_unshare_family_spec()
         if kind == "shared_basin_strong_2of5_gonly":
             return build_shared_basin_strong_2of5_gonly_family_spec()
         if kind == "shared_basin_strong_all_share_gonly":
@@ -263,13 +231,6 @@ class TreeFamilyGenerator:
             stability = stability_levels[idx]
             g = g_layout[idx]
             agent_id = f"{stage_name}_{scope}_{competence}_{stability}_g{g}_{idx}"
-            attribute_skill = self._build_attribute_skill(
-                stage_name=stage_name,
-                scope_level=scope,
-                competence_level=competence,
-                config=config,
-                rng=rng,
-            )
             base_cost = self._build_base_cost(
                 g=g,
                 scope_level=scope,
@@ -285,7 +246,6 @@ class TreeFamilyGenerator:
                     competence_level=competence,
                     scope_level=scope,
                     stability_level=stability,
-                    attribute_skill=attribute_skill,
                     deliberation_mode=self._legacy_deliberation_mode(
                         competence_level=competence,
                         scope_level=scope,
@@ -305,7 +265,6 @@ class TreeFamilyGenerator:
         specs: list[AgentSpec] = []
         for idx, profile in enumerate(profiles):
             agent_id = f"{stage_name}_{profile['role']}_g{profile['g']}_{idx}"
-            attribute_skill = self._build_shared_basin_attribute_skill(stage_name, profile, config, rng)
             base_cost = self._build_shared_basin_base_cost(config, rng, profile=profile)
             specs.append(
                 AgentSpec(
@@ -315,7 +274,6 @@ class TreeFamilyGenerator:
                     competence_level=fields["competence_level"],
                     scope_level=fields["scope_level"],
                     stability_level=fields["stability_level"],
-                    attribute_skill=attribute_skill,
                     deliberation_mode=self._shared_basin_deliberation_mode(
                         stage_name=stage_name,
                         profile=profile,
@@ -369,12 +327,6 @@ class TreeFamilyGenerator:
                         f"Missing base profile for prefix-dedup node {agent_id!r} "
                         f"with base_alias={base_alias!r}."
                     )
-                attribute_skill = self._build_shared_basin_attribute_skill(
-                    stage_name,
-                    profile,
-                    config,
-                    rng,
-                )
                 base_cost = self._build_shared_basin_base_cost(config, rng, profile=profile)
                 agent_map[agent_id] = AgentSpec(
                     agent_id=agent_id,
@@ -383,7 +335,6 @@ class TreeFamilyGenerator:
                     competence_level=fields["competence_level"],
                     scope_level=fields["scope_level"],
                     stability_level=fields["stability_level"],
-                    attribute_skill=attribute_skill,
                     deliberation_mode=self._shared_basin_deliberation_mode(
                         stage_name=stage_name,
                         profile=profile,
@@ -512,69 +463,6 @@ class TreeFamilyGenerator:
         if len(items) != total:
             raise ValueError(f"Preset count mismatch: expected {total}, got {len(items)}.")
         return items
-
-    def _build_attribute_skill(
-        self,
-        stage_name: str,
-        scope_level: str,
-        competence_level: str,
-        config: dict[str, Any],
-        rng: random.Random,
-    ) -> dict[str, float]:
-        skill_ranges = config["skill_ranges"]
-        focus = set(STAGE_FOCUS[stage_name])
-        values: dict[str, float] = {}
-        if scope_level == "broad":
-            lo, hi = skill_ranges["broad"]
-            for capability_name in CAPABILITY_NAMES:
-                values[capability_name] = rng.uniform(lo, hi)
-        else:
-            focus_lo, focus_hi = skill_ranges["narrow_focus"]
-            other_lo, other_hi = skill_ranges["narrow_other"]
-            extra_focus = set(rng.sample(list(CAPABILITY_NAMES), k=2))
-            effective_focus = focus | extra_focus
-            for capability_name in CAPABILITY_NAMES:
-                if capability_name in effective_focus:
-                    values[capability_name] = rng.uniform(focus_lo, focus_hi)
-                else:
-                    values[capability_name] = rng.uniform(other_lo, other_hi)
-
-        if competence_level == "high":
-            bonus = skill_ranges["high_bonus"]
-            for capability_name in values:
-                values[capability_name] = min(1.0, values[capability_name] + bonus)
-
-        return {capability_name: round(score, 3) for capability_name, score in values.items()}
-
-    def _build_shared_basin_attribute_skill(
-        self,
-        stage_name: str,
-        profile: dict[str, Any],
-        config: dict[str, Any],
-        rng: random.Random,
-    ) -> dict[str, float]:
-        focus = set(STAGE_FOCUS[stage_name])
-        anchors = set(profile.get("anchor_caps", []))
-        supports = set(profile.get("support_caps", []))
-        node_semantic = str(profile.get("node_semantic", "mixed_shared"))
-        ranges = config["semantic_skill_ranges"][node_semantic]
-        focus_fallback = ranges.get("focus_fallback", ranges["support"])
-
-        values: dict[str, float] = {}
-        for capability_name in CAPABILITY_NAMES:
-            if capability_name in anchors:
-                lo, hi = ranges["anchor"]
-            elif capability_name in supports:
-                lo, hi = ranges["support"]
-            elif capability_name in focus:
-                lo, hi = focus_fallback
-            else:
-                lo, hi = ranges["background"]
-            sampled = rng.uniform(lo, hi)
-            if capability_name in anchors:
-                sampled = min(1.0, sampled + float(profile.get("anchor_boost", 0.0)))
-            values[capability_name] = round(sampled, 3)
-        return values
 
     def _build_base_cost(
         self,

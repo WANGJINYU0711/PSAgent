@@ -1,0 +1,55 @@
+\section{Introduction (Jinyu)}
+
+Multi-stage agent workflows are becoming a common design pattern for practical language-agent systems.
+Many deployed agents do not act as unconstrained planners, but instead operate through structured decision procedures with domain-specific tools, policy constraints, and workflow-defined stages.
+This structure appears in prior web-agent and tool-agent settings, although in different forms.
+For example, workflow-guided exploration induces high-level workflows from demonstrations to constrain action choices in multi-step web tasks such as booking flights or replying to emails~\cite{liu2018workflow}.
+Similarly, $\tau$-bench studies realistic customer-service interactions in which language agents must converse with users, invoke domain-specific API tools, and follow policy guidelines in airline and retail domains~\cite{yao2024tau}.
+These works do not prescribe our tree model, but they motivate the view that agent execution is often a structured trajectory rather than a flat action choice.
+We abstract such trajectories as fixed-stage workflows, with stages such as user grounding, entity resolution, evidence retrieval, policy interpretation, adjudication, and terminal execution.
+
+In this abstraction, each completed path produces a terminal scalar cost, which can still be used by the selected path through local bandit updates.
+The additional question is whether the persistent update induced by this cost can be accumulated into shared ancestor weights.
+An externally specified feedback-sharing policy determines whether this induced update is admissible for a shared prefix, or whether it must remain local to a branch.
+This distinction matters because treating all induced updates as local wastes reusable statistical signal, while treating all persistent updates as globally shared can expose provider-specific or specialist participation patterns.
+This raises a basic question for workflow-constrained agents: when can the update induced by terminal feedback be reused as a shared hierarchical learning signal, and when should it remain local?
+
+A natural formal lens for such systems is multi-stage online learning with terminal-only feedback, where a learner selects a full path through a hierarchy and observes only the realized terminal cost~\cite{hou2024distributed}.
+This end-to-end bandit formulation is a robust and conservative starting point: it assumes no more than the cost of the executed path and learns through local bandit estimates along the realized trajectory.
+However, it does not model when the same terminal observation may induce a persistent aggregate update that is reusable by other policies inside a feedback-admissible subtree, while being blocked at structural barriers.
+\textbf{L1: Structural flattening.}
+The realized terminal cost is used only through the sampled trajectory, without distinguishing whether its induced update is also valid for other complete policies sharing a safe prefix or subtree.
+\textbf{L2: Missing barrier-limited sharing.}
+Existing end-to-end bandit formulations do not capture the intermediate regime where the sampled cost can support local bandit learning, while the persistent shared update is allowed to propagate only inside a barrier-free region.
+
+\emph{When a terminal outcome is admissible for a prefix or subtree under a given feedback-sharing policy, how should a hierarchical learner reuse the induced update without violating structural barriers?}
+Our key insight is that feedback reuse should be governed by structural admissibility.
+Conceptually, terminal feedback can induce aggregate updates inside policy-admissible safe regions, but propagation must stop at ownership, telemetry, provider, or specialist barriers.
+Algorithmically, BarrierShare realizes this principle through an exponential-weight delta.
+When a selected leaf is updated, its accumulated score changes, which induces a change in its exponential weight; this induced weight change defines a \emph{delta} that can be added to admissible ancestor aggregate weights.
+This shared delta differs from the current-round scalar cost used in a local bandit update: over time, accumulated deltas determine the subtree weights used by ancestor decisions, thereby forming a persistent statistical profile of downstream branches.
+When sharing is complete within a subtree, recursive aggregation makes the subtree behave like a single leaf-level adversarial bandit over its leaves, so the regret depends on the number of leaves in that safe subtree rather than accumulating an education penalty across every internal layer.
+When a structural barrier is encountered, the shared delta must stop, and the upstream decision must instead rely on local bandit-style estimation.
+
+Such barriers are natural in agent workflows with data-silo, provider, contractual, or telemetry restrictions.
+A downstream module may return the current task output and scalar cost, while still prohibiting a globally visible long-run update trace.
+This distinction is motivated by analogous leakage risks in collaborative learning, where shared updates can reveal unintended properties of a participant's data or membership information~\cite{melis2019unintended}, and in gradient-based distributed learning, where gradients can even reconstruct private training examples~\cite{zhu2019deep}.
+It is also relevant to deployed model services, where repeated black-box queries can expose commercially valuable model behavior or enable model extraction~\cite{tramer2016stealing}.
+In sensitive domains such as healthcare, multi-institutional learning is often designed to avoid direct patient-data sharing across silos~\cite{sheller2020federated}.
+By analogy, cumulative shared deltas from a private retrieval specialist, clinical-data module, enterprise knowledge component, or third-party provider may reveal the data domain, provider identity, task distribution, or specialization profile behind that branch.
+We therefore model these interfaces as externally specified feedback-sharing barriers, not as a formal privacy guarantee.
+The relevant regime is neither ``share everything'' nor ``share nothing'': current terminal costs may remain usable through local bandit channels, while persistent shared deltas may propagate upward only until the first structural barrier.
+To address this setting, we propose \textbf{BarrierShare}, a hierarchical online learning algorithm that performs shared delta aggregation inside barrier-free regions and switches to local bandit learning at risky or barrier-limited interfaces.
+Figure~\ref{fig:overview} illustrates this progression from end-to-end bandit feedback to full-share propagation and finally to the barrier-limited regime studied in this paper.
+
+\textbf{Our contributions are summarized as follows.}
+\textbf{(1) A barrier-limited feedback model.}
+We formalize an intermediate hierarchical feedback regime in which terminal scalar costs remain usable for local bandit learning, but the persistent shared deltas induced by those costs can propagate only within structurally admissible regions.
+This model separates current-round cost feedback from long-run aggregate update traces, and introduces safe regions, structural barriers, and risky depth as the key objects of analysis.
+\textbf{(2) The BarrierShare algorithm.}
+We propose \textbf{BarrierShare}, a single hierarchical online learning algorithm that combines recursive exponential-weight aggregation inside safe subtrees with local bandit updates at barrier-limited risky interfaces.
+A selected shared leaf updates its exponential weight, propagates the induced delta through admissible ancestors, and stops the propagation at the first structural barrier.
+\textbf{(3) Risky-depth regret and validation.}
+We prove regret bounds governed by the risky skeleton depth \(R\), showing how BarrierShare interpolates between fully shared safe aggregation and depth-dependent bandit learning.
+In particular, long safe suffixes reduce the effective depth in the leading bandit term from the full workflow depth \(L\) to the risky depth \(R\), up to safe-subtree aggregation terms.
+We validate these predictions through regret-aligned simulations, including long-safe-suffix and depth-scaling studies, and through fixed-stage agent workflow experiments.

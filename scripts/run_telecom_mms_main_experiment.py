@@ -159,7 +159,6 @@ def make_episode_row(
         "false_refuse_count": int(episode_log.get("false_refuse_count", 0)),
         "missed_refuse_count": int(episode_log.get("missed_refuse_count", 0)),
         "selection_signal_summary": selection_meta.get("selection_signal_summary"),
-        "raw_path_cost_component": float(result.raw_path_cost_component),
         "total_cost_upper_bound": float(result.total_cost_upper_bound),
         "cost_scale_version": result.cost_scale_version,
     }

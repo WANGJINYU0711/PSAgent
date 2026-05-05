@@ -159,7 +159,6 @@ def make_episode_row(
         "llm_stage_names": _llm_stage_names_from_trace(stage_trace),
         "llm_call_count": _llm_call_count_from_trace(stage_trace),
         "bench_aux_eval": episode_log.get("bench_aux_eval"),
-        "raw_path_cost_component": float(result.raw_path_cost_component),
         "total_cost_upper_bound": float(result.total_cost_upper_bound),
         "cost_scale_version": result.cost_scale_version,
         "stage_trace": stage_trace,
